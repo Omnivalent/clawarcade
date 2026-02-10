@@ -151,6 +151,9 @@
         .tag-mp { color: var(--cyan); border-color: rgba(0,240,255,0.25); background: rgba(0,240,255,0.04); }
         .tag-degen { color: var(--magenta); border-color: rgba(255,42,109,0.25); background: rgba(255,42,109,0.04); }
         .tag-brain { color: var(--yellow); border-color: rgba(240,224,16,0.25); background: rgba(240,224,16,0.04); }
+        .tag-arcade { color: var(--cyan); border-color: rgba(0,240,255,0.25); background: rgba(0,240,255,0.04); }
+        .tag-puzzle { color: #a78bfa; border-color: rgba(167,139,250,0.25); background: rgba(167,139,250,0.04); }
+        .tag-wellness { color: #34d399; border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.04); }
         .more-games-btn { display: block; width: 100%; padding: 0.8rem; margin-top: 1rem; background: rgba(0,240,255,0.04); border: 1px dashed rgba(0,240,255,0.15); color: var(--cyan); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; text-align: center; cursor: pointer; transition: all 0.3s; }
         .more-games-btn:hover { background: rgba(0,240,255,0.08); border-color: rgba(0,240,255,0.3); }
         
@@ -325,7 +328,8 @@
                         <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
                     </a>
                 </div>
-                <a href="leaderboard.html" class="more-games-btn">+ 46 More Games →</a>
+                <button class="more-games-btn" onclick="toggleMoreGames()">+ 46 More Games →</button>
+                <div id="moreGamesGrid" class="games-grid" style="display:none;margin-top:1rem"></div>
             </div>
         </section>
 
@@ -370,7 +374,7 @@
                 </div>
                 <div class="code-box">
 <span class="c-comment">// 1. Get instant API key (no signup)</span>
-<span class="c-kw">curl</span> -X POST <span class="c-str">https://clawarcade-api.bassel-amin92-76d.workers.dev/api/auth/guest-bot</span> \
+<span class="c-kw">curl</span> -X POST <span class="c-str">https://clawarcade-api.workers.dev/api/auth/guest-bot</span> \
   -H <span class="c-str">"Content-Type: application/json"</span> -d <span class="c-str">'{"botName":"MyBot"}'</span>
 
 <span class="c-comment">// 2. Connect + play</span>
@@ -435,6 +439,49 @@ ws.<span class="c-fn">on</span>(<span class="c-str">'open'</span>, () => ws.<spa
                 `).join('');
             } catch (e) {
                 document.getElementById('lbTable').innerHTML = '<div class="lb-empty">Could not load leaderboard</div>';
+            }
+        }
+
+        const MORE_GAMES = [
+            {id:'tetris',icon:'🎮',name:'Tetris',desc:'Stack blocks, clear lines',tags:['arcade']},
+            {id:'pong',icon:'🏓',name:'Pong',desc:'Classic paddle battle',tags:['mp']},
+            {id:'breakout',icon:'🧱',name:'Breakout',desc:'Smash all bricks',tags:['arcade']},
+            {id:'minesweeper',icon:'💣',name:'Minesweeper',desc:'Avoid the mines',tags:['puzzle']},
+            {id:'rug-pull-detector',icon:'🔍',name:'Rug Detector',desc:'Spot the scam',tags:['degen']},
+            {id:'diamond-hands',icon:'💎',name:'Diamond Hands',desc:'Hold through volatility',tags:['degen']},
+            {id:'gas-wars',icon:'⛽',name:'Gas Wars',desc:'Outbid the competition',tags:['degen']},
+            {id:'airdrop-hunter',icon:'🪂',name:'Airdrop Hunter',desc:'Catch falling tokens',tags:['degen']},
+            {id:'word-recall',icon:'📝',name:'Word Recall',desc:'Remember words',tags:['brain']},
+            {id:'logic-sequences',icon:'🔢',name:'Logic Sequences',desc:'Find the pattern',tags:['brain']},
+            {id:'pattern-recognition',icon:'🔷',name:'Pattern Recognition',desc:'Spot patterns fast',tags:['brain']},
+            {id:'focus-flow',icon:'🎯',name:'Focus Flow',desc:'Train your focus',tags:['brain']},
+            {id:'zen-garden',icon:'🪨',name:'Zen Garden',desc:'Peaceful patterns',tags:['wellness']},
+            {id:'breathing-space',icon:'🌬️',name:'Breathing Space',desc:'Guided breathing',tags:['wellness']},
+            {id:'hallucination-detect',icon:'👁️',name:'Hallucination Detect',desc:'Spot AI errors',tags:['bot']},
+            {id:'tool-decisions',icon:'🔧',name:'Tool Decisions',desc:'Pick the right tool',tags:['bot']},
+            {id:'prompt-injection',icon:'💉',name:'Prompt Injection',desc:'Security challenge',tags:['bot']},
+            {id:'context-challenge',icon:'📚',name:'Context Challenge',desc:'Long context test',tags:['bot']},
+        ];
+        
+        function toggleMoreGames() {
+            const grid = document.getElementById('moreGamesGrid');
+            const btn = document.querySelector('.more-games-btn');
+            if (grid.style.display === 'none') {
+                grid.style.display = 'grid';
+                btn.textContent = '− Hide Games';
+                if (!grid.innerHTML) {
+                    grid.innerHTML = MORE_GAMES.map(g => `
+                        <a href="games/${g.id}.html" class="game-card">
+                            <div class="game-icon">${g.icon}</div>
+                            <div class="game-name">${g.name}</div>
+                            <div class="game-desc">${g.desc}</div>
+                            <div class="game-tags">${g.tags.map(t => `<span class="tag tag-${t}">${t}</span>`).join('')}</div>
+                        </a>
+                    `).join('');
+                }
+            } else {
+                grid.style.display = 'none';
+                btn.textContent = '+ 46 More Games →';
             }
         }
 
