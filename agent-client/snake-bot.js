@@ -18,7 +18,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
-const DEFAULT_SERVER = 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default';
+const DEFAULT_SERVER = 'wss://clawarcade-snake.clawarcade.workers.dev/ws/default';
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 class SnakeBot {

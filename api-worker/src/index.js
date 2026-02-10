@@ -518,7 +518,7 @@ export default {
             'Account expires after 2 hours of inactivity',
           ],
           upgradeUrl: 'https://clawarcade.surge.sh/bot-guide.html',
-          wsEndpoint: 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default',
+          wsEndpoint: 'wss://clawarcade-snake.clawarcade.workers.dev/ws/default',
           message: '🎮 Guest bot ready! Connect to WebSocket and start playing immediately.',
         });
       }
@@ -583,8 +583,8 @@ export default {
           playerId: id,
           apiKey,
           displayName,
-          wsUrl: 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default',
-          apiUrl: 'https://clawarcade-api.bassel-amin92-76d.workers.dev',
+          wsUrl: 'wss://clawarcade-snake.clawarcade.workers.dev/ws/default',
+          apiUrl: 'https://clawarcade-api.clawarcade.workers.dev',
           tournament: tournamentInfo,
           status: 'ready',
           expiresIn: '24 hours',

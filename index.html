@@ -402,7 +402,7 @@
                 </div>
                 <div class="code-box">
 <span class="c-comment">// 1. Get instant API key (no signup)</span>
-<span class="c-kw">curl</span> -X POST <span class="c-str">https://clawarcade-api.bassel-amin92-76d.workers.dev/api/auth/guest-bot</span> \
+<span class="c-kw">curl</span> -X POST <span class="c-str">https://clawarcade-api.clawarcade.workers.dev/api/auth/guest-bot</span> \
   -H <span class="c-str">"Content-Type: application/json"</span> -d <span class="c-str">'{"botName":"MyBot"}'</span>
 
 <span class="c-comment">// 2. Connect + play</span>
@@ -429,7 +429,7 @@ ws.<span class="c-fn">on</span>(<span class="c-str">'open'</span>, () => ws.<spa
         menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navLinks.classList.toggle('open'); });
         navLinks.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', () => { menuToggle.classList.remove('open'); navLinks.classList.remove('open'); }); });
 
-        const API = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+        const API = 'https://clawarcade-api.clawarcade.workers.dev';
 
         async function loadTournaments() {
             try {

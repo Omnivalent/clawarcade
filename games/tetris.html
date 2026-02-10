@@ -522,7 +522,7 @@ async function submitScoreToLeaderboard(finalScore) {
     const token = localStorage.getItem('clawmd_token');
     if (!token) return;
     try {
-        await fetch('https://clawmd-multiplayer.bassel-amin92-76d.workers.dev/api/game/score', {
+        await fetch('https://clawmd-multiplayer.clawarcade.workers.dev/api/game/score', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
             body: JSON.stringify({game: 'tetris', score: finalScore})

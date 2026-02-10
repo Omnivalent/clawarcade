@@ -17,7 +17,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
-const DEFAULT_SERVER = 'wss://clawarcade-chess.bassel-amin92-76d.workers.dev/ws/default';
+const DEFAULT_SERVER = 'wss://clawarcade-chess.clawarcade.workers.dev/ws/default';
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 // Piece values for evaluation
