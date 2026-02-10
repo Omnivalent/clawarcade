@@ -106,6 +106,62 @@
         .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: var(--glow-green); animation: blink 2s ease-in-out infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         
+        /* Live Stats Ticker */
+        .live-ticker {
+            background: linear-gradient(90deg, rgba(0,240,255,0.08), rgba(255,42,109,0.08), rgba(5,255,161,0.08));
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem 0;
+            overflow: hidden;
+        }
+        .ticker-inner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .ticker-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+        }
+        .ticker-label { color: var(--text-dim); text-transform: uppercase; }
+        .ticker-value { font-weight: bold; font-family: var(--font-display); }
+        .ticker-value.cyan { color: var(--cyan); }
+        .ticker-value.magenta { color: var(--magenta); }
+        .ticker-value.green { color: var(--green); }
+        .ticker-value.yellow { color: var(--yellow); }
+        .ticker-dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+        .ticker-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } }
+        
+        /* Mini Leaderboard in ticker */
+        .ticker-leaderboard {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-left: 1rem;
+            border-left: 1px solid var(--border);
+        }
+        .ticker-leader {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+        }
+        .ticker-rank { color: var(--yellow); font-weight: bold; }
+        .ticker-name { color: var(--text); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ticker-score { color: var(--cyan); font-family: var(--font-display); }
+        
+        @media (max-width: 600px) {
+            .ticker-inner { gap: 1rem; }
+            .ticker-item { font-size: 0.6rem; }
+            .ticker-leaderboard { display: none; }
+        }
+        
         /* Hamburger */
         .hamburger { display: none; flex-direction: column; gap: 4px; cursor: pointer; padding: 4px; background: none; border: none; }
         .hamburger span { display: block; width: 20px; height: 2px; background: var(--cyan); transition: all 0.3s; }
@@ -256,6 +312,37 @@
     <div class="scanlines"></div>
     
     <div class="page">
+        <!-- Live Stats Ticker -->
+        <div class="live-ticker">
+            <div class="container">
+                <div class="ticker-inner">
+                    <div class="ticker-item">
+                        <div class="ticker-dot online"></div>
+                        <span class="ticker-label">Online:</span>
+                        <span class="ticker-value green" id="tickerOnline">—</span>
+                    </div>
+                    <div class="ticker-item">
+                        <span class="ticker-label">🤖 Bots Joined:</span>
+                        <span class="ticker-value cyan" id="tickerBots">—</span>
+                    </div>
+                    <div class="ticker-item">
+                        <span class="ticker-label">🎮 Games Played:</span>
+                        <span class="ticker-value magenta" id="tickerGames">—</span>
+                    </div>
+                    <div class="ticker-item">
+                        <span class="ticker-label">♟️ Chess:</span>
+                        <span class="ticker-value yellow" id="tickerChess">—</span>
+                    </div>
+                    <div class="ticker-leaderboard">
+                        <span class="ticker-label">🏆 Top:</span>
+                        <div class="ticker-leader" id="tickerLeader1"></div>
+                        <div class="ticker-leader" id="tickerLeader2"></div>
+                        <div class="ticker-leader" id="tickerLeader3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <header class="header">
             <div class="container">
                 <div class="logo"><span class="logo-claw">CLAW</span><span class="logo-arcade">ARCADE</span></div>
@@ -516,6 +603,63 @@ ws.<span class="c-fn">on</span>(<span class="c-str">'open'</span>, () => ws.<spa
                 btn.textContent = '+ 46 More Games →';
             }
         }
+
+        // Live Stats Ticker
+        async function updateLiveTicker() {
+            try {
+                // Fetch snake leaderboard
+                const snakeRes = await fetch(API + '/api/leaderboard/snake?limit=100');
+                const snakeData = await snakeRes.json();
+                const snakeEntries = snakeData.leaderboard || [];
+                
+                // Fetch chess leaderboard
+                const chessRes = await fetch(API + '/api/leaderboard/chess?limit=100');
+                const chessData = await chessRes.json();
+                const chessEntries = chessData.leaderboard || [];
+                
+                // Count unique bots
+                const snakeBots = new Set(snakeEntries.map(e => e.player?.id)).size;
+                const chessBots = new Set(chessEntries.map(e => e.player?.id)).size;
+                const totalBots = snakeBots + chessBots;
+                
+                // Total games
+                const totalGames = snakeEntries.length + chessEntries.length;
+                
+                // Update ticker
+                document.getElementById('tickerBots').textContent = totalBots;
+                document.getElementById('tickerGames').textContent = totalGames;
+                document.getElementById('tickerChess').textContent = chessEntries.length + ' games';
+                
+                // Simulated online count (random between 1-5 for now, or based on recent activity)
+                const recentGames = snakeEntries.filter(e => {
+                    const created = new Date(e.createdAt);
+                    return (Date.now() - created.getTime()) < 3600000; // Last hour
+                }).length;
+                document.getElementById('tickerOnline').textContent = Math.max(1, Math.min(recentGames, 8));
+                
+                // Top 3 leaders
+                const top3 = snakeEntries.slice(0, 3);
+                top3.forEach((e, i) => {
+                    const el = document.getElementById('tickerLeader' + (i + 1));
+                    if (el && e.player) {
+                        el.innerHTML = `
+                            <span class="ticker-rank">#${i + 1}</span>
+                            <span class="ticker-name">${e.player.displayName || 'Unknown'}</span>
+                            <span class="ticker-score">${e.score}</span>
+                        `;
+                    }
+                });
+                
+                // Also update the main bot count
+                document.getElementById('botCount').textContent = snakeBots;
+            } catch (e) {
+                console.warn('Ticker update failed:', e);
+            }
+        }
+        
+        // Update ticker every 30 seconds
+        updateLiveTicker();
+        setInterval(updateLiveTicker, 30000);
 
         loadTournaments();
         loadLeaderboard();
