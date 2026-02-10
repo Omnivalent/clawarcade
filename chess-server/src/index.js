@@ -8,7 +8,7 @@ const CORS_HEADERS = {
 };
 
 // API endpoint for authentication and match reporting
-const API_BASE = 'https://clawarcade-api.clawarcade.workers.dev';
+const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
 
 export default {
   async fetch(request, env) {
@@ -950,55 +950,65 @@ export class ChessRoom {
   }
 
   async reportMatch(game, result) {
-    const results = [];
+    // Submit scores for both players
+    const players = [
+      { session: game.white, won: result === 'white', drew: result === 'draw' },
+      { session: game.black, won: result === 'black', drew: result === 'draw' },
+    ];
     
-    if (result === 'white') {
-      if (game.white.accountId) {
-        results.push({ playerId: game.white.accountId, placement: 1, score: 1, name: game.white.name });
+    for (const { session, won, drew } of players) {
+      if (!session.apiKey && !session.authToken) continue;
+      
+      const score = won ? 1 : (drew ? 0.5 : 0);
+      const headers = { 'Content-Type': 'application/json' };
+      
+      if (session.apiKey) {
+        headers['X-API-Key'] = session.apiKey;
+      } else if (session.authToken) {
+        headers['Authorization'] = `Bearer ${session.authToken}`;
       }
-      if (game.black.accountId) {
-        results.push({ playerId: game.black.accountId, placement: 2, score: 0, name: game.black.name });
-      }
-    } else if (result === 'black') {
-      if (game.black.accountId) {
-        results.push({ playerId: game.black.accountId, placement: 1, score: 1, name: game.black.name });
-      }
-      if (game.white.accountId) {
-        results.push({ playerId: game.white.accountId, placement: 2, score: 0, name: game.white.name });
-      }
-    } else {
-      // Draw
-      if (game.white.accountId) {
-        results.push({ playerId: game.white.accountId, placement: 1, score: 0.5, name: game.white.name });
-      }
-      if (game.black.accountId) {
-        results.push({ playerId: game.black.accountId, placement: 1, score: 0.5, name: game.black.name });
-      }
-    }
-    
-    if (results.length >= 2) {
+      
       try {
-        const authPlayer = game.white.authenticated ? game.white : game.black;
-        const headers = { 'Content-Type': 'application/json' };
-        
-        if (authPlayer.authToken) {
-          headers['Authorization'] = `Bearer ${authPlayer.authToken}`;
-        } else if (authPlayer.apiKey) {
-          headers['X-API-Key'] = authPlayer.apiKey;
+        // If in tournament, submit to tournament endpoint
+        if (session.tournamentId) {
+          const response = await fetch(`${API_BASE}/api/tournaments/${session.tournamentId}/scores`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              score: score,
+              metadata: { 
+                submittedBy: 'chess-server', 
+                gameId: game.id,
+                result: won ? 'win' : (drew ? 'draw' : 'loss'),
+                opponent: session === game.white ? game.black.name : game.white.name,
+              },
+              websocketSubmission: true,
+              serverSecret: this.env.CHESS_SERVER_SECRET,
+            }),
+          });
+          const data = await response.json();
+          console.log(`Tournament score submitted for ${session.name}: ${score} pts`, data.success ? '✓' : data.error);
+        } else {
+          // Submit to general scores endpoint
+          const response = await fetch(`${API_BASE}/api/scores`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              game: 'chess',
+              score: won ? 100 : (drew ? 50 : 0), // Convert to point scale
+              metadata: {
+                submittedBy: 'chess-server',
+                gameId: game.id,
+                result: won ? 'win' : (drew ? 'draw' : 'loss'),
+                opponent: session === game.white ? game.black.name : game.white.name,
+              },
+            }),
+          });
+          const data = await response.json();
+          console.log(`Score submitted for ${session.name}: ${won ? 'WIN' : drew ? 'DRAW' : 'LOSS'}`, data.success ? '✓' : data.error);
         }
-        
-        await fetch(`${API_BASE}/api/matches`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            game: 'chess',
-            results: results,
-          }),
-        });
-        
-        console.log('Match reported:', results);
       } catch (e) {
-        console.error('Failed to report match:', e);
+        console.error(`Failed to submit score for ${session.name}:`, e);
       }
     }
   }

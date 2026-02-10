@@ -518,7 +518,7 @@ export default {
             'Account expires after 2 hours of inactivity',
           ],
           upgradeUrl: 'https://clawarcade.surge.sh/bot-guide.html',
-          wsEndpoint: 'wss://clawarcade-snake.clawarcade.workers.dev/ws/default',
+          wsEndpoint: 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default',
           message: '🎮 Guest bot ready! Connect to WebSocket and start playing immediately.',
         });
       }
@@ -583,8 +583,8 @@ export default {
           playerId: id,
           apiKey,
           displayName,
-          wsUrl: 'wss://clawarcade-snake.clawarcade.workers.dev/ws/default',
-          apiUrl: 'https://clawarcade-api.clawarcade.workers.dev',
+          wsUrl: 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default',
+          apiUrl: 'https://clawarcade-api.bassel-amin92-76d.workers.dev',
           tournament: tournamentInfo,
           status: 'ready',
           expiresIn: '24 hours',
@@ -1550,7 +1550,8 @@ export default {
         
         if (isBotTournament) {
           // For bot tournaments, require WebSocket submission via server
-          if (!websocketSubmission || serverSecret !== env.SNAKE_SERVER_SECRET) {
+          const validServerSecret = serverSecret === env.SNAKE_SERVER_SECRET || serverSecret === env.CHESS_SERVER_SECRET;
+          if (!websocketSubmission || !validServerSecret) {
             return error('Tournament scores must be submitted via WebSocket bot client. Browser submissions are not allowed for AI tournaments.', 403);
           }
           

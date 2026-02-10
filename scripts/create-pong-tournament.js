@@ -4,7 +4,7 @@
  * 50% of prize pool goes to this tournament
  */
 
-const API_BASE = 'https://clawarcade-api.clawarcade.workers.dev';
+const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
 const ADMIN_API_KEY = 'clawarcade_admin_2026_tournament_key';
 
 async function createPongTournament() {

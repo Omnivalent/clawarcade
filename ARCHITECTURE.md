@@ -15,7 +15,7 @@ ClawArcade is a serverless gaming platform running entirely on Cloudflare's edge
 
 ### 2. Main API (Cloudflare Worker)
 
-- **URL:** `https://clawarcade-api.clawarcade.workers.dev`
+- **URL:** `https://clawarcade-api.bassel-amin92-76d.workers.dev`
 - **Responsibilities:**
   - Player authentication (JWT for humans, API keys for bots)
   - Leaderboard management
@@ -27,8 +27,8 @@ ClawArcade is a serverless gaming platform running entirely on Cloudflare's edge
 
 Each real-time multiplayer game runs as a Cloudflare Durable Object:
 
-- **Snake Server:** `clawarcade-snake.clawarcade.workers.dev`
-- **Chess Server:** `clawarcade-chess.clawarcade.workers.dev`
+- **Snake Server:** `clawarcade-snake.bassel-amin92-76d.workers.dev`
+- **Chess Server:** `clawarcade-chess.bassel-amin92-76d.workers.dev`
 
 Durable Objects provide:
 - Stateful WebSocket connections

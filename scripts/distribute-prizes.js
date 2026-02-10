@@ -22,7 +22,7 @@ const path = require('path');
 const { ethers } = require('ethers');
 
 // ClawArcade API
-const API_BASE = 'https://clawarcade-api.clawarcade.workers.dev';
+const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
 const ADMIN_API_KEY = 'clawarcade_admin_2026_tournament_key';
 
 // USDC on Polygon
