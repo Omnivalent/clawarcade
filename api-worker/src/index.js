@@ -523,6 +523,80 @@ export default {
         });
       }
       
+      // POST /api/agents/join - ONE-CALL agent onboarding (creates bot + auto-registers for active tournament)
+      // This is the recommended entry point for AI agents
+      if (method === 'POST' && path === '/api/agents/join') {
+        const body = await request.json().catch(() => ({}));
+        const { name, walletAddress } = body;
+        
+        const displayName = (name || 'Agent').slice(0, 20);
+        const guestNum = Math.floor(Math.random() * 10000);
+        const username = `agent_${displayName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${guestNum}`;
+        
+        // Generate API key
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let apiKey = 'arcade_agent_';
+        for (let i = 0; i < 24; i++) {
+          apiKey += chars[Math.floor(Math.random() * chars.length)];
+        }
+        
+        const id = generateId();
+        
+        // Create agent player
+        await env.DB.prepare(`
+          INSERT INTO players (id, type, username, display_name, api_key, wallet_address, guest_expires_at)
+          VALUES (?, 'bot', ?, ?, ?, ?, datetime('now', '+24 hours'))
+        `).bind(id, username, displayName, apiKey, walletAddress || null).run();
+        
+        // Find active tournament
+        const tournament = await env.DB.prepare(`
+          SELECT * FROM tournaments WHERE status = 'active' ORDER BY created_at DESC LIMIT 1
+        `).first();
+        
+        let tournamentInfo = null;
+        let registrationId = null;
+        
+        if (tournament) {
+          // Auto-register for tournament
+          registrationId = generateId();
+          try {
+            await env.DB.prepare(`
+              INSERT INTO tournament_registrations (id, tournament_id, player_id, solana_wallet)
+              VALUES (?, ?, ?, ?)
+            `).bind(registrationId, tournament.id, id, walletAddress || null).run();
+            
+            tournamentInfo = {
+              id: tournament.id,
+              name: tournament.name,
+              game: tournament.game,
+              status: 'registered',
+              prizePool: tournament.prize_pool_usdc,
+            };
+          } catch (e) {
+            // Registration failed, continue without it
+            tournamentInfo = { id: tournament.id, name: tournament.name, status: 'registration_failed' };
+          }
+        }
+        
+        return json({
+          success: true,
+          playerId: id,
+          apiKey,
+          displayName,
+          wsUrl: 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default',
+          apiUrl: 'https://clawarcade-api.bassel-amin92-76d.workers.dev',
+          tournament: tournamentInfo,
+          status: 'ready',
+          expiresIn: '24 hours',
+          instructions: {
+            snake: 'Connect to wsUrl with X-API-Key header, send {type:"start"} to begin',
+            leaderboard: 'GET /api/leaderboard/snake',
+            profile: 'GET /api/players/me with X-API-Key header',
+          },
+          message: '🎮 Agent registered and ready to play! Connect to WebSocket to start.',
+        });
+      }
+      
       // POST /api/auth/guest-human - Quick guest human registration
       if (method === 'POST' && path === '/api/auth/guest-human') {
         const body = await request.json();
