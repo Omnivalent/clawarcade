@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Logic Sequences</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;overflow:hidden;touch-action:manipulation;user-select:none;padding:12px}
+h1{font-size:1.3rem;color:#00d4aa;margin-bottom:4px}
+#hud{font-size:.9rem;color:#8888aa;margin:4px 0}#hud span{color:#00d4aa}
+#category{font-size:.85rem;color:#7b68ee;margin:4px 0}
+#sequence{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;margin:16px 0;padding:12px;background:#16213e;border-radius:12px;max-width:95%}
+.seq-item{font-size:1.5rem;font-weight:700;color:#00d4aa;min-width:40px;text-align:center}
+.seq-item.blank{color:#e74c3c;font-size:2rem}
+#options{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:320px;width:90%;margin:12px 0}
+.opt{background:#16213e;border:2px solid #334;padding:14px;border-radius:10px;font-size:1.2rem;font-weight:700;text-align:center;cursor:pointer;min-height:50px;transition:all .2s;color:#e0e0e0}
+.opt:active{transform:scale(.95)}
+.opt.correct{background:#00d4aa;color:#1a1a2e;border-color:#00d4aa}
+.opt.wrong{background:#e74c3c;color:#fff;border-color:#e74c3c}
+#msg{min-height:1.6em;font-size:1rem;margin:6px 0;text-align:center}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;min-height:44px;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>Logic Sequences</h1>
+<div id="hud">Level: <span id="lvl">1</span> | Score: <span id="score">0</span> | Streak: <span id="streak">0</span>🔥</div>
+<div id="category"></div>
+<div id="sequence"></div>
+<div id="options"></div>
+<div id="msg"></div>
+<script>
+let level=1,score=0,streak=0,answer,accepting=true;
+
+const generators=[
+  // Add N
+  ()=>{const start=Math.floor(Math.random()*10)+1,step=Math.floor(Math.random()*5)+2;
+    const seq=[];for(let i=0;i<6;i++)seq.push(start+step*i);
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:`Adding ${step}`}},
+  // Multiply
+  ()=>{const base=Math.floor(Math.random()*4)+2;
+    const seq=[];for(let i=1;i<=6;i++)seq.push(base*i);
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:`Multiples of ${base}`}},
+  // Squares
+  ()=>{const seq=[];for(let i=1;i<=6;i++)seq.push(i*i);
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:'Perfect squares'}},
+  // Fibonacci-like
+  ()=>{const a=Math.floor(Math.random()*3)+1,b=Math.floor(Math.random()*3)+2;
+    const seq=[a,b];for(let i=2;i<6;i++)seq.push(seq[i-1]+seq[i-2]);
+    const blank=Math.floor(Math.random()*2)+3;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:'Each = sum of previous two'}},
+  // Powers of 2
+  ()=>{const seq=[];for(let i=0;i<6;i++)seq.push(Math.pow(2,i));
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:'Powers of 2'}},
+  // Alternating add
+  ()=>{const seq=[Math.floor(Math.random()*5)+1];const a=Math.floor(Math.random()*3)+1,b=Math.floor(Math.random()*3)+2;
+    for(let i=1;i<6;i++)seq.push(seq[i-1]+(i%2===1?a:b));
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:`Alternating +${a} and +${b}`}},
+  // Triangular
+  ()=>{const seq=[];let s=0;for(let i=1;i<=6;i++){s+=i;seq.push(s)}
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:'Triangular numbers'}},
+  // Subtract
+  ()=>{const start=Math.floor(Math.random()*20)+30;const step=Math.floor(Math.random()*4)+2;
+    const seq=[];for(let i=0;i<6;i++)seq.push(start-step*i);
+    const blank=Math.floor(Math.random()*3)+2;const ans=seq[blank];seq[blank]=null;
+    return{seq,ans,cat:`Subtracting ${step}`}},
+];
+
+function genPuzzle(){
+  const gen=generators[Math.floor(Math.random()*generators.length)];
+  return gen();
+}
+
+function loadLevel(){
+  accepting=true;
+  const p=genPuzzle();answer=p.ans;
+  document.getElementById('lvl').textContent=level;
+  document.getElementById('category').textContent=level>2?'':'Hint: '+p.cat;
+  document.getElementById('msg').textContent='';
+  // Render sequence
+  const cont=document.getElementById('sequence');cont.innerHTML='';
+  p.seq.forEach((v,i)=>{
+    const d=document.createElement('span');d.className='seq-item';
+    if(v===null){d.classList.add('blank');d.textContent='?'}
+    else d.textContent=v;
+    cont.appendChild(d);
+    if(i<p.seq.length-1){const arrow=document.createElement('span');arrow.textContent='→';arrow.style.color='#556';cont.appendChild(arrow)}
+  });
+  // Options
+  const opts=document.getElementById('options');opts.innerHTML='';
+  let choices=new Set([answer]);
+  while(choices.size<4){choices.add(answer+Math.floor(Math.random()*11)-5)}
+  choices.delete(answer);choices=Array.from(choices).slice(0,3);choices.push(answer);
+  choices.sort(()=>Math.random()-.5);
+  choices.forEach(c=>{
+    const btn=document.createElement('div');btn.className='opt';btn.textContent=c;
+    btn.onclick=()=>pick(c,btn);opts.appendChild(btn);
+  });
+}
+function pick(val,el){
+  if(!accepting)return;accepting=false;
+  if(val===answer){
+    el.classList.add('correct');streak++;score+=10+streak*2;
+    document.getElementById('msg').innerHTML='✓ Correct!';
+    level++;updateHud();setTimeout(loadLevel,800);
+  }else{
+    el.classList.add('wrong');streak=0;
+    document.querySelectorAll('.opt').forEach(o=>{if(parseInt(o.textContent)===answer)o.classList.add('correct')});
+    document.getElementById('msg').innerHTML='✗ Not quite';
+    updateHud();setTimeout(loadLevel,1200);
+  }
+}
+function updateHud(){document.getElementById('score').textContent=score;document.getElementById('streak').textContent=streak}
+loadLevel();
+</script>
+</body>
+</html>

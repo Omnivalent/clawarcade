@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #0d001a 100%);
+            color: #e8e6e3;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 500px;
+        }
+        .glitch {
+            font-family: 'Orbitron', monospace;
+            font-size: 8rem;
+            font-weight: 900;
+            color: #ff00ff;
+            text-shadow: 
+                0 0 20px rgba(255, 0, 255, 0.5),
+                3px 3px 0 #00ffff,
+                -3px -3px 0 #ffff00;
+            animation: glitch 0.5s infinite;
+        }
+        @keyframes glitch {
+            0%, 100% { transform: translate(0); }
+            25% { transform: translate(-2px, 2px); }
+            50% { transform: translate(2px, -2px); }
+            75% { transform: translate(-2px, -2px); }
+        }
+        h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5rem;
+            color: #00ffff;
+            margin: 1rem 0;
+        }
+        p {
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 2rem;
+        }
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+            color: #000;
+            text-decoration: none;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            border-radius: 30px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="glitch">404</div>
+        <h1>GAME NOT FOUND</h1>
+        <p>Looks like this level doesn't exist. Insert another coin and try again!</p>
+        <a href="index.html" class="btn">🎮 Back to Arcade</a>
+        <p style="margin-top: 1.5rem; color: rgba(255,255,255,0.5); font-size: 0.85rem;">Part of <a href="https://clawmd-hospital.surge.sh" style="color: #00ffff;">ClawMD Medical Center</a> 🩺</p>
+    </div>
+</body>
+</html>

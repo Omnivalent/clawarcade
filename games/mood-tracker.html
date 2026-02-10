@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mood Tracker</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;height:100dvh;overflow:hidden;touch-action:manipulation;user-select:none;padding:12px}
+h1{font-size:1.3rem;color:#00d4aa;margin-bottom:8px}
+#question{font-size:1rem;color:#aaa;margin-bottom:8px}
+#moods{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+.mood{font-size:2.2rem;cursor:pointer;padding:8px;border-radius:12px;border:3px solid transparent;min-width:48px;min-height:48px;text-align:center;transition:all .2s}
+.mood:active,.mood.selected{transform:scale(1.15);border-color:#00d4aa;background:#16213e}
+#journal{width:90%;max-width:360px;background:#16213e;border:2px solid #334;color:#e0e0e0;padding:10px;border-radius:8px;font-size:.95rem;resize:none;height:60px;outline:none;font-family:inherit;margin:6px 0}
+#journal:focus{border-color:#00d4aa}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;min-height:44px}
+.btn:active{transform:scale(.95)}
+.btn:disabled{opacity:.4}
+#msg{min-height:1.2em;font-size:.9rem;color:#00d4aa;margin:4px 0}
+#history{width:95%;flex:1;min-height:0;overflow-y:auto;max-width:400px;margin-top:12px}
+#history h2{font-size:1rem;color:#00d4aa;margin-bottom:6px}
+canvas{width:100%;border-radius:8px;background:#16213e;margin-bottom:8px}
+#entries{max-height:28vh;overflow-y:auto;width:100%}
+.entry{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-bottom:1px solid #222;font-size:.85rem}
+.entry-emoji{font-size:1.4rem}
+.entry-time{color:#666;font-size:.75rem}
+.entry-note{color:#aaa;font-size:.8rem;margin-top:2px}
+#clear-btn{background:transparent;color:#666;border:1px solid #333;padding:6px 12px;border-radius:6px;font-size:.75rem;cursor:pointer;margin-top:4px}
+</style>
+</head>
+<body>
+<h1>Mood Tracker</h1>
+<div id="question">How are you feeling right now?</div>
+<div id="moods"></div>
+<textarea id="journal" placeholder="Optional: what's on your mind?"></textarea>
+<button class="btn" id="saveBtn" onclick="saveMood()" disabled>Log Mood</button>
+<div id="msg"></div>
+<div id="history">
+  <h2>Mood History</h2>
+  <canvas id="chart" height="120"></canvas>
+  <div id="entries"></div>
+  <button id="clear-btn" onclick="clearData()">Clear History</button>
+</div>
+<script>
+const MOODS=[
+  {emoji:'😊',label:'Happy',value:5,color:'#f1c40f'},
+  {emoji:'😌',label:'Calm',value:4,color:'#00d4aa'},
+  {emoji:'😐',label:'Neutral',value:3,color:'#8888aa'},
+  {emoji:'😔',label:'Sad',value:2,color:'#3498db'},
+  {emoji:'😤',label:'Frustrated',value:1,color:'#e67e22'},
+  {emoji:'😰',label:'Anxious',value:1,color:'#9b59b6'},
+  {emoji:'😴',label:'Tired',value:2,color:'#556'},
+  {emoji:'🥰',label:'Loved',value:5,color:'#e74c3c'},
+];
+let selectedMood=null,data=JSON.parse(localStorage.getItem('moodData')||'[]');
+
+// Build mood buttons
+const moodsEl=document.getElementById('moods');
+MOODS.forEach((m,i)=>{
+  const d=document.createElement('div');d.className='mood';d.textContent=m.emoji;d.title=m.label;
+  d.onclick=()=>{document.querySelectorAll('.mood').forEach(e=>e.classList.remove('selected'));d.classList.add('selected');selectedMood=i;document.getElementById('saveBtn').disabled=false};
+  moodsEl.appendChild(d);
+});
+
+function saveMood(){
+  if(selectedMood===null)return;
+  const m=MOODS[selectedMood];
+  const note=document.getElementById('journal').value.trim();
+  data.push({emoji:m.emoji,label:m.label,value:m.value,color:m.color,note,time:Date.now()});
+  localStorage.setItem('moodData',JSON.stringify(data));
+  document.getElementById('msg').textContent='✓ Mood logged!';
+  document.getElementById('journal').value='';
+  document.querySelectorAll('.mood').forEach(e=>e.classList.remove('selected'));
+  selectedMood=null;document.getElementById('saveBtn').disabled=true;
+  renderHistory();setTimeout(()=>document.getElementById('msg').textContent='',2000);
+}
+function renderHistory(){
+  // Chart
+  const canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=240;ctx.scale(2,2);
+  const cw=canvas.offsetWidth,ch=120;
+  ctx.clearRect(0,0,cw,ch);
+  const recent=data.slice(-14);
+  if(recent.length<2){ctx.fillStyle='#556';ctx.font='12px sans-serif';ctx.fillText('Log more moods to see trends',cw/2-80,ch/2);renderEntries();return}
+  // Grid
+  ctx.strokeStyle='#2a2a4e';ctx.lineWidth=0.5;
+  for(let i=1;i<=5;i++){const y=ch-10-(i/5)*(ch-20);ctx.beginPath();ctx.moveTo(30,y);ctx.lineTo(cw-10,y);ctx.stroke()}
+  // Line
+  const step=(cw-50)/(recent.length-1);
+  ctx.beginPath();ctx.strokeStyle='#00d4aa';ctx.lineWidth=2;
+  recent.forEach((d,i)=>{const x=35+i*step,y=ch-10-(d.value/5)*(ch-20);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)});
+  ctx.stroke();
+  // Dots
+  recent.forEach((d,i)=>{
+    const x=35+i*step,y=ch-10-(d.value/5)*(ch-20);
+    ctx.fillStyle=d.color;ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#888';ctx.font='14px sans-serif';ctx.fillText(d.emoji,x-7,ch-1);
+  });
+  renderEntries();
+}
+function renderEntries(){
+  const cont=document.getElementById('entries');cont.innerHTML='';
+  data.slice(-10).reverse().forEach(d=>{
+    const div=document.createElement('div');div.className='entry';
+    const t=new Date(d.time);
+    div.innerHTML=`<span class="entry-emoji">${d.emoji}</span><div><span class="entry-time">${t.toLocaleDateString()} ${t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span><span style="margin-left:6px">${d.label}</span>${d.note?`<div class="entry-note">"${d.note}"</div>`:''}</div>`;
+    cont.appendChild(div);
+  });
+}
+function clearData(){if(confirm('Clear all mood history?')){data=[];localStorage.removeItem('moodData');renderHistory()}}
+renderHistory();
+</script>
+</body>
+</html>

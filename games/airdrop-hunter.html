@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>🪂 Airdrop Hunter - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', monospace;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #0d001a 100%);
+            color: #e8e6e3;
+        }
+        body.shake { animation: screenShake 0.15s; }
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-3px, 2px); }
+            50% { transform: translate(3px, -2px); }
+            75% { transform: translate(-2px, -1px); }
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.6);
+            border-bottom: 2px solid #ff6600;
+            position: relative;
+            z-index: 100;
+        }
+        .back-btn {
+            background: rgba(255,102,0,0.2);
+            border: 2px solid #ff6600;
+            color: #ff6600;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            text-decoration: none;
+        }
+        .title { font-size: 0.9rem; color: #ff6600; text-shadow: 0 0 10px rgba(255,102,0,0.5); }
+        .stats { display: flex; gap: 10px; font-size: 0.65rem; }
+        .stat span { color: #ffaa00; }
+        
+        .hud {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 1px solid #333;
+        }
+        .hud-item { text-align: center; }
+        .hud-label { font-size: 0.55rem; color: #888; }
+        .hud-value { font-size: 1rem; }
+        .hud-value.green { color: #00ff88; }
+        .hud-value.red { color: #ff4444; }
+        .hud-value.gold { color: #ffaa00; }
+        
+        .wallet-bar {
+            height: 12px;
+            background: rgba(0,0,0,0.5);
+            margin: 5px 10px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #00ff88;
+        }
+        .wallet-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00ffff);
+            transition: width 0.3s;
+        }
+        .wallet-fill.draining {
+            background: linear-gradient(90deg, #ff4444, #ff0000);
+            animation: drainPulse 0.2s infinite;
+        }
+        @keyframes drainPulse { 0%,100%{opacity:1}50%{opacity:0.5} }
+        
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: calc(100dvh - 140px);
+            background: radial-gradient(ellipse at center top, #1a0040 0%, #0a0015 100%);
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,0,20,0.95);
+            border: 3px solid #ff6600;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(255,102,0,0.4);
+            min-width: 320px;
+        }
+        .overlay h2 { color: #ff6600; margin-bottom: 10px; font-size: 1.3rem; }
+        .overlay p { color: #888; font-size: 0.75rem; margin-bottom: 10px; }
+        .overlay .score-big { font-size: 2.5rem; color: #ffaa00; margin: 15px 0; }
+        .overlay .flavor { color: #ffaa00; font-size: 0.6rem; font-style: italic; margin: 15px 0; }
+        .tutorial { font-size: 0.55rem; color: #ff6600; margin-top: 10px; padding: 10px; background: rgba(255,102,0,0.1); border-radius: 8px; }
+        
+        .btn {
+            background: linear-gradient(135deg, #ff6600 0%, #ff00ff 100%);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:active { transform: scale(0.95); }
+        
+        .claim-indicator {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 0.8rem;
+            color: #00ff88;
+            display: none;
+            z-index: 50;
+        }
+        .claim-indicator.scam {
+            border-color: #ff0000;
+            color: #ff0000;
+            animation: scamPulse 0.2s infinite;
+        }
+        @keyframes scamPulse { 0%,100%{background:rgba(255,0,0,0.2)}50%{background:rgba(255,0,0,0.4)} }
+        .claim-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .claim-fill {
+            height: 100%;
+            background: #00ff88;
+            transition: width 0.1s;
+        }
+        .claim-indicator.scam .claim-fill { background: #ff0000; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">← MENU</a>
+        <div class="title">🪂 AIRDROP HUNTER</div>
+        <div class="stats">
+            <div class="stat">BEST: <span id="highScore">0</span></div>
+        </div>
+    </div>
+    
+    <div class="hud">
+        <div class="hud-item">
+            <div class="hud-label">COLLECTED</div>
+            <div class="hud-value green" id="collected">0</div>
+        </div>
+        <div class="hud-item">
+            <div class="hud-label">LOST</div>
+            <div class="hud-value red" id="lost">0</div>
+        </div>
+        <div class="hud-item">
+            <div class="hud-label">SCORE</div>
+            <div class="hud-value gold" id="score">0</div>
+        </div>
+        <div class="hud-item">
+            <div class="hud-label">TIME</div>
+            <div class="hud-value" id="timer">60</div>
+        </div>
+    </div>
+    
+    <div class="wallet-bar">
+        <div class="wallet-fill" id="walletFill" style="width: 100%"></div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="claim-indicator" id="claimIndicator">
+        <div id="claimText">HOLD TO CLAIM</div>
+        <div class="claim-bar"><div class="claim-fill" id="claimFill" style="width: 0%"></div></div>
+    </div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>🪂 AIRDROP HUNTER</h2>
+        <p>Catch falling airdrops! Avoid scam tokens!</p>
+        <p style="font-size:0.65rem; color:#666;">
+            🟢 GREEN = Legit airdrop (+points)<br>
+            🔴 RED = Scam token (drains wallet!)<br><br>
+            HOLD to claim airdrops<br>
+            But holding scams drains FASTER!<br>
+            Game over when wallet empty.
+        </p>
+        <div class="tutorial" id="tutorial">
+            💡 TIP: Some tokens look similar!<br>
+            Scams appear more often over time.
+        </div>
+        <div class="flavor">"Not your keys, not your coins."</div>
+        <button class="btn" id="startBtn">🪂 HUNT</button>
+    </div>
+    
+    <div class="overlay" id="gameOverOverlay" style="display:none;">
+        <h2 id="endTitle">WALLET DRAINED!</h2>
+        <div class="score-big" id="finalScore">0</div>
+        <p>Airdrops collected: <span id="finalCollected">0</span></p>
+        <p>Lost to scams: <span id="finalLost">0</span></p>
+        <div class="flavor" id="endQuote">"Should've verified the contract."</div>
+        <button class="btn" id="retryBtn">🪂 AGAIN</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'collect') {
+                [523, 659, 784].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0.08, audioCtx.currentTime + i * 0.05);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.05 + 0.1);
+                    o.start(audioCtx.currentTime + i * 0.05);
+                    o.stop(audioCtx.currentTime + i * 0.05 + 0.1);
+                });
+            } else if (type === 'scam') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'claiming') {
+                osc.type = 'sine';
+                osc.frequency.value = 600 + Math.random() * 200;
+                gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'drain') {
+                osc.type = 'square';
+                osc.frequency.value = 100 + Math.random() * 50;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            }
+        }
+        
+        const tokenEmojis = ['💰', '🪙', '💎', '⭐', '🎁', '🏆', '💫', '🔮'];
+        const scamEmojis = ['💀', '🔴', '⚠️', '🚨', '☠️'];
+        
+        const endQuotes = {
+            good: ["Nice catches!", "Airdrop pro!", "Your wallet thanks you."],
+            bad: ["Should've verified the contract.", "Rekt by scams.", "DYOR next time."]
+        };
+        
+        let gameRunning = false;
+        let tokens = [];
+        let player = { x: 0, y: 0 };
+        let score = 0;
+        let collected = 0;
+        let lost = 0;
+        let wallet = 100;
+        let timeLeft = 60;
+        let gameLoop;
+        let timerLoop;
+        let isTouching = false;
+        let touchToken = null;
+        let claimProgress = 0;
+        let spawnRate = 1500;
+        let scamChance = 0.3;
+        
+        function resize() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        
+        function init() {
+            resize();
+            document.getElementById('highScore').textContent = localStorage.getItem('clawarcade_airdrop_best') || 0;
+            if (localStorage.getItem('clawarcade_airdrop_played')) {
+                document.getElementById('tutorial').style.display = 'none';
+            }
+        }
+        
+        function spawnToken() {
+            if (!gameRunning) return;
+            
+            const isScam = Math.random() < scamChance;
+            const token = {
+                x: 50 + Math.random() * (canvas.width - 100),
+                y: -50,
+                size: 40 + Math.random() * 20,
+                speed: 1.5 + Math.random() * 2 + timeLeft < 30 ? 1 : 0,
+                isScam: isScam,
+                emoji: isScam 
+                    ? (Math.random() < 0.7 ? tokenEmojis[Math.floor(Math.random() * tokenEmojis.length)] : scamEmojis[Math.floor(Math.random() * scamEmojis.length)])
+                    : tokenEmojis[Math.floor(Math.random() * tokenEmojis.length)],
+                glowColor: isScam ? '#ff0000' : '#00ff88',
+                claimTime: isScam ? 2000 : 1000,
+                value: isScam ? -(10 + Math.random() * 20) : (10 + Math.random() * 15)
+            };
+            
+            tokens.push(token);
+            
+            // Progressive difficulty
+            setTimeout(spawnToken, Math.max(500, spawnRate - (60 - timeLeft) * 20));
+        }
+        
+        function startGame() {
+            initAudio();
+            localStorage.setItem('clawarcade_airdrop_played', 'true');
+            
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('gameOverOverlay').style.display = 'none';
+            
+            tokens = [];
+            score = 0;
+            collected = 0;
+            lost = 0;
+            wallet = 100;
+            timeLeft = 60;
+            spawnRate = 1500;
+            scamChance = 0.3;
+            isTouching = false;
+            touchToken = null;
+            claimProgress = 0;
+            
+            document.getElementById('claimIndicator').style.display = 'none';
+            document.getElementById('walletFill').classList.remove('draining');
+            
+            updateDisplay();
+            
+            gameRunning = true;
+            spawnToken();
+            gameLoop = requestAnimationFrame(update);
+            timerLoop = setInterval(() => {
+                timeLeft--;
+                scamChance = Math.min(0.6, 0.3 + (60 - timeLeft) * 0.005);
+                document.getElementById('timer').textContent = timeLeft;
+                if (timeLeft <= 0) gameOver(true);
+            }, 1000);
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars background
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 137 + Date.now() * 0.01) % canvas.width;
+                const y = (i * 97) % canvas.height;
+                ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.001 + i) * 0.2;
+                ctx.fillRect(x, y, 2, 2);
+            }
+            ctx.globalAlpha = 1;
+            
+            // Update and draw tokens
+            for (let i = tokens.length - 1; i >= 0; i--) {
+                const t = tokens[i];
+                t.y += t.speed;
+                
+                // Draw glow
+                ctx.shadowColor = t.glowColor;
+                ctx.shadowBlur = 20;
+                
+                // Draw token
+                ctx.font = t.size + 'px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(t.emoji, t.x, t.y);
+                
+                // Scam indicator (subtle red pulse)
+                if (t.isScam && Math.random() < 0.1) {
+                    ctx.fillStyle = 'rgba(255,0,0,0.3)';
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y - t.size/3, t.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.shadowBlur = 0;
+                
+                // Remove if off screen
+                if (t.y > canvas.height + 50) {
+                    tokens.splice(i, 1);
+                }
+            }
+            
+            // Handle claiming
+            if (isTouching && touchToken) {
+                claimProgress += 100 / (touchToken.claimTime / 16);
+                
+                const indicator = document.getElementById('claimIndicator');
+                const fill = document.getElementById('claimFill');
+                fill.style.width = claimProgress + '%';
+                
+                if (touchToken.isScam) {
+                    // Draining wallet while holding scam
+                    wallet -= 0.5;
+                    document.getElementById('walletFill').classList.add('draining');
+                    if (Math.random() < 0.2) playSound('drain');
+                } else {
+                    if (Math.random() < 0.1) playSound('claiming');
+                }
+                
+                if (claimProgress >= 100) {
+                    // Claimed!
+                    if (touchToken.isScam) {
+                        lost++;
+                        wallet -= 10;
+                        score = Math.max(0, score - 10);
+                        playSound('scam');
+                        document.body.classList.add('shake');
+                        setTimeout(() => document.body.classList.remove('shake'), 150);
+                    } else {
+                        collected++;
+                        score += Math.floor(touchToken.value);
+                        playSound('collect');
+                    }
+                    
+                    const idx = tokens.indexOf(touchToken);
+                    if (idx > -1) tokens.splice(idx, 1);
+                    
+                    touchToken = null;
+                    claimProgress = 0;
+                    indicator.style.display = 'none';
+                    document.getElementById('walletFill').classList.remove('draining');
+                    updateDisplay();
+                }
+                
+                if (wallet <= 0) {
+                    gameOver(false);
+                    return;
+                }
+            }
+            
+            updateDisplay();
+            gameLoop = requestAnimationFrame(update);
+        }
+        
+        function updateDisplay() {
+            document.getElementById('collected').textContent = collected;
+            document.getElementById('lost').textContent = lost;
+            document.getElementById('score').textContent = score;
+            document.getElementById('walletFill').style.width = Math.max(0, wallet) + '%';
+        }
+        
+        function handleTouchStart(x, y) {
+            if (!gameRunning) return;
+            initAudio();
+            
+            // Check if touching a token
+            for (const t of tokens) {
+                const dist = Math.sqrt(Math.pow(x - t.x, 2) + Math.pow(y - (t.y - t.size/3), 2));
+                if (dist < t.size) {
+                    isTouching = true;
+                    touchToken = t;
+                    claimProgress = 0;
+                    
+                    const indicator = document.getElementById('claimIndicator');
+                    const text = document.getElementById('claimText');
+                    indicator.style.display = 'block';
+                    indicator.classList.toggle('scam', t.isScam);
+                    text.textContent = t.isScam ? '⚠️ DRAINING!' : 'HOLD TO CLAIM';
+                    document.getElementById('claimFill').style.width = '0%';
+                    return;
+                }
+            }
+        }
+        
+        function handleTouchEnd() {
+            isTouching = false;
+            touchToken = null;
+            claimProgress = 0;
+            document.getElementById('claimIndicator').style.display = 'none';
+            document.getElementById('walletFill').classList.remove('draining');
+        }
+        
+        function gameOver(survived) {
+            gameRunning = false;
+            cancelAnimationFrame(gameLoop);
+            clearInterval(timerLoop);
+            
+            const bestScore = parseInt(localStorage.getItem('clawarcade_airdrop_best') || 0);
+            if (score > bestScore) {
+                localStorage.setItem('clawarcade_airdrop_best', score);
+                document.getElementById('highScore').textContent = score;
+            }
+            
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_airdrop-hunter') || '[]');
+                scores.push({ name: username, score, collected, lost, date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_airdrop-hunter', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            const isGood = survived && lost < collected;
+            document.getElementById('endTitle').textContent = survived ? '⏰ TIME UP!' : '💀 WALLET DRAINED!';
+            document.getElementById('endTitle').style.color = isGood ? '#00ff88' : '#ff4444';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalCollected').textContent = collected;
+            document.getElementById('finalLost').textContent = lost;
+            
+            const quotes = isGood ? endQuotes.good : endQuotes.bad;
+            document.getElementById('endQuote').textContent = quotes[Math.floor(Math.random() * quotes.length)];
+            
+            document.getElementById('gameOverOverlay').style.display = 'block';
+        }
+        
+        // Event listeners
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handleTouchStart(e.clientX - rect.left, e.clientY - rect.top);
+        });
+        canvas.addEventListener('mouseup', handleTouchEnd);
+        canvas.addEventListener('mouseleave', handleTouchEnd);
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            handleTouchStart(touch.clientX - rect.left, touch.clientY - rect.top);
+        });
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleTouchEnd();
+        });
+        
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('startBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        document.getElementById('retryBtn').addEventListener('click', startGame);
+        document.getElementById('retryBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        
+        window.addEventListener('resize', resize);
+        init();
+    </script>
+</body>
+</html>

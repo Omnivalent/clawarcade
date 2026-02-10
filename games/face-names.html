@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Face Names - Memory Exercise</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#7dd3c0;margin-bottom:8px;text-shadow:0 0 20px rgba(125,211,192,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#252545;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #3a3a5a}
+.face-container{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;margin:20px 0}
+.face-card{background:#1e1e3a;border-radius:16px;padding:20px;min-width:140px;cursor:pointer;transition:all 0.3s ease;border:3px solid transparent}
+.face-card:hover,.face-card:active{transform:scale(1.02);border-color:#7dd3c0}
+.face-card.selected{border-color:#7dd3c0;background:#2a2a4a}
+.face-card.correct{border-color:#5ddb95;background:#2a4a3a;animation:celebrate 0.5s ease}
+.face-card.gentle-wrong{border-color:#d4a574;background:#3a3a2a}
+@keyframes celebrate{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.face{font-size:72px;line-height:1;margin-bottom:12px}
+.name{font-size:24px;color:#fff;font-weight:600}
+.instruction{font-size:22px;color:#aab;margin:20px 0;line-height:1.5}
+.question{font-size:26px;color:#7dd3c0;margin:20px 0;font-weight:600}
+.btn{background:#7dd3c0;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(125,211,192,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn.secondary{background:transparent;border:2px solid #7dd3c0;color:#7dd3c0}
+.feedback{font-size:24px;padding:20px;border-radius:16px;margin:20px 0;animation:fadeIn 0.3s ease}
+.feedback.positive{background:#2a4a3a;color:#5ddb95;border:2px solid #5ddb95}
+.feedback.gentle{background:#3a3a2a;color:#d4a574;border:2px solid #d4a574}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.progress{display:flex;gap:8px;margin:20px 0}
+.progress-dot{width:16px;height:16px;border-radius:50%;background:#3a3a5a;transition:all 0.3s}
+.progress-dot.done{background:#5ddb95}
+.progress-dot.current{background:#7dd3c0;box-shadow:0 0 10px #7dd3c0}
+.level-info{color:#8888aa;font-size:16px;margin-bottom:10px}
+#screen-start,#screen-learn,#screen-quiz,#screen-complete{display:none;width:100%}
+#screen-start.active,#screen-learn.active,#screen-quiz.active,#screen-complete.active{display:flex;flex-direction:column;align-items:center}
+.emoji-row{display:flex;justify-content:center;gap:12px;font-size:48px;margin:20px 0}
+</style>
+</head>
+<body>
+<h1>👥 Face Names</h1>
+<p class="subtitle">Remember friendly faces and their names</p>
+
+<div id="game">
+  <div id="screen-start" class="active">
+    <div class="card">
+      <div class="emoji-row">👵 👴 👩 👨</div>
+      <p class="instruction">You'll meet some friendly people.<br>Try to remember their names!</p>
+      <p style="color:#8888aa;margin-top:16px;font-size:18px">Take your time. There's no rush.</p>
+    </div>
+    <button class="btn" onclick="startGame()">Meet New Friends</button>
+  </div>
+
+  <div id="screen-learn">
+    <div class="level-info">Round <span id="round">1</span> of <span id="totalRounds">3</span></div>
+    <div class="card">
+      <p class="instruction">Say hello to:</p>
+      <div class="face-container" id="faces-learn"></div>
+      <p style="color:#8888aa;font-size:18px;margin-top:16px">Look at each face and their name</p>
+    </div>
+    <button class="btn" onclick="startQuiz()">I'm Ready!</button>
+  </div>
+
+  <div id="screen-quiz">
+    <div class="progress" id="progress"></div>
+    <div class="card">
+      <p class="question" id="question"></p>
+      <div class="face-container" id="faces-quiz"></div>
+      <div id="feedback"></div>
+    </div>
+  </div>
+
+  <div id="screen-complete">
+    <div class="card">
+      <div style="font-size:80px;margin-bottom:20px">🎉</div>
+      <p class="question">Wonderful!</p>
+      <p class="instruction" id="complete-message"></p>
+    </div>
+    <button class="btn" onclick="nextRound()">Continue</button>
+    <button class="btn secondary" onclick="startGame()">Start Over</button>
+  </div>
+</div>
+
+<script>
+const FACES = [
+  {face:'👵',names:['Mary','Dorothy','Helen','Betty']},
+  {face:'👴',names:['Robert','William','James','George']},
+  {face:'👩',names:['Sarah','Emily','Anna','Grace']},
+  {face:'👨',names:['Michael','David','Thomas','Daniel']},
+  {face:'👧',names:['Emma','Lily','Sophie','Olivia']},
+  {face:'👦',names:['Jack','Oliver','Henry','Charlie']},
+  {face:'👩‍🦳',names:['Margaret','Patricia','Barbara','Nancy']},
+  {face:'👨‍🦳',names:['Richard','Joseph','Charles','Edward']},
+  {face:'🧑',names:['Alex','Sam','Jordan','Taylor']},
+  {face:'👩‍🦰',names:['Rose','Ruby','Amber','Ivy']}
+];
+
+let currentFaces = [];
+let currentRound = 1;
+let currentQuestion = 0;
+let score = 0;
+let facesPerRound = 2;
+
+const positiveMessages = [
+  "That's right! Wonderful memory!",
+  "Perfect! You remembered!",
+  "Excellent! Well done!",
+  "Yes! Great job!",
+  "Correct! You're doing great!"
+];
+
+const gentleMessages = [
+  "Not quite, but that's okay! It was ",
+  "Good try! That's actually ",
+  "Almost! This is ",
+  "No worries! This one is "
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startGame() {
+  currentRound = 1;
+  facesPerRound = 2;
+  score = 0;
+  setupRound();
+}
+
+function setupRound() {
+  // Select faces for this round
+  const available = shuffle(FACES).slice(0, facesPerRound);
+  currentFaces = available.map(f => ({
+    face: f.face,
+    name: f.names[Math.floor(Math.random() * f.names.length)]
+  }));
+  
+  document.getElementById('round').textContent = currentRound;
+  document.getElementById('totalRounds').textContent = '3';
+  
+  // Show faces to learn
+  const container = document.getElementById('faces-learn');
+  container.innerHTML = currentFaces.map(f => `
+    <div class="face-card">
+      <div class="face">${f.face}</div>
+      <div class="name">${f.name}</div>
+    </div>
+  `).join('');
+  
+  showScreen('screen-learn');
+}
+
+function startQuiz() {
+  currentQuestion = 0;
+  score = 0;
+  updateProgress();
+  askQuestion();
+  showScreen('screen-quiz');
+}
+
+function updateProgress() {
+  const container = document.getElementById('progress');
+  container.innerHTML = currentFaces.map((_, i) => {
+    let cls = 'progress-dot';
+    if (i < currentQuestion) cls += ' done';
+    else if (i === currentQuestion) cls += ' current';
+    return `<div class="${cls}"></div>`;
+  }).join('');
+}
+
+function askQuestion() {
+  const target = currentFaces[currentQuestion];
+  document.getElementById('question').textContent = `Who is ${target.name}?`;
+  document.getElementById('feedback').innerHTML = '';
+  
+  const shuffled = shuffle(currentFaces);
+  const container = document.getElementById('faces-quiz');
+  container.innerHTML = shuffled.map(f => `
+    <div class="face-card" onclick="checkAnswer('${f.name}', '${target.name}', this)">
+      <div class="face">${f.face}</div>
+    </div>
+  `).join('');
+}
+
+function checkAnswer(selected, correct, el) {
+  // Prevent multiple clicks
+  document.querySelectorAll('.face-card').forEach(c => c.style.pointerEvents = 'none');
+  
+  const feedbackEl = document.getElementById('feedback');
+  
+  if (selected === correct) {
+    el.classList.add('correct');
+    score++;
+    const msg = positiveMessages[Math.floor(Math.random() * positiveMessages.length)];
+    feedbackEl.innerHTML = `<div class="feedback positive">✨ ${msg}</div>`;
+    playTone(523, 0.2);
+    setTimeout(() => playTone(659, 0.2), 150);
+  } else {
+    el.classList.add('gentle-wrong');
+    // Highlight correct answer
+    document.querySelectorAll('.face-card').forEach(c => {
+      if (c.querySelector('.face').textContent === currentFaces.find(f => f.name === correct).face) {
+        c.classList.add('correct');
+        c.innerHTML += `<div class="name">${correct}</div>`;
+      }
+    });
+    const msg = gentleMessages[Math.floor(Math.random() * gentleMessages.length)];
+    feedbackEl.innerHTML = `<div class="feedback gentle">💛 ${msg}${correct}</div>`;
+    playTone(330, 0.15);
+  }
+  
+  setTimeout(() => {
+    currentQuestion++;
+    updateProgress();
+    if (currentQuestion < currentFaces.length) {
+      askQuestion();
+    } else {
+      showComplete();
+    }
+  }, 2000);
+}
+
+function showComplete() {
+  const percent = Math.round((score / currentFaces.length) * 100);
+  let message = '';
+  
+  if (percent === 100) {
+    message = `You remembered all ${currentFaces.length} names perfectly! 🌟`;
+  } else if (percent >= 50) {
+    message = `You remembered ${score} out of ${currentFaces.length} names. That's really good! 💪`;
+  } else {
+    message = `You're building your memory skills! Every practice helps. 🌱`;
+  }
+  
+  document.getElementById('complete-message').textContent = message;
+  showScreen('screen-complete');
+  
+  // Celebration sounds
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15), i * 100));
+}
+
+function nextRound() {
+  currentRound++;
+  if (currentRound > 3) {
+    currentRound = 1;
+    facesPerRound = Math.min(facesPerRound + 1, 4);
+  }
+  setupRound();
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+</script>
+</body>
+</html>

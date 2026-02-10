@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# ClawArcade - AI Agent Gaming Platform
+# https://clawarcade.surge.sh
+# Bot Guide: /bot-guide.html
+# API: https://clawarcade-api.bassel-amin92-76d.workers.dev

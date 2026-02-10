@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Pump & Dump - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a1a;
+            color: #e8e6e3;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Animated cyberpunk grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                linear-gradient(180deg, rgba(255,102,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,102,0,0.03) 1px, transparent 1px),
+                radial-gradient(ellipse at 50% 0%, rgba(255,102,0,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 100%, rgba(255,0,255,0.08) 0%, transparent 50%);
+            background-size: 30px 30px, 30px 30px, 100% 100%, 100% 100%;
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        @keyframes gridMove {
+            0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+            100% { background-position: 0 60px, 60px 0, 0 0, 0 0; }
+        }
+        /* Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 3px);
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.3;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            flex-shrink: 0;
+            height: 40px;
+            min-height: 40px;
+            border-bottom: 2px solid rgba(255,102,0,0.6);
+            box-shadow: 0 2px 20px rgba(255,102,0,0.3);
+        }
+        .back-btn {
+            background: rgba(255,102,0,0.1);
+            border: 2px solid rgba(255,102,0,0.5);
+            color: #ff6600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .back-btn:active { transform: scale(0.95); background: rgba(255,102,0,0.3); }
+        .title { 
+            font-size: 0.9rem; 
+            color: #ff6600; 
+            text-shadow: 0 0 10px rgba(255,102,0,0.8), 0 0 20px rgba(255,102,0,0.4);
+            letter-spacing: 2px;
+        }
+        .stats { display: flex; gap: 10px; font-size: 0.7rem; align-items: center; }
+        .stat { color: #888; }
+        .stat span { 
+            font-weight: bold; 
+            text-shadow: 0 0 8px currentColor;
+            transition: all 0.2s ease;
+        }
+        .stat .green { color: #00ff88; }
+        .stat .gold { color: #ffaa00; }
+        .stat-pop { animation: statPop 0.3s ease-out; }
+        @keyframes statPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3);color:#fff} }
+        
+        .news-ticker {
+            background: rgba(0,0,0,0.8);
+            padding: 6px 10px;
+            font-size: 0.55rem;
+            color: #ffaa00;
+            white-space: nowrap;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255,170,0,0.3);
+        }
+        .news-ticker span {
+            display: inline-block;
+            animation: ticker 25s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+        }
+        
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            gap: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        .game-area.shake { animation: screenShake 0.2s ease-out; }
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-6px, 4px); }
+            20% { transform: translate(6px, -4px); }
+            30% { transform: translate(-4px, 6px); }
+            40% { transform: translate(4px, -6px); }
+        }
+        
+        .coin-header {
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #ffaa00;
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(255,170,0,0.2), inset 0 0 20px rgba(255,170,0,0.05);
+        }
+        .coin-name {
+            font-size: 1.1rem;
+            color: #ffaa00;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-shadow: 0 0 10px rgba(255,170,0,0.5);
+        }
+        .coin-name .icon { font-size: 1.4rem; filter: drop-shadow(0 0 5px rgba(255,170,0,0.5)); }
+        .coin-price { text-align: right; }
+        .price-big {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #00ff88;
+            text-shadow: 0 0 15px rgba(0,255,136,0.6);
+            transition: all 0.2s;
+        }
+        .price-big.down { color: #ff4444; text-shadow: 0 0 15px rgba(255,68,68,0.6); }
+        .price-big.pump { animation: pumpPulse 0.3s; }
+        @keyframes pumpPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); color: #00ff00; text-shadow: 0 0 30px rgba(0,255,0,0.8); }
+        }
+        .price-change { font-size: 0.65rem; }
+        .price-change.up { color: #00ff88; }
+        .price-change.down { color: #ff4444; }
+        
+        .chart-container {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(100,100,100,0.3);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+        }
+        #chart { width: 100%; height: 100%; }
+        
+        .hype-meter {
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #ff00ff;
+            border-radius: 10px;
+            padding: 8px 12px;
+            box-shadow: 0 0 15px rgba(255,0,255,0.2);
+        }
+        .hype-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: #ff00ff;
+            margin-bottom: 5px;
+            text-shadow: 0 0 8px rgba(255,0,255,0.5);
+        }
+        .hype-bar {
+            height: 16px;
+            background: rgba(50,50,50,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .hype-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff00ff, #00ffff);
+            transition: width 0.2s;
+            box-shadow: 0 0 20px rgba(255,0,255,0.6);
+            position: relative;
+        }
+        .hype-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+            animation: hypeShine 2s linear infinite;
+        }
+        @keyframes hypeShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .position-info {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0,255,255,0.4);
+            border-radius: 10px;
+            padding: 8px;
+            display: flex;
+            justify-content: space-around;
+            font-size: 0.65rem;
+        }
+        .position-item { text-align: center; }
+        .position-label { color: #888; font-size: 0.55rem; }
+        .position-value { font-size: 0.9rem; color: #00ffff; text-shadow: 0 0 8px rgba(0,255,255,0.5); }
+        .position-value.profit { color: #00ff88; }
+        .position-value.loss { color: #ff4444; }
+        
+        .action-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        .action-btn {
+            padding: 12px 8px;
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .action-btn:hover::before { left: 100%; }
+        .action-btn:active { transform: scale(0.95); }
+        
+        .buy-btn {
+            background: rgba(0,255,136,0.15);
+            border-color: #00ff88;
+            color: #00ff88;
+            box-shadow: 0 0 15px rgba(0,255,136,0.2);
+        }
+        .buy-btn:active { background: rgba(0,255,136,0.4); box-shadow: 0 0 25px rgba(0,255,136,0.5); }
+        .buy-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .shill-btn {
+            background: rgba(255,0,255,0.15);
+            border-color: #ff00ff;
+            color: #ff00ff;
+            box-shadow: 0 0 15px rgba(255,0,255,0.2);
+        }
+        .shill-btn:active { background: rgba(255,0,255,0.4); box-shadow: 0 0 25px rgba(255,0,255,0.5); }
+        .shill-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .sell-btn {
+            background: rgba(255,68,68,0.15);
+            border-color: #ff4444;
+            color: #ff4444;
+            box-shadow: 0 0 15px rgba(255,68,68,0.2);
+        }
+        .sell-btn:active { background: rgba(255,68,68,0.4); box-shadow: 0 0 25px rgba(255,68,68,0.5); }
+        .sell-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .overlay {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(5,5,20,0.95);
+            border: 3px solid #ff6600;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 50px rgba(255,102,0,0.5), inset 0 0 30px rgba(255,102,0,0.1);
+            max-width: 320px;
+            opacity: 0;
+            animation: overlayIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            backdrop-filter: blur(10px);
+        }
+        @keyframes overlayIn { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        .overlay h2 { 
+            color: #ff6600; 
+            margin-bottom: 10px; 
+            font-size: 1.3rem; 
+            text-shadow: 0 0 20px rgba(255,102,0,0.8);
+            letter-spacing: 2px;
+        }
+        .overlay p { color: #888; font-size: 0.75rem; margin-bottom: 8px; }
+        .overlay .score-big { 
+            font-size: 2.5rem; 
+            margin: 15px 0;
+            text-shadow: 0 0 30px currentColor;
+        }
+        .overlay .score-big.profit { color: #00ff88; }
+        .overlay .score-big.loss { color: #ff4444; }
+        .overlay .flavor { color: #ffaa00; font-size: 0.6rem; font-style: italic; margin: 15px 0; }
+        .tutorial { font-size: 0.5rem; color: #ff6600; margin-top: 10px; padding: 8px; background: rgba(255,102,0,0.1); border-radius: 8px; line-height: 1.4; }
+        
+        .btn {
+            background: linear-gradient(135deg, #ff6600 0%, #ff00ff 100%);
+            color: #000;
+            border: none;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            min-height: 48px;
+            box-shadow: 0 0 25px rgba(255,102,0,0.5);
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 5px;
+        }
+        .btn:active { transform: scale(0.95); }
+        
+        .dump-warning {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,0,0,0.95);
+            color: #fff;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            animation: warningPulse 0.2s infinite;
+            z-index: 50;
+            box-shadow: 0 0 40px rgba(255,0,0,0.8);
+            letter-spacing: 3px;
+        }
+        @keyframes warningPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 40px rgba(255,0,0,0.8); }
+            50% { transform: translate(-50%, -50%) scale(1.05); box-shadow: 0 0 60px rgba(255,0,0,1); }
+        }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            font-size: 1.5rem;
+            animation: particleFloat 1s ease-out forwards;
+            z-index: 60;
+            filter: drop-shadow(0 0 5px currentColor);
+        }
+        @keyframes particleFloat {
+            0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-80px) scale(0.3) rotate(20deg); opacity: 0; }
+        }
+        
+        /* Canvas glow effect */
+        .chart-glow {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .chart-glow.pump { 
+            background: radial-gradient(ellipse at center, rgba(0,255,136,0.2) 0%, transparent 70%);
+            opacity: 1;
+        }
+        .chart-glow.dump {
+            background: radial-gradient(ellipse at center, rgba(255,68,68,0.3) 0%, transparent 70%);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">← MENU</a>
+        <div class="title">📈 PUMP & DUMP</div>
+        <div class="stats">
+            <div class="stat">$<span id="wallet" class="green">1000</span></div>
+            <div class="stat">R:<span id="round" class="gold">1</span>/5</div>
+        </div>
+    </div>
+    
+    <div class="news-ticker">
+        <span id="ticker">🚀 BREAKING: New memecoin promises 1000x gains! | 🐕 Celebrity tweets about dogs | 💎 Diamond hands never lose (except when they do) | 🌙 TO THE MOON! | ⚠️ This is not financial advice | 📉 Whale alert: Large sell detected | 🔥 FOMO levels at all-time high</span>
+    </div>
+    
+    <div class="game-area" id="gameArea">
+        <div class="coin-header">
+            <div class="coin-name">
+                <span class="icon" id="coinIcon">🐕</span>
+                <span id="coinName">$DOGE420</span>
+            </div>
+            <div class="coin-price">
+                <div class="price-big" id="price">$0.001</div>
+                <div class="price-change up" id="change">+0.00%</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+            <div class="chart-glow" id="chartGlow"></div>
+        </div>
+        
+        <div class="hype-meter">
+            <div class="hype-label">
+                <span>🔥 HYPE METER</span>
+                <span id="hypePercent">50%</span>
+            </div>
+            <div class="hype-bar">
+                <div class="hype-fill" id="hypeFill" style="width: 50%"></div>
+            </div>
+        </div>
+        
+        <div class="position-info">
+            <div class="position-item">
+                <div class="position-label">HOLDING</div>
+                <div class="position-value" id="holding">0</div>
+            </div>
+            <div class="position-item">
+                <div class="position-label">AVG COST</div>
+                <div class="position-value" id="avgCost">$0.00</div>
+            </div>
+            <div class="position-item">
+                <div class="position-label">P&L</div>
+                <div class="position-value" id="pnl">$0.00</div>
+            </div>
+        </div>
+        
+        <div class="action-panel">
+            <button class="action-btn buy-btn" id="buyBtn">
+                📥 BUY<br><span style="font-size:0.55rem;opacity:0.8">$100</span>
+            </button>
+            <button class="action-btn shill-btn" id="shillBtn">
+                📣 SHILL<br><span style="font-size:0.55rem;opacity:0.8">+HYPE</span>
+            </button>
+            <button class="action-btn sell-btn" id="sellBtn">
+                📤 SELL<br><span style="font-size:0.55rem;opacity:0.8">ALL</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>📈 PUMP & DUMP</h2>
+        <p>Buy low. Shill hard. Sell before the dump.</p>
+        <div style="font-size:0.55rem; color:#666; margin: 10px 0;">
+            <div style="margin: 4px 0;">📥 <span style="color:#00ff88">BUY</span> = Spend $100 on coins</div>
+            <div style="margin: 4px 0;">📣 <span style="color:#ff00ff">SHILL</span> = Pump the hype meter</div>
+            <div style="margin: 4px 0;">📤 <span style="color:#ff4444">SELL</span> = Cash out everything</div>
+        </div>
+        <div class="tutorial" id="tutorial">
+            ⚠️ The dump WILL come. Time your exit!<br>
+            💡 Later rounds have shorter pumps
+        </div>
+        <div class="flavor">"This is definitely not financial advice."</div>
+        <button class="btn" id="startBtn">🚀 LFG!</button>
+    </div>
+    
+    <div class="overlay" id="roundOverlay" style="display:none;">
+        <h2 id="roundTitle">ROUND COMPLETE!</h2>
+        <div class="score-big" id="roundProfit">+$0</div>
+        <p id="roundMsg">You timed it perfectly!</p>
+        <button class="btn" id="nextBtn">NEXT COIN →</button>
+    </div>
+    
+    <div class="overlay" id="gameOverOverlay" style="display:none;">
+        <h2 id="endTitle">GAME OVER</h2>
+        <div class="score-big" id="finalProfit">$0</div>
+        <p>Final portfolio value</p>
+        <div class="flavor" id="endQuote">"You belong in a casino."</div>
+        <button class="btn" id="retryBtn">🎰 AGAIN</button>
+    </div>
+
+    <script>
+        // Audio context for sound effects
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if (type === 'buy') {
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'sell') {
+                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'shill') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(600 + Math.random() * 400, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+                } else if (type === 'dump') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+                } else if (type === 'moon') {
+                    [523, 659, 784, 1047].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g); g.connect(audioCtx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.1);
+                        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.25);
+                        o.start(audioCtx.currentTime + i * 0.1);
+                        o.stop(audioCtx.currentTime + i * 0.1 + 0.25);
+                    });
+                } else if (type === 'tick') {
+                    osc.frequency.value = 1200;
+                    gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.02);
+                }
+            } catch(e) {}
+        }
+        
+        function spawnParticle(x, y, emoji) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.textContent = emoji;
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            document.getElementById('gameArea').appendChild(p);
+            setTimeout(() => p.remove(), 1000);
+        }
+        
+        function spawnMultipleParticles(x, y, emojis, count = 5) {
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+                    const offsetX = x + (Math.random() - 0.5) * 100;
+                    const offsetY = y + (Math.random() - 0.5) * 50;
+                    spawnParticle(offsetX, offsetY, emoji);
+                }, i * 50);
+            }
+        }
+        
+        const coins = [
+            { name: '$DOGE420', icon: '🐕' },
+            { name: '$MOONCAT', icon: '🐱' },
+            { name: '$ELONMARS', icon: '🚀' },
+            { name: '$PEPE2024', icon: '🐸' },
+            { name: '$DIAMONDAPE', icon: '💎' },
+            { name: '$WOJAK', icon: '😭' },
+            { name: '$CHAD', icon: '💪' },
+            { name: '$SHIBKING', icon: '👑' },
+            { name: '$COPIUM', icon: '🎭' },
+            { name: '$WAGMI', icon: '🙏' }
+        ];
+        
+        const winQuotes = [
+            "Congrats, you're a genius. Or lucky.",
+            "Warren Buffett is shaking.",
+            "This is why you should never invest.",
+            "You belong in a hedge fund. (Not really.)",
+            "Paper gains? No, REAL gains.",
+            "The prophecy was true..."
+        ];
+        
+        const lossQuotes = [
+            "REKT. Classic.",
+            "Diamond hands got you again.",
+            "You held the bag. The bag was empty.",
+            "Should've sold when you had the chance.",
+            "NGMI.",
+            "At least it wasn't real money... right?"
+        ];
+        
+        let gameRunning = false;
+        let wallet = 1000;
+        let round = 1;
+        let price = 0.001;
+        let basePrice = 0.001;
+        let holding = 0;
+        let totalCost = 0;
+        let hype = 50;
+        let priceHistory = [];
+        let gameLoop;
+        let dumpTriggered = false;
+        let dumpTimer = 0;
+        let phase = 'pump';
+        let dpr = window.devicePixelRatio || 1;
+        
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        
+        function init() {
+            if (localStorage.getItem('clawarcade_pump_played')) {
+                document.getElementById('tutorial').style.display = 'none';
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+        
+        function startGame() {
+            initAudio();
+            localStorage.setItem('clawarcade_pump_played', 'true');
+            
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('gameOverOverlay').style.display = 'none';
+            
+            wallet = 1000;
+            round = 1;
+            
+            startRound();
+        }
+        
+        function startRound() {
+            document.getElementById('roundOverlay').style.display = 'none';
+            
+            const coin = coins[Math.floor(Math.random() * coins.length)];
+            document.getElementById('coinName').textContent = coin.name;
+            document.getElementById('coinIcon').textContent = coin.icon;
+            
+            basePrice = 0.0001 + Math.random() * 0.01;
+            price = basePrice;
+            holding = 0;
+            totalCost = 0;
+            hype = 30 + Math.random() * 20;
+            priceHistory = [price];
+            dumpTriggered = false;
+            
+            // Progressive difficulty: shorter pump time in later rounds
+            dumpTimer = Math.max(3000, 12000 - round * 1500) + Math.random() * 5000;
+            phase = 'pump';
+            
+            document.getElementById('round').textContent = round;
+            document.getElementById('gameArea').classList.remove('shake');
+            document.getElementById('chartGlow').className = 'chart-glow';
+            
+            resizeCanvas();
+            updateDisplay();
+            
+            gameRunning = true;
+            gameLoop = setInterval(update, 100);
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            dumpTimer -= 100;
+            
+            // Natural hype decay - faster in later rounds
+            hype -= 0.2 + round * 0.05;
+            if (hype < 0) hype = 0;
+            
+            if (phase === 'pump') {
+                const hypeEffect = (hype / 100) * (0.05 + round * 0.01);
+                const random = (Math.random() - 0.4) * 0.02;
+                price *= (1 + hypeEffect + random);
+                
+                // Occasional mini pumps
+                if (Math.random() < 0.03 && hype > 60) {
+                    price *= 1.05;
+                    playSound('tick');
+                    document.getElementById('chartGlow').className = 'chart-glow pump';
+                    setTimeout(() => document.getElementById('chartGlow').className = 'chart-glow', 300);
+                }
+                
+                if (dumpTimer <= 0 || hype < 10) {
+                    triggerDump();
+                }
+            } else {
+                // Dump speed increases with rounds
+                price *= 0.93 - round * 0.01 - Math.random() * 0.05;
+                document.getElementById('chartGlow').className = 'chart-glow dump';
+                
+                if (price < basePrice * 0.1) {
+                    endRound();
+                    return;
+                }
+            }
+            
+            priceHistory.push(price);
+            if (priceHistory.length > 100) priceHistory.shift();
+            
+            updateDisplay();
+            drawChart();
+        }
+        
+        function triggerDump() {
+            phase = 'dump';
+            dumpTriggered = true;
+            playSound('dump');
+            
+            document.getElementById('gameArea').classList.add('shake');
+            setTimeout(() => document.getElementById('gameArea').classList.remove('shake'), 500);
+            
+            const warning = document.createElement('div');
+            warning.className = 'dump-warning';
+            warning.textContent = '🚨 DUMP! 🚨';
+            document.getElementById('gameArea').appendChild(warning);
+            setTimeout(() => warning.remove(), 1500);
+            
+            spawnMultipleParticles(window.innerWidth / 2, window.innerHeight / 2, ['📉', '💀', '🔻', '😱'], 8);
+        }
+        
+        function buy() {
+            if (!gameRunning || wallet < 100) return;
+            initAudio();
+            playSound('buy');
+            
+            const amount = 100 / price;
+            holding += amount;
+            totalCost += 100;
+            wallet -= 100;
+            
+            hype = Math.min(100, hype + 2);
+            
+            const btn = document.getElementById('buyBtn');
+            const rect = btn.getBoundingClientRect();
+            spawnParticle(rect.left + rect.width / 2, rect.top, '💰');
+            
+            document.getElementById('price').classList.add('pump');
+            setTimeout(() => document.getElementById('price').classList.remove('pump'), 300);
+            
+            // Stat pop animation
+            document.getElementById('wallet').classList.add('stat-pop');
+            setTimeout(() => document.getElementById('wallet').classList.remove('stat-pop'), 300);
+            
+            updateDisplay();
+        }
+        
+        function shill() {
+            if (!gameRunning || phase === 'dump') return;
+            initAudio();
+            playSound('shill');
+            
+            hype = Math.min(100, hype + 3 + Math.random() * 2);
+            
+            const emojis = ['🚀', '🌙', '💎', '🔥', '📈', '💯', '🙌'];
+            const btn = document.getElementById('shillBtn');
+            const rect = btn.getBoundingClientRect();
+            spawnParticle(
+                rect.left + Math.random() * rect.width,
+                rect.top - 20,
+                emojis[Math.floor(Math.random() * emojis.length)]
+            );
+            
+            updateDisplay();
+        }
+        
+        function sell() {
+            if (!gameRunning || holding <= 0) return;
+            initAudio();
+            playSound('sell');
+            
+            const value = holding * price;
+            wallet += value;
+            
+            const btn = document.getElementById('sellBtn');
+            const rect = btn.getBoundingClientRect();
+            spawnMultipleParticles(rect.left + rect.width / 2, rect.top, ['💵', '💸', '🤑'], 5);
+            
+            holding = 0;
+            totalCost = 0;
+            
+            document.getElementById('wallet').classList.add('stat-pop');
+            setTimeout(() => document.getElementById('wallet').classList.remove('stat-pop'), 300);
+            
+            if (phase === 'dump') {
+                setTimeout(() => endRound(), 500);
+            }
+            
+            updateDisplay();
+        }
+        
+        function endRound() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            document.getElementById('chartGlow').className = 'chart-glow';
+            
+            if (holding > 0) {
+                const value = holding * price;
+                wallet += value;
+            }
+            
+            if (round >= 5) {
+                gameOver();
+            } else {
+                const profit = wallet - 1000;
+                document.getElementById('roundTitle').textContent = profit > 0 ? '🚀 NICE EXIT!' : '💀 REKT!';
+                document.getElementById('roundProfit').textContent = `$${wallet.toFixed(0)}`;
+                document.getElementById('roundProfit').className = 'score-big ' + (profit > 0 ? 'profit' : 'loss');
+                document.getElementById('roundMsg').textContent = profit > 0 ? 'You timed it!' : 'Held too long...';
+                document.getElementById('roundOverlay').style.display = 'block';
+            }
+        }
+        
+        function nextRound() {
+            round++;
+            document.getElementById('round').textContent = round;
+            startRound();
+        }
+        
+        function gameOver() {
+            const profit = wallet - 1000;
+            
+            // Save to leaderboard
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_pump-dump') || '[]');
+                scores.push({ name: username, score: Math.max(0, wallet), date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_pump-dump', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            if (profit > 0) {
+                playSound('moon');
+                document.getElementById('endTitle').textContent = '🚀 PROFIT!';
+                document.getElementById('endQuote').textContent = winQuotes[Math.floor(Math.random() * winQuotes.length)];
+                spawnMultipleParticles(window.innerWidth / 2, window.innerHeight / 2, ['🚀', '💎', '🌙', '💰'], 10);
+            } else {
+                document.getElementById('endTitle').textContent = '💀 REKT';
+                document.getElementById('endQuote').textContent = lossQuotes[Math.floor(Math.random() * lossQuotes.length)];
+            }
+            
+            document.getElementById('finalProfit').textContent = `$${wallet.toFixed(0)}`;
+            document.getElementById('finalProfit').className = 'score-big ' + (profit >= 0 ? 'profit' : 'loss');
+            document.getElementById('gameOverOverlay').style.display = 'block';
+        }
+        
+        function updateDisplay() {
+            document.getElementById('wallet').textContent = wallet.toFixed(0);
+            document.getElementById('price').textContent = `$${price.toFixed(6)}`;
+            
+            const changePercent = ((price - basePrice) / basePrice * 100);
+            const changeEl = document.getElementById('change');
+            changeEl.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+            changeEl.className = 'price-change ' + (changePercent >= 0 ? 'up' : 'down');
+            
+            document.getElementById('price').classList.toggle('down', phase === 'dump');
+            
+            document.getElementById('hypeFill').style.width = hype + '%';
+            document.getElementById('hypePercent').textContent = hype.toFixed(0) + '%';
+            
+            document.getElementById('holding').textContent = holding > 0 ? holding.toFixed(0) : '0';
+            document.getElementById('avgCost').textContent = holding > 0 ? `$${(totalCost / holding).toFixed(6)}` : '$0.00';
+            
+            const currentValue = holding * price;
+            const pnl = currentValue - totalCost;
+            const pnlEl = document.getElementById('pnl');
+            pnlEl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+            pnlEl.className = 'position-value ' + (pnl >= 0 ? 'profit' : 'loss');
+            
+            document.getElementById('buyBtn').disabled = wallet < 100;
+            document.getElementById('shillBtn').disabled = phase === 'dump';
+            document.getElementById('sellBtn').disabled = holding <= 0;
+        }
+        
+        function drawChart() {
+            const w = canvas.width / dpr;
+            const h = canvas.height / dpr;
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            if (priceHistory.length < 2) return;
+            
+            const padding = 10;
+            const chartW = w - padding * 2;
+            const chartH = h - padding * 2;
+            
+            const minPrice = Math.min(...priceHistory) * 0.9;
+            const maxPrice = Math.max(...priceHistory) * 1.1;
+            const priceRange = maxPrice - minPrice;
+            
+            // Grid lines
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.15)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (chartH / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + chartW, y);
+                ctx.stroke();
+            }
+            
+            // Price line with gradient
+            const gradient = ctx.createLinearGradient(0, 0, w, 0);
+            if (phase === 'dump') {
+                gradient.addColorStop(0, '#ffaa00');
+                gradient.addColorStop(1, '#ff4444');
+            } else {
+                gradient.addColorStop(0, '#00ff88');
+                gradient.addColorStop(1, '#00ffaa');
+            }
+            
+            ctx.beginPath();
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Glow effect
+            ctx.shadowColor = phase === 'dump' ? '#ff4444' : '#00ff88';
+            ctx.shadowBlur = 15;
+            
+            priceHistory.forEach((p, i) => {
+                const x = padding + (i / (priceHistory.length - 1)) * chartW;
+                const y = padding + chartH - ((p - minPrice) / priceRange) * chartH;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Fill under curve
+            const lastX = padding + chartW;
+            const lastY = padding + chartH - ((priceHistory[priceHistory.length - 1] - minPrice) / priceRange) * chartH;
+            ctx.lineTo(lastX, padding + chartH);
+            ctx.lineTo(padding, padding + chartH);
+            ctx.closePath();
+            
+            const fillGradient = ctx.createLinearGradient(0, 0, 0, h);
+            if (phase === 'dump') {
+                fillGradient.addColorStop(0, 'rgba(255, 68, 68, 0.3)');
+                fillGradient.addColorStop(1, 'rgba(255, 68, 68, 0)');
+            } else {
+                fillGradient.addColorStop(0, 'rgba(0, 255, 136, 0.2)');
+                fillGradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
+            }
+            ctx.fillStyle = fillGradient;
+            ctx.fill();
+            
+            // Current price dot
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = phase === 'dump' ? '#ff4444' : '#00ff88';
+            ctx.shadowColor = phase === 'dump' ? '#ff4444' : '#00ff88';
+            ctx.shadowBlur = 10;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Event listeners with touch support
+        document.getElementById('buyBtn').addEventListener('click', buy);
+        document.getElementById('buyBtn').addEventListener('touchstart', (e) => { e.preventDefault(); buy(); });
+        document.getElementById('shillBtn').addEventListener('click', shill);
+        document.getElementById('shillBtn').addEventListener('touchstart', (e) => { e.preventDefault(); shill(); });
+        document.getElementById('sellBtn').addEventListener('click', sell);
+        document.getElementById('sellBtn').addEventListener('touchstart', (e) => { e.preventDefault(); sell(); });
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('startBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        document.getElementById('nextBtn').addEventListener('click', nextRound);
+        document.getElementById('nextBtn').addEventListener('touchstart', (e) => { e.preventDefault(); nextRound(); });
+        document.getElementById('retryBtn').addEventListener('click', startGame);
+        document.getElementById('retryBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        
+        init();
+    </script>
+</body>
+</html>

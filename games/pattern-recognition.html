@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Pattern Recognition</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{color:#00d4aa;font-size:1.4em;margin:8px 0}
+.sub{color:#888;font-size:.85em;margin-bottom:12px}
+#game{width:100%;max-width:500px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;border:1px solid #0f3460}
+.hud{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;color:#00d4aa}
+.sequence{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.seq-item{width:52px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.4em;background:#0a0a1a;border:2px solid #0f3460}
+.seq-item.missing{border:2px dashed #00d4aa;background:#00d4aa11;font-size:1.5em;color:#00d4aa}
+.arrow{color:#0f3460;font-size:1.2em}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.opt{background:#0a0a1a;border:2px solid #0f3460;border-radius:10px;padding:14px;font-size:1.4em;text-align:center;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.opt:active{transform:scale(.95)}
+.opt.selected{border-color:#00d4aa;background:#00d4aa11}
+.opt.correct{border-color:#00b894;background:#00b89433}
+.opt.wrong{border-color:#e74c3c;background:#e74c3c33}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;border-radius:10px;padding:14px 20px;font-size:1em;font-weight:700;cursor:pointer;width:100%;margin:6px 0;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.96)}
+.center{text-align:center}
+.fade{animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.big{font-size:2em;margin:12px 0}
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75em;font-weight:700;margin-bottom:8px}
+.tag.easy{background:#00b89433;color:#00b894}.tag.med{background:#f39c1233;color:#f39c12}.tag.hard{background:#e74c3c33;color:#e74c3c}
+.pattern-type{color:#888;font-size:.8em;margin-top:8px;font-style:italic}
+/* Color/shape cells */
+.shape{width:36px;height:36px;display:inline-block}
+.c-red{color:#e74c3c}.c-blue{color:#3498db}.c-green{color:#00b894}.c-yellow{color:#f1c40f}.c-purple{color:#9b59b6}.c-cyan{color:#00d4aa}
+</style>
+</head>
+<body>
+<h1>🔮 Pattern Recognition</h1>
+<p class="sub">Complete the sequence</p>
+<div id="game"></div>
+<script>
+const puzzles=[
+// Emoji patterns
+{diff:'easy',type:'Shape Sequence',seq:['🔴','🔵','🔴','🔵','🔴'],answer:'🔵',opts:['🔵','🔴','🟢','🟡']},
+{diff:'easy',type:'Growing Pattern',seq:['⭐','⭐⭐','⭐⭐⭐','⭐⭐⭐⭐'],answer:'⭐⭐⭐⭐⭐',opts:['⭐⭐⭐⭐⭐','⭐⭐⭐','⭐⭐⭐⭐','⭐⭐']},
+{diff:'easy',type:'Alternating',seq:['🌙','☀️','🌙','☀️','🌙'],answer:'☀️',opts:['☀️','🌙','⭐','🌎']},
+{diff:'med',type:'ABC Pattern',seq:['🍎','🍌','🍇','🍎','🍌','🍇','🍎','🍌'],answer:'🍇',opts:['🍇','🍎','🍌','🍊']},
+{diff:'med',type:'Rotation',seq:['⬆️','➡️','⬇️','⬅️','⬆️','➡️','⬇️'],answer:'⬅️',opts:['⬅️','⬆️','➡️','⬇️']},
+{diff:'med',type:'Mirror Sequence',seq:['🔺','🔷','🔶','🔷','🔺','🔷','🔶'],answer:'🔷',opts:['🔷','🔺','🔶','⬛']},
+{diff:'med',type:'Number Pattern',seq:['1️⃣','1️⃣','2️⃣','3️⃣','5️⃣'],answer:'8️⃣',opts:['8️⃣','6️⃣','7️⃣','4️⃣']},
+{diff:'hard',type:'Nested Pattern',seq:['🔴🔵','🔵🔴','🔴🔵🔴','🔵🔴🔵','🔴🔵🔴🔵'],answer:'🔵🔴🔵🔴',opts:['🔵🔴🔵🔴','🔴🔵🔴🔵','🔵🔴🔴🔵','🔴🔴🔵🔵']},
+{diff:'hard',type:'Factorial Growth',seq:['①','②','⑥','㉔'],answer:'⑫⓪',opts:['⑫⓪','㊽','⑥⓪','㉖']},
+{diff:'hard',type:'Letter Logic',seq:['🅰️','🅱️','🅱️','🅰️','🅱️','🅱️','🅱️','🅰️','🅱️','🅱️','🅱️','🅱️','🅰️'],answer:'🅱️',opts:['🅱️','🅰️','©️','🆎']},
+// Number sequences  
+{diff:'easy',type:'Count by 2s',seq:['2','4','6','8'],answer:'10',opts:['10','9','11','12']},
+{diff:'med',type:'Squares',seq:['1','4','9','16'],answer:'25',opts:['25','20','24','36']},
+{diff:'med',type:'Powers of 2',seq:['2','4','8','16','32'],answer:'64',opts:['64','48','56','128']},
+{diff:'hard',type:'Prime Numbers',seq:['2','3','5','7','11','13'],answer:'17',opts:['17','15','19','14']},
+{diff:'hard',type:'Triangular',seq:['1','3','6','10','15'],answer:'21',opts:['21','18','20','25']},
+// Symbol patterns
+{diff:'easy',type:'Hearts',seq:['♠️','♥️','♦️','♣️','♠️','♥️','♦️'],answer:'♣️',opts:['♣️','♠️','♥️','♦️']},
+{diff:'med',type:'Moon Phases',seq:['🌑','🌒','🌓','🌔','🌕','🌖','🌗'],answer:'🌘',opts:['🌘','🌑','🌕','🌓']},
+{diff:'hard',type:'Double Step',seq:['🔴','🔴','🔵','🔵','🔵','🟢','🟢','🟢','🟢'],answer:'🟡',opts:['🟡','🟢','🔵','🔴']},
+];
+
+let order=[],idx=0,score=0;
+const G=document.getElementById('game');
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.random()*i+1|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function start(){
+order=shuffle([...Array(puzzles.length).keys()]);
+// Sort by difficulty
+order.sort((a,b)=>{const d={easy:0,med:1,hard:2};return d[puzzles[a].diff]-d[puzzles[b].diff]});
+idx=0;score=0;showPuzzle();
+}
+
+function showPuzzle(){
+if(idx>=order.length){endGame();return}
+const p=puzzles[order[idx]];
+const diffTag=p.diff==='easy'?'<span class="tag easy">Easy</span>':p.diff==='med'?'<span class="tag med">Medium</span>':'<span class="tag hard">Hard</span>';
+
+let seqHtml=p.seq.map(s=>`<div class="seq-item">${s}</div>`).join('');
+seqHtml+=`<div class="seq-item missing">?</div>`;
+
+let optsShuffled=shuffle([...p.opts]);
+let optsHtml=optsShuffled.map((o,i)=>`<div class="opt" onclick="pick(${i},'${encodeURIComponent(o)}')" id="p${i}">${o}</div>`).join('');
+
+G.innerHTML=`<div class="hud"><span>${idx+1}/${order.length}</span><span>Score: ${score}</span></div>
+<div class="card fade">${diffTag}
+<div class="sequence">${seqHtml}</div>
+<p style="font-weight:700;text-align:center;margin:8px 0">What comes next?</p>
+<div class="options">${optsHtml}</div>
+<div class="pattern-type">${p.type}</div>
+<div id="fb"></div></div>`;
+}
+
+function pick(i,encoded){
+document.querySelectorAll('.opt').forEach(o=>o.onclick=null);
+const p=puzzles[order[idx]];
+const picked=decodeURIComponent(encoded);
+const correct=picked===p.answer;
+if(correct){score++;document.getElementById('p'+i).classList.add('correct')}
+else{
+document.getElementById('p'+i).classList.add('wrong');
+document.querySelectorAll('.opt').forEach(o=>{
+if(o.textContent===p.answer)o.classList.add('correct');
+});
+}
+document.getElementById('fb').innerHTML=`<p style="text-align:center;margin-top:8px;color:${correct?'#00b894':'#e74c3c'};font-weight:700">${correct?'✅ Correct!':'❌ The answer was: '+p.answer}</p>`;
+setTimeout(()=>{idx++;showPuzzle()},1200);
+}
+
+function endGame(){
+const pct=Math.round(score/puzzles.length*100);
+let grade=pct>=90?'🏆 Pattern Master':pct>=70?'🔮 Sharp Eye':pct>=50?'👁️ Getting There':'🫠 Keep Practicing';
+G.innerHTML=`<div class="card center fade">
+<div class="big">${pct>=70?'🧩':'🔮'}</div>
+<p style="font-size:1.3em;font-weight:700;color:#00d4aa">${grade}</p>
+<p style="font-size:2em;font-weight:700;margin:8px 0">${score}/${puzzles.length}</p>
+<p style="color:#888">${pct}% accuracy</p>
+<button class="btn" onclick="start()" style="margin-top:16px">Play Again</button>
+</div>`;
+}
+
+G.innerHTML=`<div class="card center fade">
+<div class="big">🔮</div>
+<p style="margin:8px 0">Find the pattern, complete the sequence.</p>
+<p style="color:#888;font-size:.9em">Puzzles range from simple alternation to complex nested patterns.</p>
+<p style="color:#00d4aa;margin:8px 0">${puzzles.length} puzzles</p>
+<button class="btn" onclick="start()">Start</button>
+</div>`;
+</script>
+</body>
+</html>

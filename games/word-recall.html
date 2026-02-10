@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Word Recall Test - ClawMD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%); 
+            color: #e8e6e3; 
+            min-height: 100vh; 
+            padding: 1rem;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .header { text-align: center; margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(139, 0, 0, 0.2); border-radius: 12px; border: 2px solid #C5A572; }
+        .header h1 { color: #C5A572; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .header p { color: #aaa; font-size: 1rem; }
+        
+        .disclaimer { 
+            background: rgba(255, 193, 7, 0.15); 
+            border: 2px solid #ffc107; 
+            border-radius: 10px; 
+            padding: 1rem; 
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .disclaimer strong { color: #ffc107; }
+        
+        .card { 
+            background: rgba(0, 33, 71, 0.4); 
+            border: 2px solid #C5A572; 
+            border-radius: 12px; 
+            padding: 2rem; 
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .stage-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .stage-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #2a3441;
+            transition: all 0.3s;
+        }
+        .stage-dot.active { background: #00d4aa; transform: scale(1.2); }
+        .stage-dot.complete { background: #C5A572; }
+        
+        .words-display { 
+            display: flex; 
+            justify-content: center; 
+            gap: 1.5rem; 
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        .word-card { 
+            background: linear-gradient(135deg, #00d4aa, #00b894); 
+            color: #1a1a2e; 
+            padding: 1.5rem 2rem; 
+            border-radius: 12px; 
+            font-size: 1.6rem; 
+            font-weight: bold;
+            animation: bounceIn 0.5s ease;
+            box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3);
+        }
+        @keyframes bounceIn { 
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .countdown-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(#00d4aa var(--progress), #2a3441 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2rem auto;
+            position: relative;
+        }
+        .countdown-inner {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #1a2332;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #00d4aa;
+        }
+        
+        .distractor-area {
+            background: #1a2332;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .distractor-number {
+            font-size: 3rem;
+            color: #C5A572;
+            margin: 1rem 0;
+        }
+        .distractor-input {
+            font-size: 1.5rem;
+            padding: 1rem;
+            width: 120px;
+            text-align: center;
+            border: 2px solid #C5A572;
+            border-radius: 8px;
+            background: #0f1419;
+            color: #e8e6e3;
+        }
+        
+        .input-group { margin: 1rem 0; }
+        .input-group label { 
+            display: block; 
+            font-size: 1.1rem; 
+            margin-bottom: 0.5rem;
+            color: #C5A572;
+        }
+        .text-input { 
+            width: 100%; 
+            padding: 1rem; 
+            font-size: 1.2rem; 
+            border: 2px solid #C5A572; 
+            border-radius: 8px; 
+            background: #1a2332; 
+            color: #e8e6e3;
+            text-align: center;
+        }
+        .text-input:focus { outline: none; border-color: #00d4aa; }
+        
+        .btn { 
+            background: linear-gradient(135deg, #8B0000 0%, #6B0000 100%); 
+            color: #C5A572; 
+            border: 2px solid #C5A572;
+            padding: 1rem 2.5rem; 
+            font-size: 1.1rem; 
+            font-weight: 600;
+            border-radius: 8px; 
+            cursor: pointer; 
+            min-height: 56px;
+            transition: all 0.3s;
+            margin: 0.5rem;
+        }
+        .btn:hover { background: linear-gradient(135deg, #A00000 0%, #8B0000 100%); }
+        .btn.secondary { background: #2a3441; }
+        
+        .score-display { 
+            padding: 2rem; 
+            background: rgba(0, 212, 170, 0.1); 
+            border-radius: 12px; 
+            margin: 1.5rem 0;
+        }
+        .score-big { font-size: 4rem; color: #00d4aa; font-weight: bold; }
+        .score-label { font-size: 1.2rem; color: #C5A572; }
+        
+        .result-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        .result-box {
+            background: #1a2332;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .result-box h4 { color: #C5A572; margin-bottom: 0.5rem; }
+        .result-box .score { font-size: 2rem; color: #00d4aa; }
+        
+        .word-result {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .word-correct { background: rgba(0, 212, 170, 0.3); color: #00d4aa; }
+        .word-incorrect { background: rgba(231, 76, 60, 0.3); color: #e74c3c; }
+        
+        .interpretation { 
+            padding: 1.5rem; 
+            border-radius: 10px; 
+            margin: 1rem 0;
+            line-height: 1.6;
+        }
+        .interp-good { background: rgba(0, 212, 170, 0.2); border: 2px solid #00d4aa; }
+        .interp-concern { background: rgba(255, 193, 7, 0.2); border: 2px solid #ffc107; }
+        .interp-alert { background: rgba(244, 67, 54, 0.2); border: 2px solid #f44336; }
+        
+        .history-section { margin-top: 2rem; }
+        .history-title { color: #C5A572; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
+        .history-list { background: #1a2332; border-radius: 8px; max-height: 200px; overflow-y: auto; }
+        .history-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #2a3441;
+        }
+        .history-date { color: #888; }
+        .history-score { color: #00d4aa; font-weight: bold; }
+        
+        .back-link { 
+            display: inline-block; 
+            color: #C5A572; 
+            text-decoration: none; 
+            margin-bottom: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+        
+        .instruction-text {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../games.html" class="back-link">← Back to Games</a>
+        
+        <div class="header">
+            <h1>📝 Word Recall Test</h1>
+            <p>Registration & Delayed Recall Assessment</p>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>⚠️ Note:</strong> This is a cognitive exercise based on clinical memory tests. 
+            It is not a medical diagnosis. Discuss concerns with your healthcare provider.
+        </div>
+        
+        <!-- Stage 1: Introduction -->
+        <div class="card" id="stage-intro">
+            <div class="stage-indicator">
+                <div class="stage-dot active"></div>
+                <div class="stage-dot"></div>
+                <div class="stage-dot"></div>
+                <div class="stage-dot"></div>
+                <div class="stage-dot"></div>
+            </div>
+            
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">🧠 Memory Exercise</h2>
+            <p class="instruction-text">
+                You will be shown <strong>3 words</strong> to memorize.<br>
+                After a short delay, you'll be asked to recall them.
+            </p>
+            <p style="color: #888; margin-top: 1rem;">This tests both immediate and delayed recall.</p>
+            
+            <button class="btn" onclick="startTest()" style="margin-top: 1.5rem;">Begin Test</button>
+        </div>
+        
+        <!-- Stage 2: Show Words -->
+        <div class="card hidden" id="stage-show">
+            <div class="stage-indicator">
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot active"></div>
+                <div class="stage-dot"></div>
+                <div class="stage-dot"></div>
+                <div class="stage-dot"></div>
+            </div>
+            
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">📖 Memorize These Words</h2>
+            <p>Study these words carefully. You will be asked to repeat them.</p>
+            
+            <div class="words-display" id="wordsDisplay"></div>
+            
+            <div class="countdown-circle" style="--progress: 100%;">
+                <div class="countdown-inner" id="showCountdown">5</div>
+            </div>
+        </div>
+        
+        <!-- Stage 3: Immediate Recall -->
+        <div class="card hidden" id="stage-immediate">
+            <div class="stage-indicator">
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot active"></div>
+                <div class="stage-dot"></div>
+                <div class="stage-dot"></div>
+            </div>
+            
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">✍️ Immediate Recall</h2>
+            <p>Type the three words you just saw (in any order):</p>
+            
+            <div class="input-group">
+                <label>Word 1:</label>
+                <input type="text" class="text-input" id="immediate1" autocomplete="off" autocapitalize="characters">
+            </div>
+            <div class="input-group">
+                <label>Word 2:</label>
+                <input type="text" class="text-input" id="immediate2" autocomplete="off" autocapitalize="characters">
+            </div>
+            <div class="input-group">
+                <label>Word 3:</label>
+                <input type="text" class="text-input" id="immediate3" autocomplete="off" autocapitalize="characters">
+            </div>
+            
+            <button class="btn" onclick="checkImmediate()" style="margin-top: 1rem;">Submit</button>
+        </div>
+        
+        <!-- Stage 4: Distractor Task -->
+        <div class="card hidden" id="stage-distractor">
+            <div class="stage-indicator">
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot active"></div>
+                <div class="stage-dot"></div>
+            </div>
+            
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">🔢 Count Backwards</h2>
+            <p>Count backwards from 20 by typing each number.</p>
+            <p style="color: #888; font-size: 0.9rem;">This distractor task helps measure delayed recall.</p>
+            
+            <div class="distractor-area">
+                <p>Current number to enter:</p>
+                <div class="distractor-number" id="targetNumber">20</div>
+                <input type="number" class="distractor-input" id="distractorInput" 
+                       onkeyup="checkDistractor(event)" autocomplete="off">
+                <p id="distractorFeedback" style="margin-top: 0.5rem; min-height: 1.5em;"></p>
+            </div>
+            
+            <div id="distractorProgress" style="color: #888;">20 → 1</div>
+        </div>
+        
+        <!-- Stage 5: Delayed Recall -->
+        <div class="card hidden" id="stage-delayed">
+            <div class="stage-indicator">
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot complete"></div>
+                <div class="stage-dot active"></div>
+            </div>
+            
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">🧠 Delayed Recall</h2>
+            <p>Now, can you remember the three words from earlier?</p>
+            
+            <div class="input-group">
+                <label>Word 1:</label>
+                <input type="text" class="text-input" id="delayed1" autocomplete="off" autocapitalize="characters">
+            </div>
+            <div class="input-group">
+                <label>Word 2:</label>
+                <input type="text" class="text-input" id="delayed2" autocomplete="off" autocapitalize="characters">
+            </div>
+            <div class="input-group">
+                <label>Word 3:</label>
+                <input type="text" class="text-input" id="delayed3" autocomplete="off" autocapitalize="characters">
+            </div>
+            
+            <button class="btn" onclick="checkDelayed()" style="margin-top: 1rem;">Submit</button>
+        </div>
+        
+        <!-- Results -->
+        <div class="card hidden" id="stage-results">
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">📊 Your Results</h2>
+            
+            <div class="score-display">
+                <div class="score-big" id="totalScore">0</div>
+                <div class="score-label">out of 6 points</div>
+            </div>
+            
+            <div class="result-breakdown">
+                <div class="result-box">
+                    <h4>Immediate Recall</h4>
+                    <div class="score" id="immediateScore">0/3</div>
+                </div>
+                <div class="result-box">
+                    <h4>Delayed Recall</h4>
+                    <div class="score" id="delayedScore">0/3</div>
+                </div>
+            </div>
+            
+            <div id="wordResults" style="margin: 1rem 0;"></div>
+            
+            <div id="interpretation" class="interpretation"></div>
+            
+            <div style="margin-top: 1.5rem;">
+                <button class="btn" onclick="restartTest()">🔄 Try Again</button>
+                <button class="btn secondary" onclick="window.print()">🖨️ Print</button>
+            </div>
+        </div>
+        
+        <div class="history-section">
+            <h3 class="history-title">📈 Previous Attempts</h3>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Word lists (clinical-style)
+        const wordSets = [
+            ['APPLE', 'TABLE', 'PENNY'],
+            ['BALL', 'FLAG', 'TREE'],
+            ['ARM', 'SHORE', 'CABIN'],
+            ['BABY', 'RIVER', 'NATION'],
+            ['BUTTER', 'ARM', 'SHORE'],
+            ['ELBOW', 'APPLE', 'CARPET'],
+            ['FACE', 'VELVET', 'CHURCH'],
+            ['GREEN', 'ORANGE', 'PURPLE']
+        ];
+        
+        let currentWords = [];
+        let immediateResults = [];
+        let delayedResults = [];
+        let distractorTarget = 20;
+        
+        function getRandomWords() {
+            return wordSets[Math.floor(Math.random() * wordSets.length)];
+        }
+        
+        function startTest() {
+            currentWords = getRandomWords();
+            showStage('show');
+            displayWords();
+            startShowCountdown();
+        }
+        
+        function showStage(stage) {
+            document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
+            document.getElementById('stage-' + stage).classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function displayWords() {
+            const display = document.getElementById('wordsDisplay');
+            display.innerHTML = currentWords.map((w, i) => 
+                `<div class="word-card" style="animation-delay: ${i * 0.2}s">${w}</div>`
+            ).join('');
+        }
+        
+        function startShowCountdown() {
+            let count = 5;
+            const el = document.getElementById('showCountdown');
+            const circle = el.parentElement;
+            
+            const timer = setInterval(() => {
+                count--;
+                el.textContent = count;
+                circle.style.setProperty('--progress', (count / 5 * 100) + '%');
+                
+                if (count <= 0) {
+                    clearInterval(timer);
+                    showStage('immediate');
+                    document.getElementById('immediate1').focus();
+                }
+            }, 1000);
+        }
+        
+        function checkImmediate() {
+            const answers = [
+                document.getElementById('immediate1').value.trim().toUpperCase(),
+                document.getElementById('immediate2').value.trim().toUpperCase(),
+                document.getElementById('immediate3').value.trim().toUpperCase()
+            ].filter(a => a.length > 0);
+            
+            immediateResults = currentWords.map(word => answers.includes(word));
+            
+            // Start distractor
+            distractorTarget = 20;
+            showStage('distractor');
+            document.getElementById('distractorInput').focus();
+            updateDistractorDisplay();
+        }
+        
+        function updateDistractorDisplay() {
+            document.getElementById('targetNumber').textContent = distractorTarget;
+        }
+        
+        function checkDistractor(e) {
+            const input = document.getElementById('distractorInput');
+            const feedback = document.getElementById('distractorFeedback');
+            const value = parseInt(input.value);
+            
+            if (value === distractorTarget) {
+                feedback.textContent = '✓';
+                feedback.style.color = '#00d4aa';
+                distractorTarget--;
+                input.value = '';
+                
+                if (distractorTarget < 1) {
+                    // Done with distractor
+                    setTimeout(() => {
+                        showStage('delayed');
+                        document.getElementById('delayed1').focus();
+                    }, 500);
+                } else {
+                    updateDistractorDisplay();
+                }
+            } else if (input.value.length >= 2) {
+                feedback.textContent = 'Try again';
+                feedback.style.color = '#e74c3c';
+            }
+        }
+        
+        function checkDelayed() {
+            const answers = [
+                document.getElementById('delayed1').value.trim().toUpperCase(),
+                document.getElementById('delayed2').value.trim().toUpperCase(),
+                document.getElementById('delayed3').value.trim().toUpperCase()
+            ].filter(a => a.length > 0);
+            
+            delayedResults = currentWords.map(word => answers.includes(word));
+            
+            showResults();
+        }
+        
+        function showResults() {
+            const immediateScore = immediateResults.filter(r => r).length;
+            const delayedScore = delayedResults.filter(r => r).length;
+            const total = immediateScore + delayedScore;
+            
+            document.getElementById('totalScore').textContent = total;
+            document.getElementById('immediateScore').textContent = immediateScore + '/3';
+            document.getElementById('delayedScore').textContent = delayedScore + '/3';
+            
+            // Word results
+            const wordResults = document.getElementById('wordResults');
+            wordResults.innerHTML = '<p style="margin-bottom: 0.5rem;">The words were:</p>' +
+                currentWords.map((w, i) => {
+                    const immCorrect = immediateResults[i];
+                    const delCorrect = delayedResults[i];
+                    return `<span class="word-result ${(immCorrect || delCorrect) ? 'word-correct' : 'word-incorrect'}">${w}</span>`;
+                }).join('');
+            
+            // Interpretation
+            const interp = document.getElementById('interpretation');
+            if (total >= 5) {
+                interp.className = 'interpretation interp-good';
+                interp.innerHTML = '✅ <strong>Excellent Memory!</strong><br>Your recall ability is strong. Both immediate and delayed recall are working well.';
+            } else if (total >= 3) {
+                interp.className = 'interpretation interp-concern';
+                interp.innerHTML = '⚠️ <strong>Some Difficulty</strong><br>This is a challenging test. Regular memory exercises may help. Consider discussing with your doctor if concerned.';
+            } else {
+                interp.className = 'interpretation interp-alert';
+                interp.innerHTML = '🔴 <strong>Please Seek Evaluation</strong><br>We recommend discussing these results with a healthcare provider for proper assessment.';
+            }
+            
+            // Save history
+            saveHistory(total, immediateScore, delayedScore);
+            displayHistory();
+            
+            showStage('results');
+        }
+        
+        function saveHistory(total, immediate, delayed) {
+            const history = JSON.parse(localStorage.getItem('wordRecallHistory') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                total: total,
+                immediate: immediate,
+                delayed: delayed
+            });
+            if (history.length > 20) history.shift();
+            localStorage.setItem('wordRecallHistory', JSON.stringify(history));
+        }
+        
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('wordRecallHistory') || '[]');
+            const list = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                list.innerHTML = '<div style="padding: 1rem; text-align: center; color: #888;">No previous attempts</div>';
+                return;
+            }
+            
+            list.innerHTML = history.slice(-10).reverse().map(h => {
+                const date = new Date(h.date).toLocaleDateString();
+                return `<div class="history-item">
+                    <span class="history-date">${date}</span>
+                    <span class="history-score">${h.total}/6 (I:${h.immediate} D:${h.delayed})</span>
+                </div>`;
+            }).join('');
+        }
+        
+        function restartTest() {
+            // Clear inputs
+            ['immediate1', 'immediate2', 'immediate3', 'delayed1', 'delayed2', 'delayed3'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('distractorInput').value = '';
+            
+            immediateResults = [];
+            delayedResults = [];
+            
+            showStage('intro');
+        }
+        
+        // Initialize
+        displayHistory();
+    </script>
+</body>
+</html>

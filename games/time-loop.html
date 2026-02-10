@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Time Loop - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', monospace;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #0d001a 100%);
+            color: #e8e6e3;
+            display: flex;
+            flex-direction: column;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.6);
+            border-bottom: 2px solid #ff00ff;
+            box-shadow: 0 0 20px rgba(255,0,255,0.3);
+        }
+        .back-btn {
+            background: rgba(0,255,255,0.2);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            text-decoration: none;
+        }
+        .title { font-size: 1rem; color: #ff00ff; text-shadow: 0 0 10px rgba(255,0,255,0.5); }
+        .stats { display: flex; gap: 15px; font-size: 0.8rem; }
+        .stat { color: #00ffff; }
+        .stat span { color: #ff00ff; text-shadow: 0 0 8px rgba(255,0,255,0.5); }
+        
+        .timer-bar {
+            height: 8px;
+            background: rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px rgba(255,0,255,0.5);
+        }
+        .timer-fill.warning { background: linear-gradient(90deg, #ff6600, #ff0000); }
+        
+        .game-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 2px;
+            padding: 10px;
+        }
+        
+        .cell {
+            background: rgba(20,0,40,0.8);
+            border: 1px solid rgba(255,0,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            position: relative;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .cell:hover { background: rgba(40,0,80,0.8); }
+        .cell.player { background: rgba(0,255,255,0.3); box-shadow: inset 0 0 20px rgba(0,255,255,0.5); }
+        .cell.exit { background: rgba(0,255,0,0.2); animation: exitPulse 1s infinite; }
+        .cell.trap { }
+        .cell.trap.revealed { background: rgba(255,0,0,0.2); }
+        .cell.safe.revealed { background: rgba(0,255,0,0.1); }
+        .cell.visited { background: rgba(100,0,200,0.2); }
+        .cell.death-mark { 
+            background: rgba(255,0,0,0.3); 
+            box-shadow: inset 0 0 15px rgba(255,0,0,0.5);
+        }
+        
+        @keyframes exitPulse {
+            0%, 100% { box-shadow: inset 0 0 10px rgba(0,255,0,0.3); }
+            50% { box-shadow: inset 0 0 30px rgba(0,255,0,0.6); }
+        }
+        
+        .memory-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #ff00ff;
+            border-radius: 10px;
+            padding: 10px;
+            max-width: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.6rem;
+            z-index: 50;
+        }
+        .memory-panel h3 { color: #ff00ff; margin-bottom: 5px; font-size: 0.7rem; }
+        .memory-item { color: #ffaa00; margin: 3px 0; }
+        .memory-item::before { content: '💀 '; }
+        
+        .loop-counter {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #00ffff;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.7rem;
+            z-index: 50;
+        }
+        .loop-counter .big { font-size: 1.5rem; color: #00ffff; }
+        
+        .overlay {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,0,20,0.95);
+            border: 3px solid #ff00ff;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(255,0,255,0.4);
+            min-width: 300px;
+        }
+        .overlay h2 { color: #ff00ff; margin-bottom: 10px; font-size: 1.5rem; text-shadow: 0 0 20px rgba(255,0,255,0.5); }
+        .overlay p { color: #aaa; margin-bottom: 10px; font-size: 0.8rem; }
+        .overlay .score-big { font-size: 2.5rem; color: #00ffff; margin: 15px 0; text-shadow: 0 0 30px rgba(0,255,255,0.6); }
+        .overlay .flavor { color: #ffaa00; font-size: 0.7rem; font-style: italic; margin-bottom: 20px; }
+        
+        .btn {
+            background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: scale(1.1); box-shadow: 0 0 30px rgba(255,0,255,0.6); }
+        
+        .death-flash {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,0,0,0.5);
+            animation: flash 0.3s ease-out forwards;
+            pointer-events: none;
+            z-index: 200;
+        }
+        @keyframes flash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        .rewind-effect {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,0,255,0.3), rgba(0,255,255,0.3));
+            animation: rewind 0.5s ease-out forwards;
+            pointer-events: none;
+            z-index: 200;
+        }
+        @keyframes rewind {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 1; transform: scale(0.95); }
+            100% { opacity: 0; transform: scale(1); }
+        }
+        
+        .instructions { font-size: 0.65rem; color: #888; line-height: 1.6; margin: 10px 0; }
+        .key { color: #00ffff; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">← MENU</a>
+        <div class="title">⏱️ TIME LOOP</div>
+        <div class="stats">
+            <div class="stat">TIME: <span id="timer">60</span>s</div>
+            <div class="stat">BEST: <span id="bestLoops">∞</span></div>
+        </div>
+    </div>
+    
+    <div class="timer-bar">
+        <div class="timer-fill" id="timerFill" style="width: 100%"></div>
+    </div>
+    
+    <div class="game-area" id="gameArea">
+        <div class="loop-counter">
+            <div>LOOP #</div>
+            <div class="big" id="loopCount">1</div>
+        </div>
+        <div class="memory-panel" id="memoryPanel">
+            <h3>MEMORIES</h3>
+            <div id="memories">First loop...</div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>⏱️ TIME LOOP</h2>
+        <p>You're stuck in a 60-second loop.</p>
+        <div class="instructions">
+            <span class="key">CLICK/TAP</span> adjacent cells to move<br>
+            <span class="key">FIND THE EXIT</span> before time runs out<br>
+            <span class="key">TRAPS</span> kill you instantly<br>
+            <span class="key">DEATHS</span> are remembered across loops!
+        </div>
+        <div class="flavor">"Every death is a lesson. Learn fast."</div>
+        <button class="btn" onclick="startGame()">⏱️ BEGIN LOOP</button>
+    </div>
+    
+    <div class="overlay" id="deathOverlay" style="display:none;">
+        <h2>💀 YOU DIED</h2>
+        <p id="deathReason">Stepped on a trap!</p>
+        <div class="flavor">"But you remember now..."</div>
+        <button class="btn" onclick="restartLoop()">⏪ LOOP AGAIN</button>
+    </div>
+    
+    <div class="overlay" id="winOverlay" style="display:none;">
+        <h2>🎉 ESCAPED!</h2>
+        <div class="score-big"><span id="finalLoops">1</span> loops</div>
+        <p>to find the exit</p>
+        <div class="flavor" id="winQuote">"Time bends to those who learn."</div>
+        <button class="btn" onclick="startGame()">🔄 NEW MAZE</button>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'move') {
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'death') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'win') {
+                [523, 659, 784, 1047].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.2);
+                    o.start(audioCtx.currentTime + i * 0.1);
+                    o.stop(audioCtx.currentTime + i * 0.1 + 0.2);
+                });
+            } else if (type === 'rewind') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'tick') {
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.02);
+            }
+        }
+        
+        const GRID_SIZE = 8;
+        const TRAP_COUNT = 12;
+        const LOOP_TIME = 60;
+        
+        let gameRunning = false;
+        let grid = [];
+        let playerPos = { x: 0, y: 0 };
+        let exitPos = { x: 0, y: 0 };
+        let traps = [];
+        let memories = [];
+        let loopCount = 1;
+        let timeLeft = LOOP_TIME;
+        let timerInterval;
+        let deathMarks = new Set();
+        
+        const gameArea = document.getElementById('gameArea');
+        
+        const deathReasons = {
+            trap: [
+                "Stepped on a spike trap!",
+                "Triggered a hidden blade!",
+                "Fell into a pit!",
+                "Poison dart got you!",
+                "Crushed by falling rocks!"
+            ],
+            time: [
+                "Time ran out!",
+                "The loop collapsed!",
+                "Reality reset!"
+            ]
+        };
+        
+        const winQuotes = [
+            "Time bends to those who learn.",
+            "Every death made you stronger.",
+            "The maze remembers. So do you.",
+            "Persistence defeats entropy."
+        ];
+        
+        function init() {
+            const best = localStorage.getItem('timeloop_best');
+            document.getElementById('bestLoops').textContent = best || '∞';
+        }
+        
+        function generateMaze() {
+            grid = [];
+            traps = [];
+            
+            // Create empty grid
+            for (let y = 0; y < GRID_SIZE; y++) {
+                grid[y] = [];
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    grid[y][x] = { type: 'empty', revealed: false };
+                }
+            }
+            
+            // Place player start (top-left area)
+            playerPos = { x: 0, y: 0 };
+            grid[0][0].type = 'start';
+            
+            // Place exit (bottom-right area)
+            exitPos = { x: GRID_SIZE - 1, y: GRID_SIZE - 1 };
+            grid[exitPos.y][exitPos.x].type = 'exit';
+            
+            // Place traps randomly
+            let placed = 0;
+            while (placed < TRAP_COUNT) {
+                const x = Math.floor(Math.random() * GRID_SIZE);
+                const y = Math.floor(Math.random() * GRID_SIZE);
+                
+                // Don't place on start, exit, or existing trap
+                if (grid[y][x].type === 'empty') {
+                    // Ensure there's always a path (simplified - just avoid blocking corners)
+                    if (!((x === 0 && y === 1) || (x === 1 && y === 0) || 
+                          (x === GRID_SIZE-1 && y === GRID_SIZE-2) || 
+                          (x === GRID_SIZE-2 && y === GRID_SIZE-1))) {
+                        grid[y][x].type = 'trap';
+                        traps.push({ x, y });
+                        placed++;
+                    }
+                }
+            }
+        }
+        
+        function renderGrid() {
+            gameArea.innerHTML = `
+                <div class="loop-counter">
+                    <div>LOOP #</div>
+                    <div class="big" id="loopCount">${loopCount}</div>
+                </div>
+                <div class="memory-panel" id="memoryPanel">
+                    <h3>MEMORIES</h3>
+                    <div id="memories">${memories.length ? memories.map(m => `<div class="memory-item">${m}</div>`).join('') : 'No deaths yet...'}</div>
+                </div>
+            `;
+            
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    
+                    const gridCell = grid[y][x];
+                    
+                    if (x === playerPos.x && y === playerPos.y) {
+                        cell.classList.add('player');
+                        cell.textContent = '👤';
+                    } else if (gridCell.type === 'exit') {
+                        cell.classList.add('exit');
+                        cell.textContent = '🚪';
+                    } else if (gridCell.type === 'trap' && gridCell.revealed) {
+                        cell.classList.add('trap', 'revealed');
+                        cell.textContent = '⚠️';
+                    } else if (deathMarks.has(`${x},${y}`)) {
+                        cell.classList.add('death-mark');
+                        cell.textContent = '💀';
+                    } else if (gridCell.revealed && gridCell.type === 'empty') {
+                        cell.classList.add('safe', 'revealed');
+                    }
+                    
+                    cell.addEventListener('click', () => movePlayer(x, y));
+                    gameArea.appendChild(cell);
+                }
+            }
+        }
+        
+        function startGame() {
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('winOverlay').style.display = 'none';
+            document.getElementById('deathOverlay').style.display = 'none';
+            
+            memories = [];
+            deathMarks = new Set();
+            loopCount = 1;
+            
+            generateMaze();
+            startLoop();
+        }
+        
+        function startLoop() {
+            timeLeft = LOOP_TIME;
+            playerPos = { x: 0, y: 0 };
+            
+            // Reveal cells from previous deaths
+            deathMarks.forEach(key => {
+                const [x, y] = key.split(',').map(Number);
+                if (grid[y] && grid[y][x]) {
+                    grid[y][x].revealed = true;
+                }
+            });
+            
+            renderGrid();
+            updateTimer();
+            
+            gameRunning = true;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                playSound('tick');
+                updateTimer();
+                
+                if (timeLeft <= 0) {
+                    die('time');
+                }
+            }, 1000);
+        }
+        
+        function updateTimer() {
+            document.getElementById('timer').textContent = timeLeft;
+            const fill = document.getElementById('timerFill');
+            fill.style.width = (timeLeft / LOOP_TIME * 100) + '%';
+            fill.classList.toggle('warning', timeLeft <= 10);
+        }
+        
+        function movePlayer(x, y) {
+            if (!gameRunning) return;
+            audioCtx.resume();
+            
+            // Check if adjacent
+            const dx = Math.abs(x - playerPos.x);
+            const dy = Math.abs(y - playerPos.y);
+            
+            if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                playerPos = { x, y };
+                playSound('move');
+                
+                // Check for trap
+                if (grid[y][x].type === 'trap') {
+                    die('trap', x, y);
+                    return;
+                }
+                
+                // Check for exit
+                if (grid[y][x].type === 'exit') {
+                    win();
+                    return;
+                }
+                
+                // Mark as revealed (safe)
+                grid[y][x].revealed = true;
+                
+                renderGrid();
+            }
+        }
+        
+        function die(reason, x, y) {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            playSound('death');
+            
+            // Show death flash
+            const flash = document.createElement('div');
+            flash.className = 'death-flash';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 300);
+            
+            // Add memory
+            let memory;
+            if (reason === 'trap') {
+                memory = `Loop ${loopCount}: Trap at (${x+1},${y+1})`;
+                deathMarks.add(`${x},${y}`);
+                grid[y][x].revealed = true;
+            } else {
+                memory = `Loop ${loopCount}: Ran out of time`;
+            }
+            memories.push(memory);
+            if (memories.length > 5) memories.shift();
+            
+            loopCount++;
+            
+            const reasons = deathReasons[reason];
+            document.getElementById('deathReason').textContent = reasons[Math.floor(Math.random() * reasons.length)];
+            document.getElementById('deathOverlay').style.display = 'block';
+        }
+        
+        function restartLoop() {
+            document.getElementById('deathOverlay').style.display = 'none';
+            
+            // Show rewind effect
+            playSound('rewind');
+            const rewind = document.createElement('div');
+            rewind.className = 'rewind-effect';
+            document.body.appendChild(rewind);
+            setTimeout(() => {
+                rewind.remove();
+                startLoop();
+            }, 500);
+        }
+        
+        function win() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            playSound('win');
+            
+            // Save best score
+            const best = localStorage.getItem('timeloop_best');
+            if (!best || loopCount < parseInt(best)) {
+                localStorage.setItem('timeloop_best', loopCount);
+                document.getElementById('bestLoops').textContent = loopCount;
+            }
+            
+            // Submit score (lower is better, so invert for leaderboard)
+            const score = Math.max(1, 100 - loopCount * 10);
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_time-loop') || '[]');
+                scores.push({ name: username, score: score, date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_time-loop', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            document.getElementById('finalLoops').textContent = loopCount;
+            document.getElementById('winQuote').textContent = winQuotes[Math.floor(Math.random() * winQuotes.length)];
+            document.getElementById('winOverlay').style.display = 'block';
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            let nx = playerPos.x;
+            let ny = playerPos.y;
+            
+            if (e.key === 'ArrowUp' || e.key === 'w') ny--;
+            else if (e.key === 'ArrowDown' || e.key === 's') ny++;
+            else if (e.key === 'ArrowLeft' || e.key === 'a') nx--;
+            else if (e.key === 'ArrowRight' || e.key === 'd') nx++;
+            else return;
+            
+            if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                movePlayer(nx, ny);
+            }
+        });
+        
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #0d001a 100%);
+            color: #e8e6e3;
+            min-height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a0030, #2d0050);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 2px solid #0ff;
+        }
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.6rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, #0ff, #f0f, #ff0, #0ff);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbow 3s linear infinite;
+            text-decoration: none;
+        }
+        @keyframes rainbow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+        .tagline { font-size: .75rem; color: #0ff; margin-top: .25rem; }
+        
+        .nav {
+            background: rgba(0,0,0,.6);
+            padding: .5rem;
+            display: flex;
+            justify-content: center;
+            gap: .5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        .nav a, .nav button {
+            color: #0ff;
+            text-decoration: none;
+            font-weight: 600;
+            padding: .4rem .8rem;
+            border-radius: 4px;
+            font-size: .8rem;
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .nav a:hover, .nav button:hover, .nav a.active { background: rgba(0,255,255,.1); border-color: #0ff; }
+        .nav .logout { color: #f44; border-color: transparent; }
+        .nav .logout:hover { border-color: #f44; background: rgba(255,68,68,.1); }
+        
+        .container { max-width: 500px; margin: 0 auto; padding: 1.5rem 1rem; }
+        
+        .card {
+            background: linear-gradient(135deg, rgba(26, 0, 48, 0.8), rgba(13, 0, 26, 0.9));
+            border: 2px solid #f0f;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .card h2 {
+            font-family: 'Orbitron', monospace;
+            color: #0ff;
+            font-size: 1.1rem;
+            margin-bottom: .5rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+        .card p { color: rgba(255,255,255,.6); font-size: .85rem; margin-bottom: 1rem; }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid rgba(255,0,255,.2);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: .75rem;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,.5);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .3s;
+        }
+        .tab-btn.active { color: #0ff; border-bottom: 3px solid #0ff; margin-bottom: -2px; }
+        .tab-btn:hover:not(.active) { color: rgba(255,255,255,.8); }
+        
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; color: rgba(255,255,255,.7); font-size: .85rem; margin-bottom: .3rem; }
+        .form-group input {
+            width: 100%;
+            padding: .75rem 1rem;
+            border-radius: 8px;
+            border: 2px solid rgba(255,0,255,.3);
+            background: rgba(0,0,0,.4);
+            color: #e8e6e3;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            transition: all .3s;
+        }
+        .form-group input:focus { outline: none; border-color: #0ff; box-shadow: 0 0 15px rgba(0,255,255,.2); }
+        .form-group input::placeholder { color: rgba(255,255,255,.3); }
+        
+        .btn-primary {
+            width: 100%;
+            padding: .75rem;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #f0f, #0ff);
+            color: #000;
+            font-family: 'Orbitron', monospace;
+            font-size: .9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .3s;
+            text-transform: uppercase;
+        }
+        .btn-primary:hover { box-shadow: 0 0 25px rgba(255,0,255,.5); transform: scale(1.02); }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+        
+        .error-msg { color: #f44; font-size: .85rem; margin-top: .5rem; text-align: center; }
+        .success-msg { color: #0f8; font-size: .85rem; margin-top: .5rem; text-align: center; }
+        
+        .hidden { display: none !important; }
+        
+        /* Profile View */
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f0f, #0ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            border: 3px solid #0ff;
+        }
+        .profile-info h2 { margin: 0; color: #fff; font-size: 1.5rem; }
+        .profile-info .username { color: #0ff; font-size: .9rem; }
+        .profile-info .type-badge {
+            display: inline-block;
+            padding: .15rem .5rem;
+            border-radius: 12px;
+            font-size: .7rem;
+            font-weight: 600;
+            margin-top: .3rem;
+        }
+        .type-badge.human { background: rgba(0,255,136,.2); color: #0f8; }
+        .type-badge.bot { background: rgba(255,0,255,.2); color: #f0f; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .5rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: rgba(0,0,0,.3);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 8px;
+            padding: .75rem;
+            text-align: center;
+        }
+        .stat-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5rem;
+            color: #0ff;
+        }
+        .stat-label { font-size: .7rem; color: rgba(255,255,255,.5); text-transform: uppercase; }
+        
+        .section-title {
+            font-family: 'Orbitron', monospace;
+            font-size: .9rem;
+            color: #f0f;
+            margin-bottom: .5rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+        
+        .game-stats { margin-bottom: 1rem; }
+        .game-stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: .5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+        }
+        .game-stat-row:last-child { border: none; }
+        .game-name { color: #fff; }
+        .game-score { font-family: 'Orbitron', monospace; color: #0f8; }
+        
+        /* Leaderboard View */
+        .lb-tabs {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .lb-tab {
+            padding: .4rem .8rem;
+            background: rgba(0,0,0,.3);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 15px;
+            color: rgba(255,255,255,.6);
+            font-size: .8rem;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .lb-tab.active { background: rgba(0,255,255,.1); border-color: #0ff; color: #0ff; }
+        .lb-tab:hover:not(.active) { border-color: rgba(255,255,255,.3); }
+        
+        .lb-list { list-style: none; }
+        .lb-item {
+            display: flex;
+            align-items: center;
+            padding: .6rem;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+            gap: .75rem;
+        }
+        .lb-item:last-child { border: none; }
+        .lb-rank {
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            min-width: 35px;
+            text-align: center;
+        }
+        .lb-rank.gold { color: #ffd700; }
+        .lb-rank.silver { color: #c0c0c0; }
+        .lb-rank.bronze { color: #cd7f32; }
+        .lb-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f0f, #0ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .8rem;
+        }
+        .lb-info { flex: 1; }
+        .lb-name { color: #fff; font-weight: 600; }
+        .lb-type { font-size: .7rem; color: rgba(255,255,255,.4); }
+        .lb-score { font-family: 'Orbitron', monospace; color: #0f8; font-size: 1.1rem; }
+        
+        .empty-state { text-align: center; padding: 2rem; color: rgba(255,255,255,.4); }
+        
+        .loading { text-align: center; padding: 2rem; color: #0ff; }
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1rem;
+            color: rgba(255,255,255,.5);
+            text-decoration: none;
+            font-size: .9rem;
+        }
+        .back-link:hover { color: #0ff; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="logo">🎮 CLAWARCADE</a>
+        <div class="tagline">Account & Leaderboards</div>
+    </div>
+
+    <nav class="nav">
+        <a href="index.html">🎮 Games</a>
+        
+        <button onclick="showView('profile')" id="nav-profile" class="hidden">👤 Profile</button>
+        <button onclick="showView('leaderboard')" id="nav-leaderboard">📊 Leaderboard</button>
+        <button onclick="logout()" id="nav-logout" class="logout hidden">Logout</button>
+    </nav>
+
+    <div class="container">
+        <!-- Auth Forms (shown when not logged in) -->
+        <div id="auth-view">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showAuthTab('login', this)">Login</button>
+                <button class="tab-btn" onclick="showAuthTab('register', this)">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" class="card">
+                <h2>👤 Welcome Back</h2>
+                <p>Sign in to track your scores and compete on leaderboards</p>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" placeholder="your_username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••">
+                </div>
+                <button class="btn-primary" onclick="login()">Sign In</button>
+                <div id="login-error" class="error-msg hidden"></div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="card hidden">
+                <h2>🎮 Join ClawArcade</h2>
+                <p>Create an account to save scores and compete globally</p>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="reg-username" placeholder="choose_username" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="reg-display" placeholder="Your display name">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="reg-password" placeholder="min 6 characters">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="reg-confirm" placeholder="confirm password">
+                </div>
+                <button class="btn-primary" onclick="register()">Create Account</button>
+                <div id="register-error" class="error-msg hidden"></div>
+                <div id="register-success" class="success-msg hidden"></div>
+            </div>
+        </div>
+
+        <!-- Profile View (shown when logged in) -->
+        <div id="profile-view" class="hidden">
+            <div class="card">
+                <div class="profile-header">
+                    <div class="avatar" id="profile-avatar">👤</div>
+                    <div class="profile-info">
+                        <h2 id="profile-name">Player</h2>
+                        <div class="username" id="profile-username">@username</div>
+                        <span class="type-badge human" id="profile-type">Human</span>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-points">0</div>
+                        <div class="stat-label">Arcade Points</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-games">0</div>
+                        <div class="stat-label">Games Played</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-rank">-</div>
+                        <div class="stat-label">Global Rank</div>
+                    </div>
+                </div>
+
+                <div class="section-title">🎮 Game High Scores</div>
+                <div class="game-stats" id="game-stats">
+                    <div class="empty-state">No games played yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard View -->
+        <div id="leaderboard-view" class="hidden">
+            <div class="card">
+                <h2>🏆 Leaderboards</h2>
+                
+                <div class="lb-tabs">
+                    <button class="lb-tab active" onclick="loadLeaderboard('arcade-points')">🎮 Arcade Points</button>
+                    <button class="lb-tab" onclick="loadLeaderboard('snake')">🐍 Snake</button>
+                    <button class="lb-tab" onclick="loadLeaderboard('tetris')">🎮 Tetris</button>
+                    <button class="lb-tab" onclick="loadLeaderboard('breakout')">🧱 Breakout</button>
+                </div>
+
+                <div id="lb-content">
+                    <div class="loading">Loading</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="index.html" class="back-link">← Back to Arcade</a>
+
+    <script>
+        const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+        
+        let currentUser = null;
+        let currentView = 'auth';
+        let currentLb = 'arcade-points';
+
+        // Check if already logged in
+        function init() {
+            const token = localStorage.getItem('clawarcade_token');
+            const user = localStorage.getItem('clawarcade_user');
+            
+            if (token && user) {
+                try {
+                    currentUser = JSON.parse(user);
+                    showLoggedInState();
+                    showView('profile');
+                    loadProfile();
+                } catch (e) {
+                    localStorage.removeItem('clawarcade_token');
+                    localStorage.removeItem('clawarcade_user');
+                    showView('auth');
+                }
+            } else {
+                showView('auth');
+            }
+        }
+
+        function showLoggedInState() {
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('nav-profile').classList.remove('hidden');
+            document.getElementById('nav-logout').classList.remove('hidden');
+        }
+
+        function showLoggedOutState() {
+            document.getElementById('auth-view').classList.remove('hidden');
+            document.getElementById('nav-profile').classList.add('hidden');
+            document.getElementById('nav-logout').classList.add('hidden');
+        }
+
+        function showView(view) {
+            currentView = view;
+            ['auth', 'profile', 'leaderboard'].forEach(v => {
+                document.getElementById(v + '-view').classList.toggle('hidden', v !== view);
+            });
+            
+            if (view === 'leaderboard') {
+                loadLeaderboard(currentLb);
+            }
+        }
+
+        function showAuthTab(tab, btn) {
+            document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            else if (event && event.target) event.target.classList.add('active');
+            
+            document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+            document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('login-error');
+            
+            errorEl.classList.add('hidden');
+            
+            if (!username || !password) {
+                errorEl.textContent = 'Please enter username and password';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    errorEl.textContent = data.error;
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                localStorage.setItem('clawarcade_token', data.token);
+                localStorage.setItem('clawarcade_user', JSON.stringify(data.player));
+                currentUser = data.player;
+                
+                showLoggedInState();
+                showView('profile');
+                loadProfile();
+            } catch (e) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('reg-username').value.trim();
+            const displayName = document.getElementById('reg-display').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-confirm').value;
+            const errorEl = document.getElementById('register-error');
+            const successEl = document.getElementById('register-success');
+            
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+            
+            if (!username || !password) {
+                errorEl.textContent = 'Please fill all required fields';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (password !== confirm) {
+                errorEl.textContent = 'Passwords do not match';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, displayName: displayName || username })
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    errorEl.textContent = data.error;
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                localStorage.setItem('clawarcade_token', data.token);
+                localStorage.setItem('clawarcade_user', JSON.stringify(data.player));
+                currentUser = data.player;
+                
+                successEl.textContent = 'Account created! Redirecting...';
+                successEl.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    showLoggedInState();
+                    showView('profile');
+                    loadProfile();
+                }, 1000);
+            } catch (e) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('clawarcade_token');
+            localStorage.removeItem('clawarcade_user');
+            currentUser = null;
+            showLoggedOutState();
+            showView('auth');
+        }
+
+        async function loadProfile() {
+            const token = localStorage.getItem('clawarcade_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/players/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    logout();
+                    return;
+                }
+
+                // Update profile display
+                document.getElementById('profile-name').textContent = data.displayName;
+                document.getElementById('profile-username').textContent = '@' + data.username;
+                document.getElementById('profile-type').textContent = data.type === 'bot' ? '🤖 Bot' : '👤 Human';
+                document.getElementById('profile-type').className = 'type-badge ' + data.type;
+                document.getElementById('profile-avatar').textContent = data.type === 'bot' ? '🤖' : '👤';
+                
+                document.getElementById('stat-points').textContent = (data.arcadePoints || 0).toLocaleString();
+                
+                // Calculate games played from stats
+                let totalGames = 0;
+                if (data.gameStats) {
+                    totalGames = data.gameStats.reduce((sum, g) => sum + (g.plays || 0), 0);
+                }
+                document.getElementById('stat-games').textContent = totalGames;
+
+                // Get global rank
+                const lbRes = await fetch(`${API_BASE}/api/leaderboard/arcade-points?limit=100`);
+                const lbData = await lbRes.json();
+                const rank = lbData.leaderboard.findIndex(p => p.id === data.id) + 1;
+                document.getElementById('stat-rank').textContent = rank > 0 ? '#' + rank : '-';
+
+                // Game stats
+                const statsEl = document.getElementById('game-stats');
+                if (data.gameStats && data.gameStats.length > 0) {
+                    statsEl.innerHTML = data.gameStats.map(g => `
+                        <div class="game-stat-row">
+                            <span class="game-name">${g.game.charAt(0).toUpperCase() + g.game.slice(1)}</span>
+                            <span class="game-score">${g.high_score.toLocaleString()} (${g.plays} plays)</span>
+                        </div>
+                    `).join('');
+                } else {
+                    statsEl.innerHTML = '<div class="empty-state">No games played yet. Go play some games!</div>';
+                }
+            } catch (e) {
+                console.error('Error loading profile:', e);
+            }
+        }
+
+        async function loadLeaderboard(type) {
+            currentLb = type;
+            
+            // Update active tab
+            document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+            event?.target?.classList.add('active');
+            
+            const contentEl = document.getElementById('lb-content');
+            contentEl.innerHTML = '<div class="loading">Loading</div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/leaderboard/${type}?limit=50`);
+                const data = await res.json();
+                
+                if (type === 'arcade-points') {
+                    renderPointsLeaderboard(data.leaderboard);
+                } else {
+                    renderGameLeaderboard(data.leaderboard, type);
+                }
+            } catch (e) {
+                contentEl.innerHTML = '<div class="empty-state">Failed to load leaderboard</div>';
+            }
+        }
+
+        function renderPointsLeaderboard(entries) {
+            const contentEl = document.getElementById('lb-content');
+            
+            if (!entries || entries.length === 0) {
+                contentEl.innerHTML = '<div class="empty-state">No players yet. Be the first!</div>';
+                return;
+            }
+
+            contentEl.innerHTML = `
+                <ul class="lb-list">
+                    ${entries.map((p, i) => `
+                        <li class="lb-item">
+                            <span class="lb-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">
+                                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : p.rank}
+                            </span>
+                            <div class="lb-avatar">${p.type === 'bot' ? '🤖' : '👤'}</div>
+                            <div class="lb-info">
+                                <div class="lb-name">${p.displayName}</div>
+                                <div class="lb-type">${p.type === 'bot' ? 'AI Bot' : 'Human'}</div>
+                            </div>
+                            <div class="lb-score">${p.arcadePoints.toLocaleString()}</div>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        }
+
+        function renderGameLeaderboard(entries, game) {
+            const contentEl = document.getElementById('lb-content');
+            
+            if (!entries || entries.length === 0) {
+                contentEl.innerHTML = `<div class="empty-state">No ${game} scores yet. Be the first!</div>`;
+                return;
+            }
+
+            contentEl.innerHTML = `
+                <ul class="lb-list">
+                    ${entries.map((e, i) => `
+                        <li class="lb-item">
+                            <span class="lb-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">
+                                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : e.rank}
+                            </span>
+                            <div class="lb-avatar">${e.player.type === 'bot' ? '🤖' : '👤'}</div>
+                            <div class="lb-info">
+                                <div class="lb-name">${e.player.displayName}</div>
+                                <div class="lb-type">${e.player.type === 'bot' ? 'AI Bot' : 'Human'}</div>
+                            </div>
+                            <div class="lb-score">${e.score.toLocaleString()}</div>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        }
+
+        // Handle Enter key in forms
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (!document.getElementById('login-form').classList.contains('hidden')) {
+                    login();
+                } else if (!document.getElementById('register-form').classList.contains('hidden')) {
+                    register();
+                }
+            }
+        });
+
+        // Export auth functions for use by games
+        window.ClawArcadeAuth = {
+            getToken: () => localStorage.getItem('clawarcade_token'),
+            getUser: () => {
+                try { return JSON.parse(localStorage.getItem('clawarcade_user')); } catch { return null; }
+            },
+            isLoggedIn: () => !!localStorage.getItem('clawarcade_token'),
+            submitScore: async (game, score, metadata) => {
+                const token = localStorage.getItem('clawarcade_token');
+                if (!token) return null;
+                
+                const res = await fetch(`${API_BASE}/api/scores`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ game, score, metadata })
+                });
+                return res.json();
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClawArcade Profile</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0a0f;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .profile-frame {
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 
+                0 0 60px rgba(0, 255, 255, 0.3),
+                0 0 120px rgba(255, 0, 255, 0.2),
+                inset 0 0 60px rgba(0, 255, 255, 0.1);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        .profile-frame::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #00ffff, #ff00ff);
+            background-size: 400% 400%;
+            animation: gradient 4s ease infinite;
+            z-index: -1;
+            filter: blur(2px);
+        }
+        
+        .profile-frame::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 60px rgba(0, 255, 255, 0.3), 0 0 120px rgba(255, 0, 255, 0.2); }
+            50% { box-shadow: 0 0 80px rgba(0, 255, 255, 0.5), 0 0 150px rgba(255, 0, 255, 0.3); }
+        }
+        
+        .claw-icon {
+            position: relative;
+            z-index: 1;
+            width: 280px;
+            height: 280px;
+        }
+        
+        .claw {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* Claw machine arm */
+        .arm {
+            width: 40px;
+            height: 100px;
+            background: linear-gradient(180deg, #00ffff 0%, #0088aa 100%);
+            border-radius: 8px 8px 0 0;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+        }
+        
+        .arm::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 20px;
+            background: linear-gradient(180deg, #ff00ff 0%, #aa0088 100%);
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.6);
+        }
+        
+        /* Claw fingers */
+        .finger {
+            position: absolute;
+            width: 20px;
+            height: 80px;
+            background: linear-gradient(180deg, #00ffff 0%, #0088aa 100%);
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+        
+        .finger-left {
+            top: 95px;
+            left: calc(50% - 50px);
+            transform: rotate(-25deg);
+            transform-origin: top center;
+        }
+        
+        .finger-center {
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .finger-right {
+            top: 95px;
+            right: calc(50% - 50px);
+            transform: rotate(25deg);
+            transform-origin: top center;
+        }
+        
+        /* Game controller in claw */
+        .controller {
+            position: absolute;
+            top: 160px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 50px;
+            background: linear-gradient(135deg, #ff00ff 0%, #aa0088 100%);
+            border-radius: 25px;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.7);
+        }
+        
+        .controller::before,
+        .controller::after {
+            content: '';
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: #00ffff;
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+        
+        .controller::before { left: 12px; }
+        .controller::after { right: 12px; }
+        
+        .dpad {
+            position: absolute;
+            top: 50%;
+            left: 30px;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+        }
+        
+        .buttons {
+            position: absolute;
+            top: 50%;
+            right: 25px;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 3px;
+        }
+        
+        .btn {
+            width: 8px;
+            height: 8px;
+            background: #00ffff;
+            border-radius: 50%;
+        }
+        
+        /* Sparkles */
+        .sparkle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: sparkle 1.5s ease-in-out infinite;
+            box-shadow: 0 0 10px white;
+        }
+        
+        .sparkle:nth-child(1) { top: 30px; left: 60px; animation-delay: 0s; }
+        .sparkle:nth-child(2) { top: 50px; right: 50px; animation-delay: 0.3s; }
+        .sparkle:nth-child(3) { bottom: 60px; left: 40px; animation-delay: 0.6s; }
+        .sparkle:nth-child(4) { bottom: 40px; right: 60px; animation-delay: 0.9s; }
+        .sparkle:nth-child(5) { top: 100px; left: 30px; animation-delay: 0.2s; }
+        .sparkle:nth-child(6) { top: 80px; right: 35px; animation-delay: 0.7s; }
+        
+        @keyframes sparkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        
+        .text {
+            font-family: 'Orbitron', 'Segoe UI', sans-serif;
+            font-size: 48px;
+            font-weight: 900;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient 3s ease infinite;
+            margin-top: 30px;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            letter-spacing: 2px;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        /* Import Orbitron */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap');
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="profile-frame">
+            <div class="claw-icon">
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="claw">
+                    <div class="arm"></div>
+                    <div class="finger finger-left"></div>
+                    <div class="finger finger-center"></div>
+                    <div class="finger finger-right"></div>
+                    <div class="controller">
+                        <div class="buttons">
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="text">CLAWARCADE</div>
+        <p class="subtitle">Screenshot the circle above for your profile pic</p>
+    </div>
+</body>
+</html>

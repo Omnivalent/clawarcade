@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🪳 Cockroach Kitchen - ClawArcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Orbitron',monospace;background:#1a1a1a;color:#fff;min-height:100vh;min-height:100dvh;overflow:hidden;touch-action:none}
+        .back-btn{position:fixed;top:1rem;left:1rem;background:rgba(255,102,0,.2);border:2px solid #f60;color:#f60;padding:.5rem 1rem;border-radius:5px;font-family:inherit;text-decoration:none;z-index:100}
+        .mute-btn{position:fixed;top:1rem;right:1rem;background:rgba(255,0,255,.2);border:2px solid #f0f;color:#f0f;padding:.5rem 1rem;border-radius:5px;font-family:inherit;z-index:100;cursor:pointer}
+        .hud{position:fixed;top:1rem;left:50%;transform:translateX(-50%);display:flex;gap:1.5rem;z-index:100;background:rgba(0,0,0,.8);padding:.4rem 1.2rem;border-radius:20px;border:2px solid #f60}
+        .hud-item{text-align:center}
+        .hud-label{font-size:.55rem;color:#888}
+        .hud-value{font-size:1rem;color:#f60}
+        .level-display{position:fixed;top:4rem;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:.3rem .8rem;border-radius:10px;font-size:.7rem;color:#f0f;z-index:100}
+        #game{position:fixed;top:0;left:0;right:0;bottom:0;cursor:none}
+        .over{position:fixed;inset:0;background:rgba(0,0,0,.95);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+        .over.show{display:flex}
+        .over h1{font-size:2rem;color:#f00;margin-bottom:1rem}
+        .score{font-size:1.5rem;color:#0ff;margin:1rem}
+        .restart{background:linear-gradient(135deg,#f60,#f0f);border:none;color:#000;padding:1rem 2rem;font-size:1.1rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1rem}
+        .tip{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);color:#666;font-size:.75rem;z-index:100}
+        .start-screen{position:fixed;inset:0;background:rgba(0,0,0,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+        .start-screen h1{font-size:2rem;color:#f60;margin-bottom:1rem}
+        .start-btn{background:linear-gradient(135deg,#f60,#0a0);border:2px solid #f60;color:#fff;padding:1.2rem 2.5rem;font-size:1.3rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1.5rem}
+        .tutorial{font-size:.6rem;color:#f60;margin-top:15px;padding:10px;background:rgba(255,102,0,.1);border-radius:8px;max-width:300px;text-align:center}
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← BACK</a>
+    <button class="mute-btn" id="muteBtn">🔊</button>
+    
+    <div class="hud">
+        <div class="hud-item"><div class="hud-label">SCORE</div><div class="hud-value" id="score">0</div></div>
+        <div class="hud-item"><div class="hud-label">TIME</div><div class="hud-value" id="time">0s</div></div>
+    </div>
+    <div class="level-display" id="levelDisplay">LEVEL 1</div>
+    
+    <canvas id="game"></canvas>
+    <div class="tip">Tap to scurry! Eat 🍞 Avoid 👟</div>
+    
+    <div id="start" class="start-screen">
+        <h1>🪳 COCKROACH KITCHEN 🪳</h1>
+        <p style="color:#888;margin:1rem;text-align:center">You're a roach.<br>Eat crumbs. Survive.</p>
+        <p style="color:#666;font-size:.85rem">Tap/click to scurry away from the shoe!</p>
+        <div class="tutorial" id="tutorial">
+            💡 TIP: Shoes get faster each level!<br>
+            Collect crumbs to score points.
+        </div>
+        <button class="start-btn" id="startBtn">SCURRY!</button>
+    </div>
+    
+    <div id="over" class="over">
+        <h1>💀 SQUASHED! 💀</h1>
+        <div class="score">Score: <span id="finalScore">0</span></div>
+        <div>Survived: <span id="survTime">0</span>s</div>
+        <div style="color:#f0f;margin-top:.5rem">Level: <span id="finalLevel">1</span></div>
+        <button class="restart" id="restartBtn">🪳 TRY AGAIN</button>
+    </div>
+
+    <script>
+    (function(){
+        const canvas=document.getElementById('game');
+        const ctx=canvas.getContext('2d');
+        const $=id=>document.getElementById(id);
+        
+        let roach={x:0,y:0,angle:0,speed:0,tx:0,ty:0};
+        let shoe={x:-100,y:-100,tx:0,ty:0,size:70,attacking:false,cd:60,speed:22};
+        let crumbs=[],score=0,gameTime=0,loop,muted=false,audioCtx,running=false,level=1;
+        
+        function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+        window.onresize=resize;resize();
+        
+        function initAudio(){
+            if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+            if(audioCtx.state==='suspended')audioCtx.resume();
+        }
+        function sound(f,d,t='square'){
+            if(muted||!audioCtx)return;
+            try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.08,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}
+        }
+        
+        function spawnCrumb(){
+            crumbs.push({x:50+Math.random()*(canvas.width-100),y:80+Math.random()*(canvas.height-160),size:12+Math.random()*8});
+        }
+        
+        function startGame(){
+            initAudio();
+            localStorage.setItem('clawarcade_cockroach_played','true');
+            
+            $('start').style.display='none';
+            $('over').classList.remove('show');
+            
+            roach={x:canvas.width/2,y:canvas.height/2,angle:0,speed:0,tx:canvas.width/2,ty:canvas.height/2};
+            shoe={x:-100,y:-100,tx:0,ty:0,size:70,attacking:false,cd:60,speed:22};
+            crumbs=[];score=0;gameTime=0;running=true;level=1;
+            
+            for(let i=0;i<5;i++)spawnCrumb();
+            sound(800,.1);
+            if(loop)cancelAnimationFrame(loop);
+            loop=requestAnimationFrame(tick);
+        }
+        
+        function tick(){
+            if(!running)return;
+            gameTime+=1/60;
+            
+            // Progressive difficulty
+            const newLevel=Math.floor(gameTime/15)+1;
+            if(newLevel>level){
+                level=newLevel;
+                $('levelDisplay').textContent='LEVEL '+level;
+                shoe.speed=22+level*3;
+                sound(600,.1);sound(800,.1);
+            }
+            
+            // Move roach
+            const dx=roach.tx-roach.x,dy=roach.ty-roach.y;
+            const dist=Math.sqrt(dx*dx+dy*dy);
+            if(dist>5){
+                roach.angle=Math.atan2(dy,dx);
+                roach.x+=Math.cos(roach.angle)*roach.speed;
+                roach.y+=Math.sin(roach.angle)*roach.speed;
+                roach.speed*=.95;
+            }
+            roach.x=Math.max(20,Math.min(canvas.width-20,roach.x));
+            roach.y=Math.max(60,Math.min(canvas.height-20,roach.y));
+            
+            // Shoe AI - gets smarter with level
+            shoe.cd--;
+            if(shoe.cd<=0&&!shoe.attacking){
+                shoe.attacking=true;
+                // Better prediction at higher levels
+                const predict=level*2;
+                shoe.tx=roach.x+Math.cos(roach.angle)*predict+(Math.random()-.5)*(60-level*5);
+                shoe.ty=roach.y+Math.sin(roach.angle)*predict+(Math.random()-.5)*(60-level*5);
+                shoe.x=shoe.tx;shoe.y=-80;
+                sound(150,.3,'sawtooth');
+            }
+            if(shoe.attacking){
+                shoe.y+=shoe.speed;
+                if(shoe.y>shoe.ty+40){
+                    const hitDist=Math.sqrt(Math.pow(shoe.tx-roach.x,2)+Math.pow(shoe.ty-roach.y,2));
+                    if(hitDist<shoe.size){running=false;end();return}
+                    sound(100,.2,'sawtooth');
+                    shoe.attacking=false;
+                    shoe.cd=Math.max(15,50-level*5-gameTime*0.5);
+                }
+            }
+            
+            // Crumbs
+            crumbs=crumbs.filter(c=>{
+                const d=Math.sqrt(Math.pow(c.x-roach.x,2)+Math.pow(c.y-roach.y,2));
+                if(d<22){score+=10+level*5;sound(600,.1);setTimeout(spawnCrumb,400);return false}
+                return true;
+            });
+            
+            $('score').textContent=score;
+            $('time').textContent=Math.floor(gameTime)+'s';
+            $('levelDisplay').textContent='LEVEL '+level;
+            
+            draw();
+            loop=requestAnimationFrame(tick);
+        }
+        
+        function draw(){
+            // Floor
+            ctx.fillStyle='#2a2a2a';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.strokeStyle='#333';ctx.lineWidth=1;
+            for(let x=0;x<canvas.width;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke()}
+            for(let y=0;y<canvas.height;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke()}
+            
+            // Crumbs
+            ctx.font='20px Arial';
+            crumbs.forEach(c=>ctx.fillText('🍞',c.x-10,c.y+7));
+            
+            // Shoe shadow - grows as shoe approaches
+            if(shoe.attacking&&shoe.y>0){
+                const progress=Math.min(1,shoe.y/(shoe.ty+40));
+                const ss=shoe.size*(0.5+progress*0.8);
+                ctx.fillStyle=`rgba(0,0,0,${0.1+progress*0.3})`;
+                ctx.beginPath();ctx.ellipse(shoe.tx,shoe.ty,ss/2,ss/4,0,0,Math.PI*2);ctx.fill();
+            }
+            
+            // Shoe
+            if(shoe.attacking){
+                ctx.font=shoe.size+'px Arial';
+                ctx.fillText('👟',shoe.x-shoe.size/2,shoe.y+shoe.size/3);
+            }
+            
+            // Roach
+            ctx.save();
+            ctx.translate(roach.x,roach.y);
+            ctx.rotate(roach.angle+Math.PI/2);
+            ctx.font='36px Arial';
+            ctx.fillText('🪳',-18,13);
+            ctx.restore();
+            
+            // Target indicator
+            if(roach.speed>1){
+                ctx.strokeStyle='rgba(255,102,0,.3)';ctx.lineWidth=2;
+                ctx.beginPath();ctx.arc(roach.tx,roach.ty,8,0,Math.PI*2);ctx.stroke();
+            }
+        }
+        
+        function end(){
+            $('finalScore').textContent=score;
+            $('survTime').textContent=Math.floor(gameTime);
+            $('finalLevel').textContent=level;
+            $('over').classList.add('show');
+            sound(100,.5,'sawtooth');
+            
+            try{
+                const username=localStorage.getItem('clawmd_username')||'Anonymous';
+                const scores=JSON.parse(localStorage.getItem('clawarcade_lb_cockroach-kitchen')||'[]');
+                scores.push({name:username,score,time:Math.floor(gameTime),level,date:Date.now()});
+                scores.sort((a,b)=>b.score-a.score);
+                localStorage.setItem('clawarcade_lb_cockroach-kitchen',JSON.stringify(scores.slice(0,10)));
+            }catch(e){}
+        }
+        
+        function move(x,y){
+            if(!running)return;
+            roach.tx=x;roach.ty=y;roach.speed=15;
+            sound(300,.05);
+        }
+        
+        // Hide tutorial after first play
+        if(localStorage.getItem('clawarcade_cockroach_played')){
+            $('tutorial').style.display='none';
+        }
+        
+        canvas.onclick=e=>move(e.clientX,e.clientY);
+        canvas.ontouchstart=e=>{e.preventDefault();move(e.touches[0].clientX,e.touches[0].clientY)};
+        canvas.ontouchmove=e=>{e.preventDefault();move(e.touches[0].clientX,e.touches[0].clientY)};
+        $('startBtn').onclick=$('startBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+        $('restartBtn').onclick=$('restartBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+        $('muteBtn').onclick=function(){muted=!muted;this.textContent=muted?'🔇':'🔊'};
+    })();
+    </script>
+</body>
+</html>

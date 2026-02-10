@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mindful Match</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;overflow:hidden;touch-action:manipulation;user-select:none}
+h1{font-size:1.3rem;color:#00d4aa;margin-bottom:2px}
+#hud{font-size:.9rem;color:#8888aa;margin:4px 0}#hud span{color:#00d4aa}
+#grid{display:grid;gap:6px;margin:8px auto}
+.tile{border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.6rem;transition:all .3s;background:#16213e;border:2px solid #2a2a4e;position:relative}
+.tile:active{transform:scale(.95)}
+.tile.flipped{background:#0d2137;border-color:#00d4aa}
+.tile.matched{background:#0a2a20;border-color:#00d4aa44;opacity:.6}
+.tile .face{opacity:0;transition:opacity .2s}
+.tile.flipped .face,.tile.matched .face{opacity:1}
+.tile .back{position:absolute;font-size:1rem;color:#334;transition:opacity .2s}
+.tile.flipped .back,.tile.matched .back{opacity:0}
+#msg{min-height:1.6em;font-size:1rem;color:#00d4aa;margin-top:6px;text-align:center}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;padding:12px 24px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;min-height:44px;margin-top:8px}
+.btn:active{transform:scale(.95)}
+#diff{display:flex;gap:8px;margin:6px 0}
+.diff{background:#16213e;border:2px solid #334;color:#aaa;padding:6px 14px;border-radius:8px;font-size:.85rem;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.diff.active{border-color:#00d4aa;color:#00d4aa}
+</style>
+</head>
+<body>
+<h1>🧘 Mindful Match</h1>
+<div id="hud">Moves: <span id="moves">0</span> | Pairs: <span id="pairs">0</span>/<span id="total">0</span> | Time: <span id="time">0:00</span></div>
+<div id="diff">
+  <div class="diff active" data-s="4" onclick="setSize(4,this)">4×3</div>
+  <div class="diff" data-s="5" onclick="setSize(5,this)">5×4</div>
+  <div class="diff" data-s="6" onclick="setSize(6,this)">6×5</div>
+</div>
+<div id="grid"></div>
+<div id="msg"></div>
+<script>
+const ZEN_SYMBOLS=['🌸','🍃','🌊','🧘','🕊️','🪷','☘️','🌙','⭐','🔔','🪨','🌺','🍂','🌿','💎'];
+let cols=4,rows=3,cards=[],flipped=[],matched=new Set(),moves=0,pairs=0,totalPairs,timer,seconds=0,locked=false;
+
+function setSize(c,el){
+  cols=c;rows=c===4?3:c===5?4:5;
+  document.querySelectorAll('.diff').forEach(d=>d.classList.remove('active'));el.classList.add('active');
+  startGame();
+}
+function startGame(){
+  clearInterval(timer);seconds=0;moves=0;pairs=0;matched.clear();flipped=[];locked=false;
+  totalPairs=Math.floor(cols*rows/2);
+  document.getElementById('moves').textContent=0;
+  document.getElementById('pairs').textContent=0;
+  document.getElementById('total').textContent=totalPairs;
+  document.getElementById('time').textContent='0:00';
+  document.getElementById('msg').textContent='';
+  
+  // Build card array
+  const symbols=ZEN_SYMBOLS.slice(0,totalPairs);
+  cards=[...symbols,...symbols];
+  if(cols*rows%2===1)cards.push('🧿'); // odd grid filler - auto-matched
+  cards.sort(()=>Math.random()-.5);
+  
+  const grid=document.getElementById('grid');
+  const cellSize=Math.min(Math.floor((Math.min(window.innerWidth-20,360))/cols)-6,Math.floor((window.innerHeight-200)/rows)-6);
+  grid.style.gridTemplateColumns=`repeat(${cols},${cellSize}px)`;
+  grid.innerHTML='';
+  
+  cards.forEach((sym,i)=>{
+    const d=document.createElement('div');d.className='tile';
+    d.style.width=cellSize+'px';d.style.height=cellSize+'px';
+    d.innerHTML=`<span class="back">✦</span><span class="face">${sym}</span>`;
+    d.onclick=()=>flipCard(i,d);
+    grid.appendChild(d);
+    // Handle odd filler
+    if(cols*rows%2===1&&i===cards.length-1){d.classList.add('matched');matched.add(i)}
+  });
+  
+  timer=setInterval(()=>{seconds++;const m=Math.floor(seconds/60);const s=seconds%60;document.getElementById('time').textContent=`${m}:${s<10?'0':''}${s}`},1000);
+}
+function flipCard(i,el){
+  if(locked||flipped.includes(i)||matched.has(i))return;
+  el.classList.add('flipped');flipped.push(i);
+  
+  if(flipped.length===2){
+    moves++;document.getElementById('moves').textContent=moves;locked=true;
+    const[a,b]=flipped;
+    if(cards[a]===cards[b]){
+      matched.add(a);matched.add(b);pairs++;
+      document.getElementById('pairs').textContent=pairs;
+      const tiles=document.querySelectorAll('.tile');
+      setTimeout(()=>{tiles[a].classList.add('matched');tiles[b].classList.add('matched')},300);
+      flipped=[];locked=false;
+      if(pairs===totalPairs){
+        clearInterval(timer);
+        const m=Math.floor(seconds/60);const s=seconds%60;
+        document.getElementById('msg').textContent=`🎉 Complete in ${moves} moves (${m}:${s<10?'0':''}${s})!`;
+      }
+    }else{
+      setTimeout(()=>{
+        document.querySelectorAll('.tile').forEach((t,idx)=>{if(flipped.includes(idx))t.classList.remove('flipped')});
+        flipped=[];locked=false;
+      },700);
+    }
+  }
+}
+startGame();
+</script>
+</body>
+</html>

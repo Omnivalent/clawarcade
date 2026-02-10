@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Color Harmony</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;height:100dvh;overflow:hidden;touch-action:manipulation;user-select:none;padding:10px}
+h1{font-size:1.3rem;color:#00d4aa;margin:4px 0}
+#hud{font-size:.9rem;color:#8888aa;margin:4px 0}
+#hud span{color:#00d4aa}
+#task{font-size:.95rem;color:#ccc;margin:6px 0;text-align:center}
+#palette{display:flex;gap:8px;justify-content:center;margin:10px 0;min-height:60px;align-items:center;background:#16213e;border-radius:12px;padding:8px 16px;width:90%;max-width:360px}
+.slot{width:50px;height:50px;border-radius:10px;border:2px dashed #334;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#556}
+.slot.filled{border:none}
+#colors{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0;max-width:360px}
+.color-opt{width:52px;height:52px;border-radius:10px;cursor:pointer;transition:transform .15s,box-shadow .15s;min-width:44px;min-height:44px}
+.color-opt:active{transform:scale(.9)}
+.color-opt.used{opacity:.3;pointer-events:none}
+#result{min-height:2em;text-align:center;margin:6px 0;font-size:1rem}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;padding:12px 24px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;min-height:44px;margin:4px}
+.btn:active{transform:scale(.95)}
+.btn-row{display:flex;gap:8px}
+.btn.secondary{background:#16213e;color:#00d4aa;border:2px solid #00d4aa}
+#score-display{font-size:1rem;color:#00d4aa;margin:4px 0}
+</style>
+</head>
+<body>
+<h1>Color Harmony</h1>
+<div id="hud">Level: <span id="lvl">1</span> | Score: <span id="score">0</span></div>
+<div id="task"></div>
+<div id="palette"></div>
+<div id="colors"></div>
+<div id="result"></div>
+<div class="btn-row">
+  <button class="btn secondary" onclick="undoLast()">Undo</button>
+  <button class="btn" onclick="checkAnswer()">Submit</button>
+</div>
+<script>
+const challenges=[
+  {type:'warm',desc:'Pick 3 warm colors (reds, oranges, yellows)',count:3,
+   correct:['#e74c3c','#e67e22','#f1c40f','#ff6b6b','#ffa07a'],
+   wrong:['#3498db','#2ecc71','#9b59b6','#1abc9c','#00d4aa']},
+  {type:'cool',desc:'Pick 3 cool colors (blues, greens, purples)',count:3,
+   correct:['#3498db','#2ecc71','#9b59b6','#1abc9c','#00d4aa'],
+   wrong:['#e74c3c','#e67e22','#f1c40f','#ff6b6b','#ffa07a']},
+  {type:'mono',desc:'Pick 4 shades of blue (light to dark)',count:4,
+   correct:['#e8f4fd','#7ec8e3','#3498db','#1a5276'],
+   wrong:['#e74c3c','#2ecc71','#f1c40f','#9b59b6']},
+  {type:'complement',desc:'Pick 2 complementary pairs',count:4,
+   correct:['#e74c3c','#2ecc71','#3498db','#e67e22'],
+   wrong:['#8888aa','#555577','#aaaacc','#666688']},
+  {type:'earth',desc:'Pick 4 earth tones',count:4,
+   correct:['#8B7355','#D2B48C','#556B2F','#8B4513','#CD853F'],
+   wrong:['#ff00ff','#00ffff','#ff0066','#6600ff']},
+  {type:'pastel',desc:'Pick 4 pastel colors',count:4,
+   correct:['#FFB3BA','#BAFFC9','#BAE1FF','#FFFFBA','#E8BAFF'],
+   wrong:['#e74c3c','#1a1a2e','#000000','#8B0000']},
+  {type:'sunset',desc:'Arrange 5 sunset colors (sky to horizon)',count:5,
+   correct:['#1B1464','#4834D4','#E74C3C','#F39C12','#F1C40F'],
+   wrong:['#2ecc71','#00d4aa','#1abc9c']},
+  {type:'rainbow',desc:'Pick 5 rainbow colors in order',count:5,
+   correct:['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'],
+   wrong:['#555','#888','#aaa']},
+];
+let level=0,score=0,picks=[],currentChallenge,allColors=[];
+
+function loadLevel(){
+  currentChallenge=challenges[level%challenges.length];
+  picks=[];
+  document.getElementById('task').textContent=currentChallenge.desc;
+  document.getElementById('lvl').textContent=level+1;
+  document.getElementById('result').textContent='';
+  // Build palette slots
+  const pal=document.getElementById('palette');
+  pal.innerHTML='';
+  for(let i=0;i<currentChallenge.count;i++){const s=document.createElement('div');s.className='slot';s.textContent=i+1;pal.appendChild(s)}
+  // Shuffle colors
+  const corr=currentChallenge.correct.slice();
+  const wr=currentChallenge.wrong.slice();
+  allColors=[...corr,...wr].sort(()=>Math.random()-.5);
+  renderColors();
+}
+function renderColors(){
+  const cont=document.getElementById('colors');cont.innerHTML='';
+  allColors.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='color-opt';
+    if(picks.includes(c))d.classList.add('used');
+    d.style.background=c;d.style.boxShadow=`0 2px 12px ${c}44`;
+    d.onclick=()=>pickColor(c);cont.appendChild(d);
+  });
+}
+function pickColor(c){
+  if(picks.includes(c)||picks.length>=currentChallenge.count)return;
+  picks.push(c);updatePalette();renderColors();
+}
+function undoLast(){if(picks.length===0)return;picks.pop();updatePalette();renderColors()}
+function updatePalette(){
+  const slots=document.querySelectorAll('.slot');
+  slots.forEach((s,i)=>{
+    if(picks[i]){s.style.background=picks[i];s.classList.add('filled');s.textContent=''}
+    else{s.style.background='';s.classList.remove('filled');s.textContent=i+1}
+  });
+}
+function checkAnswer(){
+  if(picks.length<currentChallenge.count){document.getElementById('result').textContent='Pick all colors first!';return}
+  const correct=picks.filter(c=>currentChallenge.correct.includes(c)).length;
+  const pct=Math.round(correct/currentChallenge.count*100);
+  const pts=pct>=80?correct*15:correct*5;
+  score+=pts;
+  document.getElementById('score').textContent=score;
+  if(pct>=80){document.getElementById('result').innerHTML=`🎨 Great harmony! +${pts} pts`;level++;setTimeout(loadLevel,1200)}
+  else{document.getElementById('result').innerHTML=`${correct}/${currentChallenge.count} correct. Try again!`;picks=[];updatePalette();renderColors()}
+}
+loadLevel();
+</script>
+</body>
+</html>

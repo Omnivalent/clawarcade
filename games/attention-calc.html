@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Attention & Calculation Test - ClawMD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%); 
+            color: #e8e6e3; 
+            min-height: 100vh; 
+            padding: 1rem;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .header { text-align: center; margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(139, 0, 0, 0.2); border-radius: 12px; border: 2px solid #C5A572; }
+        .header h1 { color: #C5A572; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .header p { color: #aaa; font-size: 1rem; }
+        
+        .disclaimer { 
+            background: rgba(255, 193, 7, 0.15); 
+            border: 2px solid #ffc107; 
+            border-radius: 10px; 
+            padding: 1rem; 
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .disclaimer strong { color: #ffc107; }
+        
+        .card { 
+            background: rgba(0, 33, 71, 0.4); 
+            border: 2px solid #C5A572; 
+            border-radius: 12px; 
+            padding: 2rem; 
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .tabs { 
+            display: flex; 
+            gap: 0.5rem; 
+            justify-content: center; 
+            margin-bottom: 1.5rem;
+        }
+        .tab { 
+            padding: 0.75rem 1.5rem; 
+            background: #1a2332; 
+            border: 2px solid #C5A572; 
+            color: #C5A572;
+            border-radius: 8px; 
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .tab:hover { background: rgba(197, 165, 114, 0.2); }
+        .tab.active { background: #C5A572; color: #1a1a2e; }
+        
+        .test-area { margin: 2rem 0; }
+        
+        /* Serial 7s */
+        .serial-display {
+            background: #1a2332;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        .equation {
+            font-size: 2rem;
+            color: #C5A572;
+            margin-bottom: 1rem;
+        }
+        .equation .current { color: #00d4aa; font-weight: bold; }
+        
+        .number-input {
+            font-size: 2rem;
+            width: 120px;
+            padding: 1rem;
+            text-align: center;
+            border: 3px solid #C5A572;
+            border-radius: 12px;
+            background: #0f1419;
+            color: #e8e6e3;
+        }
+        .number-input:focus { outline: none; border-color: #00d4aa; }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+        }
+        .step-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #2a3441;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .step-dot.current { background: #C5A572; color: #1a1a2e; transform: scale(1.2); }
+        .step-dot.correct { background: #00d4aa; color: #1a1a2e; }
+        .step-dot.incorrect { background: #e74c3c; color: white; }
+        
+        /* WORLD Backwards */
+        .letter-boxes {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+        }
+        .letter-box {
+            width: 60px;
+            height: 70px;
+            border: 3px solid #C5A572;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #C5A572;
+            background: #1a2332;
+        }
+        .letter-input {
+            width: 60px;
+            height: 70px;
+            font-size: 2rem;
+            text-align: center;
+            border: 3px solid #C5A572;
+            border-radius: 8px;
+            background: #0f1419;
+            color: #e8e6e3;
+            text-transform: uppercase;
+        }
+        .letter-input:focus { outline: none; border-color: #00d4aa; }
+        .letter-input.correct { border-color: #00d4aa; background: rgba(0, 212, 170, 0.2); }
+        .letter-input.incorrect { border-color: #e74c3c; background: rgba(231, 76, 60, 0.2); }
+        
+        .btn { 
+            background: linear-gradient(135deg, #8B0000 0%, #6B0000 100%); 
+            color: #C5A572; 
+            border: 2px solid #C5A572;
+            padding: 1rem 2rem; 
+            font-size: 1.1rem; 
+            font-weight: 600;
+            border-radius: 8px; 
+            cursor: pointer; 
+            min-height: 56px;
+            transition: all 0.3s;
+            margin: 0.5rem;
+        }
+        .btn:hover { background: linear-gradient(135deg, #A00000 0%, #8B0000 100%); }
+        .btn.secondary { background: #2a3441; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .score-display { 
+            padding: 2rem; 
+            background: rgba(0, 212, 170, 0.1); 
+            border-radius: 12px; 
+            margin: 1.5rem 0;
+        }
+        .score-big { font-size: 4rem; color: #00d4aa; font-weight: bold; }
+        .score-label { font-size: 1.2rem; color: #C5A572; }
+        
+        .answers-review {
+            text-align: left;
+            background: #1a2332;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .answer-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            border-bottom: 1px solid #2a3441;
+        }
+        .answer-row:last-child { border-bottom: none; }
+        .answer-correct { color: #00d4aa; }
+        .answer-incorrect { color: #e74c3c; }
+        
+        .interpretation { 
+            padding: 1.5rem; 
+            border-radius: 10px; 
+            margin: 1rem 0;
+            line-height: 1.6;
+        }
+        .interp-good { background: rgba(0, 212, 170, 0.2); border: 2px solid #00d4aa; }
+        .interp-concern { background: rgba(255, 193, 7, 0.2); border: 2px solid #ffc107; }
+        .interp-alert { background: rgba(244, 67, 54, 0.2); border: 2px solid #f44336; }
+        
+        .timer-display {
+            font-size: 1.5rem;
+            color: #C5A572;
+            margin: 1rem 0;
+        }
+        
+        .history-section { margin-top: 2rem; }
+        .history-title { color: #C5A572; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
+        .history-list { background: #1a2332; border-radius: 8px; max-height: 200px; overflow-y: auto; }
+        .history-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #2a3441;
+        }
+        
+        .back-link { 
+            display: inline-block; 
+            color: #C5A572; 
+            text-decoration: none; 
+            margin-bottom: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+        
+        .instruction { font-size: 1.1rem; line-height: 1.6; margin: 1rem 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../games.html" class="back-link">← Back to Games</a>
+        
+        <div class="header">
+            <h1>🔢 Attention & Calculation</h1>
+            <p>Serial 7s & Reverse Spelling Test</p>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>⚠️ Note:</strong> This is a cognitive exercise based on clinical attention tests. 
+            It is not a medical diagnosis.
+        </div>
+        
+        <!-- Test Selection -->
+        <div class="card" id="testSelection">
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">Choose Your Test</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="selectTest('serial7')">Serial 7s</button>
+                <button class="tab" onclick="selectTest('world')">WORLD Backwards</button>
+            </div>
+            
+            <!-- Serial 7s -->
+            <div id="serial7-intro">
+                <p class="instruction">
+                    Starting at <strong>100</strong>, subtract <strong>7</strong> repeatedly.<br>
+                    100 → 93 → 86 → 79 → 72 → 65
+                </p>
+                <p style="color: #888; margin-top: 1rem;">You'll be scored on 5 subtractions.</p>
+                <button class="btn" onclick="startSerial7()" style="margin-top: 1.5rem;">Start Serial 7s</button>
+            </div>
+            
+            <!-- WORLD Backwards -->
+            <div id="world-intro" class="hidden">
+                <p class="instruction">
+                    Spell the word <strong>WORLD</strong> backwards.<br>
+                    W-O-R-L-D → ?
+                </p>
+                <p style="color: #888; margin-top: 1rem;">Type each letter in reverse order.</p>
+                <button class="btn" onclick="startWorld()" style="margin-top: 1.5rem;">Start Spelling</button>
+            </div>
+        </div>
+        
+        <!-- Serial 7s Test -->
+        <div class="card hidden" id="serial7Test">
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">Serial 7s</h2>
+            
+            <div class="step-indicator" id="stepIndicator">
+                <div class="step-dot current">1</div>
+                <div class="step-dot">2</div>
+                <div class="step-dot">3</div>
+                <div class="step-dot">4</div>
+                <div class="step-dot">5</div>
+            </div>
+            
+            <div class="serial-display">
+                <div class="equation">
+                    <span class="current" id="currentNumber">100</span> - 7 = ?
+                </div>
+                <input type="number" class="number-input" id="serial7Input" 
+                       onkeyup="checkSerial7(event)" autocomplete="off">
+            </div>
+            
+            <div class="timer-display" id="serial7Timer">Time: 0s</div>
+            
+            <p style="color: #888; font-size: 0.9rem;">Press Enter to submit each answer</p>
+        </div>
+        
+        <!-- WORLD Backwards Test -->
+        <div class="card hidden" id="worldTest">
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">Spell WORLD Backwards</h2>
+            
+            <div class="letter-boxes">
+                <div class="letter-box">W</div>
+                <div class="letter-box">O</div>
+                <div class="letter-box">R</div>
+                <div class="letter-box">L</div>
+                <div class="letter-box">D</div>
+            </div>
+            
+            <p style="margin: 1rem 0;">Type backwards:</p>
+            
+            <div class="letter-boxes" id="worldInputs">
+                <input type="text" class="letter-input" maxlength="1" data-index="0">
+                <input type="text" class="letter-input" maxlength="1" data-index="1">
+                <input type="text" class="letter-input" maxlength="1" data-index="2">
+                <input type="text" class="letter-input" maxlength="1" data-index="3">
+                <input type="text" class="letter-input" maxlength="1" data-index="4">
+            </div>
+            
+            <div class="timer-display" id="worldTimer">Time: 0s</div>
+            
+            <button class="btn" onclick="submitWorld()" style="margin-top: 1rem;">Submit</button>
+        </div>
+        
+        <!-- Results -->
+        <div class="card hidden" id="results">
+            <h2 style="color: #C5A572; margin-bottom: 1rem;">📊 Results</h2>
+            
+            <div class="score-display">
+                <div class="score-big" id="totalScore">0</div>
+                <div class="score-label">out of 5 points</div>
+            </div>
+            
+            <div class="timer-display" id="finalTime">Completed in: 0s</div>
+            
+            <div class="answers-review" id="answersReview"></div>
+            
+            <div id="interpretation" class="interpretation"></div>
+            
+            <div style="margin-top: 1.5rem;">
+                <button class="btn" onclick="restart()">🔄 Try Again</button>
+                <button class="btn secondary" onclick="window.print()">🖨️ Print</button>
+            </div>
+        </div>
+        
+        <div class="history-section">
+            <h3 class="history-title">📈 Previous Attempts</h3>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTest = 'serial7';
+        let serial7Step = 0;
+        let serial7Answers = [];
+        const serial7Correct = [93, 86, 79, 72, 65];
+        let startTime = 0;
+        let timerInterval = null;
+        
+        const worldCorrect = ['D', 'L', 'R', 'O', 'W'];
+        
+        function selectTest(test) {
+            currentTest = test;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('serial7-intro').classList.toggle('hidden', test !== 'serial7');
+            document.getElementById('world-intro').classList.toggle('hidden', test !== 'world');
+        }
+        
+        function startSerial7() {
+            serial7Step = 0;
+            serial7Answers = [];
+            document.getElementById('testSelection').classList.add('hidden');
+            document.getElementById('serial7Test').classList.remove('hidden');
+            document.getElementById('currentNumber').textContent = '100';
+            document.getElementById('serial7Input').value = '';
+            document.getElementById('serial7Input').focus();
+            
+            // Reset step indicators
+            document.querySelectorAll('.step-dot').forEach((dot, i) => {
+                dot.className = 'step-dot';
+                dot.textContent = i + 1;
+                if (i === 0) dot.classList.add('current');
+            });
+            
+            startTimer('serial7Timer');
+        }
+        
+        function checkSerial7(e) {
+            if (e.key !== 'Enter') return;
+            
+            const input = document.getElementById('serial7Input');
+            const answer = parseInt(input.value);
+            const isCorrect = answer === serial7Correct[serial7Step];
+            
+            serial7Answers.push({ answer, correct: serial7Correct[serial7Step], isCorrect });
+            
+            // Update step indicator
+            const dots = document.querySelectorAll('.step-dot');
+            dots[serial7Step].classList.remove('current');
+            dots[serial7Step].classList.add(isCorrect ? 'correct' : 'incorrect');
+            dots[serial7Step].textContent = isCorrect ? '✓' : '✗';
+            
+            serial7Step++;
+            
+            if (serial7Step >= 5) {
+                stopTimer();
+                showResults();
+            } else {
+                dots[serial7Step].classList.add('current');
+                // Update current number to user's answer (they subtract from what they got)
+                document.getElementById('currentNumber').textContent = answer || serial7Correct[serial7Step - 1];
+                input.value = '';
+            }
+        }
+        
+        function startWorld() {
+            document.getElementById('testSelection').classList.add('hidden');
+            document.getElementById('worldTest').classList.remove('hidden');
+            
+            const inputs = document.querySelectorAll('#worldInputs .letter-input');
+            inputs.forEach(inp => {
+                inp.value = '';
+                inp.className = 'letter-input';
+            });
+            inputs[0].focus();
+            
+            // Auto-advance on input
+            inputs.forEach((inp, i) => {
+                inp.addEventListener('input', () => {
+                    inp.value = inp.value.toUpperCase();
+                    if (inp.value && i < 4) {
+                        inputs[i + 1].focus();
+                    }
+                });
+                inp.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !inp.value && i > 0) {
+                        inputs[i - 1].focus();
+                    }
+                });
+            });
+            
+            startTimer('worldTimer');
+        }
+        
+        function submitWorld() {
+            stopTimer();
+            
+            const inputs = document.querySelectorAll('#worldInputs .letter-input');
+            let score = 0;
+            
+            inputs.forEach((inp, i) => {
+                const isCorrect = inp.value.toUpperCase() === worldCorrect[i];
+                inp.classList.add(isCorrect ? 'correct' : 'incorrect');
+                if (isCorrect) score++;
+            });
+            
+            serial7Answers = worldCorrect.map((letter, i) => ({
+                answer: inputs[i].value.toUpperCase() || '-',
+                correct: letter,
+                isCorrect: inputs[i].value.toUpperCase() === letter
+            }));
+            
+            setTimeout(showResults, 500);
+        }
+        
+        function startTimer(displayId) {
+            startTime = Date.now();
+            const display = document.getElementById(displayId);
+            
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                display.textContent = `Time: ${elapsed}s`;
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function showResults() {
+            document.getElementById('serial7Test').classList.add('hidden');
+            document.getElementById('worldTest').classList.add('hidden');
+            document.getElementById('results').classList.remove('hidden');
+            
+            const score = serial7Answers.filter(a => a.isCorrect).length;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            
+            document.getElementById('totalScore').textContent = score;
+            document.getElementById('finalTime').textContent = `Completed in: ${elapsed} seconds`;
+            
+            // Answers review
+            const review = document.getElementById('answersReview');
+            review.innerHTML = serial7Answers.map((a, i) => `
+                <div class="answer-row">
+                    <span>Step ${i + 1}: Your answer: ${a.answer}</span>
+                    <span class="${a.isCorrect ? 'answer-correct' : 'answer-incorrect'}">
+                        ${a.isCorrect ? '✓' : `Correct: ${a.correct}`}
+                    </span>
+                </div>
+            `).join('');
+            
+            // Interpretation
+            const interp = document.getElementById('interpretation');
+            if (score >= 4) {
+                interp.className = 'interpretation interp-good';
+                interp.innerHTML = '✅ <strong>Excellent!</strong><br>Your attention and calculation skills are strong.';
+            } else if (score >= 3) {
+                interp.className = 'interpretation interp-concern';
+                interp.innerHTML = '⚠️ <strong>Good effort!</strong><br>Some difficulty with sustained attention. Practice may help.';
+            } else {
+                interp.className = 'interpretation interp-alert';
+                interp.innerHTML = '🔴 <strong>Consider Evaluation</strong><br>Difficulty with this task may warrant discussion with a healthcare provider.';
+            }
+            
+            // Save history
+            saveHistory(score, elapsed, currentTest);
+            displayHistory();
+        }
+        
+        function saveHistory(score, time, type) {
+            const history = JSON.parse(localStorage.getItem('attentionCalcHistory') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                score: score,
+                time: time,
+                type: type
+            });
+            if (history.length > 20) history.shift();
+            localStorage.setItem('attentionCalcHistory', JSON.stringify(history));
+        }
+        
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('attentionCalcHistory') || '[]');
+            const list = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                list.innerHTML = '<div style="padding: 1rem; text-align: center; color: #888;">No previous attempts</div>';
+                return;
+            }
+            
+            list.innerHTML = history.slice(-10).reverse().map(h => {
+                const date = new Date(h.date).toLocaleDateString();
+                const type = h.type === 'serial7' ? '7s' : 'WORLD';
+                return `<div class="history-item">
+                    <span style="color: #888;">${date} (${type})</span>
+                    <span style="color: #00d4aa; font-weight: bold;">${h.score}/5 in ${h.time}s</span>
+                </div>`;
+            }).join('');
+        }
+        
+        function restart() {
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('testSelection').classList.remove('hidden');
+            serial7Answers = [];
+        }
+        
+        // Initialize
+        displayHistory();
+    </script>
+</body>
+</html>

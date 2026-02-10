@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Positive Memories - Happy Recall</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#1a2a3e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#87ceeb;margin-bottom:8px;text-shadow:0 0 20px rgba(135,206,235,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#1e2535;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #2a3a4a}
+.memory-icon{font-size:80px;margin:20px 0}
+.prompt{font-size:24px;color:#fff;margin:20px 0;line-height:1.5;font-weight:500}
+.sub-prompt{font-size:18px;color:#8888aa;margin:16px 0;line-height:1.5;font-style:italic}
+.visualization{background:#151f2a;border-radius:16px;padding:24px;margin:20px 0;border:1px solid #2a3a4a}
+.visualization p{font-size:18px;color:#aab;line-height:1.8;text-align:left}
+.input-area{margin:20px 0}
+.input-area textarea{width:100%;background:#151f2a;border:2px solid #2a3a4a;border-radius:12px;padding:16px;font-size:18px;color:#e8e8f0;resize:none;font-family:inherit;min-height:100px}
+.input-area textarea:focus{outline:none;border-color:#87ceeb}
+.input-area textarea::placeholder{color:#5a6a7a}
+.saved-memories{margin:20px 0}
+.memory-card{background:#151f2a;border-radius:16px;padding:20px;margin:12px 0;text-align:left;border:2px solid #2a3a4a;cursor:pointer;transition:all 0.2s}
+.memory-card:hover,.memory-card:active{border-color:#87ceeb}
+.memory-card .header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.memory-card .icon{font-size:32px}
+.memory-card .category{font-size:14px;color:#87ceeb}
+.memory-card .text{font-size:16px;color:#c8d8e8;line-height:1.5}
+.memory-card .date{font-size:12px;color:#5a6a7a;margin-top:12px}
+.btn{background:#87ceeb;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(135,206,235,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.secondary{background:transparent;border:2px solid #87ceeb;color:#87ceeb}
+.category-select{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:20px 0}
+.category-btn{background:#151f2a;border:2px solid #2a3a4a;border-radius:16px;padding:20px;cursor:pointer;transition:all 0.2s}
+.category-btn:hover,.category-btn:active{border-color:#87ceeb}
+.category-btn .icon{font-size:40px;margin-bottom:8px}
+.category-btn .label{font-size:14px;color:#aab}
+.stats{display:flex;justify-content:center;gap:24px;margin:16px 0}
+.stat{text-align:center}
+.stat-number{font-size:32px;color:#87ceeb;font-weight:700}
+.stat-label{font-size:14px;color:#8888aa}
+.guide-step{background:#1a2530;border-radius:12px;padding:16px;margin:12px 0;text-align:left;border-left:4px solid #87ceeb}
+.guide-step p{font-size:16px;color:#aab;line-height:1.5}
+#screen-home,#screen-recall,#screen-save,#screen-library{display:none;width:100%}
+#screen-home.active,#screen-recall.active,#screen-save.active,#screen-library.active{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<h1>✨ Positive Memories</h1>
+<p class="subtitle">Recall the moments that made you smile</p>
+
+<div id="game">
+  <div id="screen-home" class="active">
+    <div class="card">
+      <p style="font-size:20px;color:#aab;margin-bottom:20px">
+        Your mind holds treasures.<br>
+        Let's find some together.
+      </p>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-number" id="memories-saved">0</div>
+          <div class="stat-label">Memories Saved</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <p style="font-size:18px;color:#aab;margin-bottom:16px">Choose a type of memory:</p>
+      <div class="category-select">
+        <div class="category-btn" onclick="startRecall('joy')">
+          <div class="icon">😄</div>
+          <div class="label">A Time You Laughed</div>
+        </div>
+        <div class="category-btn" onclick="startRecall('love')">
+          <div class="icon">❤️</div>
+          <div class="label">Feeling Loved</div>
+        </div>
+        <div class="category-btn" onclick="startRecall('proud')">
+          <div class="icon">🏆</div>
+          <div class="label">A Proud Moment</div>
+        </div>
+        <div class="category-btn" onclick="startRecall('peace')">
+          <div class="icon">🌅</div>
+          <div class="label">Peaceful Memory</div>
+        </div>
+        <div class="category-btn" onclick="startRecall('friend')">
+          <div class="icon">👥</div>
+          <div class="label">Time with Friends</div>
+        </div>
+        <div class="category-btn" onclick="startRecall('simple')">
+          <div class="icon">🌸</div>
+          <div class="label">Simple Pleasure</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn secondary" onclick="showLibrary()">📚 My Memory Library</button>
+  </div>
+
+  <div id="screen-recall">
+    <div class="card">
+      <div class="memory-icon" id="recall-icon">😄</div>
+      <div class="prompt" id="recall-prompt"></div>
+      <div class="sub-prompt" id="recall-sub"></div>
+      
+      <div class="visualization">
+        <p id="guide-text"></p>
+      </div>
+      
+      <p style="color:#5a6a7a;font-size:14px;margin-top:16px">
+        Take your time. Let the memory come to you. 💙
+      </p>
+    </div>
+    <button class="btn" onclick="showSave()">💾 Save This Memory</button>
+    <button class="btn secondary" onclick="tryAnother()">Try Another Prompt</button>
+    <button class="btn secondary" onclick="showHome()">Back</button>
+  </div>
+
+  <div id="screen-save">
+    <div class="card">
+      <div class="memory-icon" id="save-icon">📝</div>
+      <p style="font-size:20px;color:#aab;margin-bottom:16px">
+        Would you like to write down this memory?
+      </p>
+      <div class="input-area">
+        <textarea id="memory-input" placeholder="Describe your memory... What happened? How did it feel? Who was there?" maxlength="500" oninput="updateSaveBtn()"></textarea>
+      </div>
+      <p style="color:#5a6a7a;font-size:14px">
+        Writing helps strengthen the memory 💜
+      </p>
+    </div>
+    <button class="btn" id="save-btn" onclick="saveMemory()" disabled>Save to Library</button>
+    <button class="btn secondary" onclick="skipSave()">Skip & Continue</button>
+  </div>
+
+  <div id="screen-library">
+    <div class="card">
+      <p style="font-size:24px;color:#87ceeb;margin-bottom:16px">Your Memory Library</p>
+      <p style="font-size:16px;color:#8888aa;margin-bottom:20px" id="library-subtitle">
+        A collection of your positive moments
+      </p>
+      <div class="saved-memories" id="library-list"></div>
+    </div>
+    <button class="btn" onclick="showHome()">Create New Memory</button>
+  </div>
+</div>
+
+<script>
+const PROMPTS = {
+  joy: {
+    icon: '😄',
+    prompts: [
+      {main: "Think of a time you laughed so hard it hurt", sub: "Where were you? Who made you laugh?"},
+      {main: "Remember a moment that made you giggle unexpectedly", sub: "What was so funny?"},
+      {main: "Recall a time someone's joke caught you off guard", sub: "Can you still picture their face?"}
+    ],
+    guide: "Close your eyes. Picture the scene. Who was there with you? What sounds do you remember? Let yourself smile as you remember how it felt."
+  },
+  love: {
+    icon: '❤️',
+    prompts: [
+      {main: "Think of a time you felt truly loved", sub: "Who showed you that love?"},
+      {main: "Remember a moment someone made you feel special", sub: "What did they do or say?"},
+      {main: "Recall a time you felt completely accepted", sub: "Who was with you?"}
+    ],
+    guide: "Take a deep breath. Feel the warmth of that memory. Picture the person who made you feel loved. Remember how safe and valued you felt."
+  },
+  proud: {
+    icon: '🏆',
+    prompts: [
+      {main: "Think of something you accomplished", sub: "Big or small, it all counts"},
+      {main: "Remember a time you overcame a challenge", sub: "What did you do?"},
+      {main: "Recall a moment you surprised yourself", sub: "What did you achieve?"}
+    ],
+    guide: "Stand tall in your memory. Feel the pride you felt then. You did something meaningful. You are capable of great things."
+  },
+  peace: {
+    icon: '🌅',
+    prompts: [
+      {main: "Think of a time you felt completely at peace", sub: "Where were you?"},
+      {main: "Remember a calm, quiet moment you treasure", sub: "What made it special?"},
+      {main: "Recall a place that made you feel serene", sub: "What did you see and hear?"}
+    ],
+    guide: "Breathe slowly. Let yourself return to that peaceful place. Feel the calm wash over you. Notice the stillness and beauty around you."
+  },
+  friend: {
+    icon: '👥',
+    prompts: [
+      {main: "Think of a wonderful time with friends", sub: "What were you doing together?"},
+      {main: "Remember a moment of true connection", sub: "Who was there?"},
+      {main: "Recall an adventure you shared with someone", sub: "What made it memorable?"}
+    ],
+    guide: "Picture your friends' faces. Hear their voices. Feel the bond between you. Remember the joy of being together and truly seen."
+  },
+  simple: {
+    icon: '🌸',
+    prompts: [
+      {main: "Think of a simple moment that brought you joy", sub: "A sunrise, a meal, a walk..."},
+      {main: "Remember something small that made your day", sub: "What was it?"},
+      {main: "Recall a quiet pleasure you enjoyed recently", sub: "Let yourself savor it again"}
+    ],
+    guide: "Some of the best moments are the quietest. Picture that simple pleasure. Feel the contentment it brought. These moments matter."
+  }
+};
+
+let currentCategory = null;
+let currentPrompt = null;
+let memories = [];
+
+function loadData() {
+  try {
+    const data = JSON.parse(localStorage.getItem('positiveMemories') || '{}');
+    memories = data.memories || [];
+    updateStats();
+  } catch(e) {}
+}
+
+function saveData() {
+  try {
+    localStorage.setItem('positiveMemories', JSON.stringify({ memories }));
+  } catch(e) {}
+}
+
+function updateStats() {
+  document.getElementById('memories-saved').textContent = memories.length;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showHome() {
+  showScreen('screen-home');
+}
+
+function startRecall(category) {
+  currentCategory = category;
+  const cat = PROMPTS[category];
+  currentPrompt = cat.prompts[Math.floor(Math.random() * cat.prompts.length)];
+  
+  document.getElementById('recall-icon').textContent = cat.icon;
+  document.getElementById('recall-prompt').textContent = currentPrompt.main;
+  document.getElementById('recall-sub').textContent = currentPrompt.sub;
+  document.getElementById('guide-text').textContent = cat.guide;
+  
+  showScreen('screen-recall');
+  playTone(392, 0.2);
+  setTimeout(() => playTone(523, 0.2), 200);
+}
+
+function tryAnother() {
+  if (currentCategory) {
+    startRecall(currentCategory);
+  }
+}
+
+function showSave() {
+  document.getElementById('save-icon').textContent = PROMPTS[currentCategory].icon;
+  document.getElementById('memory-input').value = '';
+  updateSaveBtn();
+  showScreen('screen-save');
+}
+
+function updateSaveBtn() {
+  const text = document.getElementById('memory-input').value.trim();
+  document.getElementById('save-btn').disabled = text.length < 10;
+}
+
+function saveMemory() {
+  const text = document.getElementById('memory-input').value.trim();
+  if (text.length < 10) return;
+  
+  memories.push({
+    text,
+    category: currentCategory,
+    icon: PROMPTS[currentCategory].icon,
+    prompt: currentPrompt.main,
+    date: Date.now()
+  });
+  
+  saveData();
+  updateStats();
+  
+  // Celebration
+  playTone(523, 0.15);
+  setTimeout(() => playTone(659, 0.15), 100);
+  setTimeout(() => playTone(784, 0.15), 200);
+  
+  showHome();
+}
+
+function skipSave() {
+  showHome();
+}
+
+function showLibrary() {
+  const list = document.getElementById('library-list');
+  const subtitle = document.getElementById('library-subtitle');
+  
+  if (memories.length === 0) {
+    list.innerHTML = '<p style="color:#5a6a7a;padding:20px;">Your library is empty. Start by recalling a positive memory! 💙</p>';
+    subtitle.textContent = 'A collection of your positive moments';
+  } else {
+    subtitle.textContent = `${memories.length} treasured ${memories.length === 1 ? 'memory' : 'memories'}`;
+    
+    const sorted = [...memories].reverse();
+    list.innerHTML = sorted.map(m => {
+      const date = new Date(m.date);
+      const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      return `
+        <div class="memory-card">
+          <div class="header">
+            <span class="icon">${m.icon}</span>
+            <span class="category">${m.prompt}</span>
+          </div>
+          <div class="text">${escapeHtml(m.text)}</div>
+          <div class="date">${dateStr}</div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  showScreen('screen-library');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+// Init
+loadData();
+</script>
+</body>
+</html>

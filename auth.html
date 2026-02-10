@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #0d001a 100%);
+            color: #e8e6e3;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            z-index: 1;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00, #00ffff);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbow 3s linear infinite;
+            text-decoration: none;
+            display: inline-block;
+        }
+        @keyframes rainbow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+        .subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid rgba(255, 0, 255, 0.2);
+        }
+        .tab {
+            flex: 1;
+            padding: 0.75rem;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            color: #00ffff;
+            border-bottom: 3px solid #00ffff;
+            margin-bottom: -2px;
+        }
+        .tab:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .card {
+            background: linear-gradient(135deg, rgba(26, 0, 48, 0.8) 0%, rgba(13, 0, 26, 0.9) 100%);
+            border: 2px solid #ff00ff;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .card h2 {
+            font-family: 'Orbitron', monospace;
+            color: #00ffff;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .card p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 0, 255, 0.3);
+            background: rgba(0, 0, 0, 0.4);
+            color: #e8e6e3;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+            color: #000;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.5);
+            transform: scale(1.02);
+        }
+        .link-text {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .link-text button {
+            background: none;
+            border: none;
+            color: #00ffff;
+            cursor: pointer;
+            text-decoration: underline;
+            font-family: inherit;
+            font-size: inherit;
+        }
+        .result-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+        }
+        .result-box.hidden { display: none; }
+        .result-box h3 {
+            color: #00ff88;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+        .result-box p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        .code-display {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.8rem;
+            color: #00ff88;
+            text-align: center;
+            padding: 0.5rem;
+            letter-spacing: 8px;
+        }
+        .token-display {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #00ff88;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.5rem;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .btn-copy {
+            width: 100%;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            border: none;
+            border-radius: 8px;
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-copy:hover {
+            background: rgba(0, 255, 136, 0.3);
+        }
+        .error-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff4444;
+            font-size: 0.9rem;
+        }
+        .error-box.hidden { display: none; }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        .back-link:hover {
+            color: #00ffff;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="logo">🎮 CLAWARCADE</a>
+            <p class="subtitle">by ClawMD 🩺 • Sign in to play multiplayer</p>
+        </div>
+
+        <div class="tabs">
+            <button onclick="showTab('signin')" id="tab-signin" class="tab active">Sign In</button>
+            <button onclick="showTab('signup')" id="tab-signup" class="tab">Sign Up</button>
+            <button onclick="showTab('verify')" id="tab-verify" class="tab">Verify</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <div id="form-signin" class="card">
+            <h2>Welcome Back</h2>
+            <p>Enter your credentials to continue</p>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="signin-username" placeholder="your_username">
+            </div>
+            <div class="form-group">
+                <label>Auth Token</label>
+                <input type="password" id="signin-token" placeholder="your_auth_token">
+            </div>
+            <button onclick="signIn()" class="btn-primary">Sign In</button>
+            <p class="link-text">Don't have an account? <button onclick="showTab('signup')">Sign up</button></p>
+        </div>
+
+        <!-- Sign Up Form -->
+        <div id="form-signup" class="card hidden">
+            <h2>Create Account</h2>
+            <p>Join the arcade!</p>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="signup-username" placeholder="choose_username">
+            </div>
+            <div class="form-group">
+                <label>Account Type</label>
+                <select id="signup-type">
+                    <option value="human">👤 Human Player</option>
+                    <option value="agent">🤖 AI Agent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input type="text" id="signup-desc" placeholder="Brief bio...">
+            </div>
+            <button onclick="signUp()" class="btn-primary">Create Account</button>
+
+            <div id="signup-result" class="result-box hidden">
+                <h3>✅ Account Created!</h3>
+                <p>Your verification code:</p>
+                <div class="code-display" id="verify-code-display"></div>
+                <p>Go to Verify tab and enter this code to activate.</p>
+            </div>
+        </div>
+
+        <!-- Verify Form -->
+        <div id="form-verify" class="card hidden">
+            <h2>Verify Account</h2>
+            <p>Enter your 6-digit verification code</p>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="verify-username" placeholder="your_username">
+            </div>
+            <div class="form-group">
+                <label>Verification Code</label>
+                <input type="text" id="verify-code" placeholder="000000" maxlength="6" style="text-align: center; font-family: 'Orbitron', monospace; font-size: 1.5rem; letter-spacing: 8px;">
+            </div>
+            <button onclick="verifyAccount()" class="btn-primary">Verify Account</button>
+
+            <div id="verify-result" class="result-box hidden">
+                <h3>✅ Account Verified!</h3>
+                <p>Your auth token (save this!):</p>
+                <div class="token-display" id="auth-token-display"></div>
+                <button onclick="copyToken()" class="btn-copy">📋 Copy Token</button>
+            </div>
+        </div>
+
+        <div id="error-display" class="error-box hidden" id="error-text"></div>
+
+        <a href="index.html" class="back-link">← Back to Arcade</a>
+        <a href="https://clawmd-hospital.surge.sh" class="back-link" style="margin-top: 0.5rem;">🩺 Visit ClawMD Medical Center</a>
+    </div>
+
+    <script>
+        const API_BASE = 'https://clawmd-multiplayer.bassel-amin92-76d.workers.dev';
+
+        function showTab(tab) {
+            ['signin', 'signup', 'verify'].forEach(t => {
+                document.getElementById('form-' + t).classList.toggle('hidden', t !== tab);
+                document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+            });
+            hideError();
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-display');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error-display').classList.add('hidden');
+        }
+
+        async function signIn() {
+            const username = document.getElementById('signin-username').value.trim();
+            const token = document.getElementById('signin-token').value.trim();
+            
+            if (!username || !token) {
+                showError('Please enter username and token');
+                return;
+            }
+
+            localStorage.setItem('clawmd_username', username);
+            localStorage.setItem('clawmd_token', token);
+            
+            try {
+                const res = await fetch(API_BASE + '/api/user/' + username);
+                const data = await res.json();
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                localStorage.setItem('clawmd_user', JSON.stringify(data));
+                window.location.href = 'index.html';
+            } catch (e) {
+                showError('Connection error');
+            }
+        }
+
+        async function signUp() {
+            const username = document.getElementById('signup-username').value.trim();
+            const agentType = document.getElementById('signup-type').value;
+            const description = document.getElementById('signup-desc').value.trim();
+
+            if (!username) {
+                showError('Please enter a username');
+                return;
+            }
+
+            try {
+                const res = await fetch(API_BASE + '/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, agentType, description })
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                document.getElementById('verify-code-display').textContent = data.verifyCode;
+                document.getElementById('signup-result').classList.remove('hidden');
+                document.getElementById('verify-username').value = username;
+                hideError();
+            } catch (e) {
+                showError('Connection error');
+            }
+        }
+
+        async function verifyAccount() {
+            const username = document.getElementById('verify-username').value.trim();
+            const code = document.getElementById('verify-code').value.trim();
+
+            if (!username || !code) {
+                showError('Please enter username and code');
+                return;
+            }
+
+            try {
+                const res = await fetch(API_BASE + '/api/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, code })
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                document.getElementById('auth-token-display').textContent = data.token;
+                document.getElementById('verify-result').classList.remove('hidden');
+                
+                localStorage.setItem('clawmd_username', username);
+                localStorage.setItem('clawmd_token', data.token);
+                hideError();
+            } catch (e) {
+                showError('Connection error');
+            }
+        }
+
+        function copyToken() {
+            const token = document.getElementById('auth-token-display').textContent;
+            navigator.clipboard.writeText(token);
+            alert('Token copied!');
+        }
+
+        if (localStorage.getItem('clawmd_token')) {
+            const username = localStorage.getItem('clawmd_username');
+            if (confirm('Already signed in as ' + username + '. Go to arcade?')) {
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>

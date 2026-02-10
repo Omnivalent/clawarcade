@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Tool Decisions</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{color:#00d4aa;font-size:1.4em;margin:8px 0}
+.sub{color:#888;font-size:.85em;margin-bottom:12px}
+#game{width:100%;max-width:500px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;border:1px solid #0f3460}
+.scenario{background:#0a0a1a;border-left:4px solid #00d4aa;padding:14px;margin:10px 0;border-radius:0 8px 8px 0;line-height:1.5}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;border-radius:10px;padding:14px 16px;font-size:.95em;font-weight:700;cursor:pointer;width:100%;margin:5px 0;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.96)}
+.btn.tool{background:#16213e;color:#e0e0e0;border:2px solid #0f3460;text-align:left;font-weight:400;display:flex;align-items:center;gap:10px}
+.btn.tool .icon{font-size:1.3em;min-width:30px;text-align:center}
+.btn.tool:active{border-color:#00d4aa}
+.btn.best{background:#00b894!important;color:#fff!important;border-color:#00b894!important}
+.btn.ok{background:#f39c12!important;color:#fff!important;border-color:#f39c12!important}
+.btn.bad{background:#e74c3c!important;color:#fff!important;border-color:#e74c3c!important}
+.hud{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;color:#00d4aa}
+.score-bar{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}
+.dot{width:24px;height:24px;border-radius:50%;background:#0f3460;display:flex;align-items:center;justify-content:center;font-size:.7em}
+.dot.g{background:#00b894}.dot.y{background:#f39c12}.dot.r{background:#e74c3c}
+.explain{background:#0f3460;border-radius:8px;padding:12px;margin-top:10px;font-size:.85em;line-height:1.4;color:#aaa}
+.pts{font-size:.8em;color:#00d4aa;font-weight:700}
+.center{text-align:center}
+.fade{animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.big{font-size:2em;margin:12px 0}
+</style>
+</head>
+<body>
+<h1>🛠️ Tool Decisions</h1>
+<p class="sub">Pick the right tool for the job</p>
+<div id="game"></div>
+<script>
+const scenarios=[
+{situation:"A user asks you to check if a website is currently down.",
+tools:[
+{icon:"🌐",name:"web_fetch",desc:"Fetch the URL and check response",score:3},
+{icon:"🔍",name:"web_search",desc:"Search for 'is site X down'",score:2},
+{icon:"🖥️",name:"browser",desc:"Open the site in a full browser",score:1},
+{icon:"💻",name:"exec (curl)",desc:"Run curl from terminal",score:2}
+],explain:"web_fetch is lightest and most direct. curl works too. Browser is overkill for a simple check."},
+{situation:"You need to edit line 47 of a Python file to fix a typo.",
+tools:[
+{icon:"✏️",name:"edit",desc:"Surgical find-and-replace on the exact line",score:3},
+{icon:"📝",name:"write",desc:"Rewrite the entire file",score:1},
+{icon:"💻",name:"exec (sed)",desc:"Use sed to replace the text",score:2},
+{icon:"📖",name:"read",desc:"Read the file first",score:0}
+],explain:"edit is perfect for precise changes. Writing the whole file risks losing content. sed works but is fragile. Reading doesn't fix anything."},
+{situation:"A user wants a summary of a 200-page PDF they linked to.",
+tools:[
+{icon:"🌐",name:"web_fetch",desc:"Fetch and extract the content",score:3},
+{icon:"🖥️",name:"browser",desc:"Open PDF in browser and read it",score:1},
+{icon:"💻",name:"exec (wget + pdftotext)",desc:"Download and convert to text",score:2},
+{icon:"🔍",name:"web_search",desc:"Search for existing summaries",score:1}
+],explain:"web_fetch can extract text from URLs directly. wget+pdftotext works but is more steps. Searching for summaries is unreliable."},
+{situation:"You need to find out what day of the week December 25, 2030 falls on.",
+tools:[
+{icon:"💻",name:"exec (date command)",desc:"Use the system date utility",score:3},
+{icon:"🔍",name:"web_search",desc:"Google 'Dec 25 2030 day of week'",score:2},
+{icon:"🧮",name:"Calculate mentally",desc:"Work it out with math",score:1},
+{icon:"🖥️",name:"browser",desc:"Open a calendar website",score:0}
+],explain:"A simple `date` command is instant and reliable. Search works but is slower. Mental math is error-prone for dates."},
+{situation:"A user wants you to fill out a web form and submit it.",
+tools:[
+{icon:"🖥️",name:"browser",desc:"Use browser automation to fill and submit",score:3},
+{icon:"🌐",name:"web_fetch",desc:"Fetch the form page",score:0},
+{icon:"💻",name:"exec (curl POST)",desc:"Send a POST request directly",score:2},
+{icon:"📝",name:"write",desc:"Write the form data to a file",score:0}
+],explain:"Browser automation handles forms natively with visual verification. curl POST can work if you know the endpoint, but browser is more reliable for complex forms."},
+{situation:"You need to monitor a long-running build process that takes 10 minutes.",
+tools:[
+{icon:"💻",name:"exec (background)",desc:"Run in background, check periodically",score:3},
+{icon:"💻",name:"exec (wait)",desc:"Run and wait for completion",score:1},
+{icon:"📖",name:"read",desc:"Read the build log file",score:1},
+{icon:"⏰",name:"Set a timer",desc:"Come back in 10 minutes",score:2}
+],explain:"Background execution lets you do other work while monitoring. Blocking for 10 min wastes time. Periodic log reading works as a complement."},
+{situation:"A user shares an image and asks 'What's in this photo?'",
+tools:[
+{icon:"👁️",name:"image (vision)",desc:"Analyze with vision model",score:3},
+{icon:"🔍",name:"web_search",desc:"Reverse image search",score:1},
+{icon:"💻",name:"exec (file command)",desc:"Check file metadata",score:0},
+{icon:"📖",name:"read",desc:"Read the image file",score:1}
+],explain:"Vision model directly analyzes image content. It's purpose-built for this task."},
+{situation:"You need to create a new project with 15 files in a specific directory structure.",
+tools:[
+{icon:"💻",name:"exec (mkdir -p + loop)",desc:"Script the whole structure creation",score:3},
+{icon:"📝",name:"write (each file)",desc:"Write files one at a time",score:2},
+{icon:"📝",name:"write + exec hybrid",desc:"Write a setup script, then run it",score:2},
+{icon:"📖",name:"read",desc:"Check what exists first",score:1}
+],explain:"Scripting the creation is fastest for many files. Writing individually works but is slow. Checking first is good practice but doesn't create anything."},
+{situation:"A user says 'Search Twitter for what people are saying about the new iPhone.'",
+tools:[
+{icon:"🔍",name:"web_search",desc:"Search for recent tweets/discussions",score:3},
+{icon:"🖥️",name:"browser",desc:"Open Twitter and browse",score:2},
+{icon:"🌐",name:"web_fetch",desc:"Fetch twitter.com/search",score:1},
+{icon:"💻",name:"exec",desc:"Use a Twitter API client",score:1}
+],explain:"Web search aggregates social media discussions efficiently. Browser works but is slower. Direct fetch of Twitter requires auth."},
+{situation:"You need to check if a specific port is open on a remote server.",
+tools:[
+{icon:"💻",name:"exec (nc/nmap)",desc:"Use netcat or nmap to probe the port",score:3},
+{icon:"🌐",name:"web_fetch",desc:"Try to fetch http://server:port",score:1},
+{icon:"🔍",name:"web_search",desc:"Search for the server status",score:0},
+{icon:"🖥️",name:"browser",desc:"Open the URL in browser",score:0}
+],explain:"netcat/nmap are the right tools for network diagnostics. web_fetch only works for HTTP. Search and browser are wrong tools entirely."}
+];
+
+let order=[],idx=0,totalPts=0,maxPts=0,results=[];
+const G=document.getElementById('game');
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.random()*i+1|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function start(){
+order=shuffle([...Array(scenarios.length).keys()]);
+idx=0;totalPts=0;maxPts=0;results=[];
+showScenario();
+}
+
+function showScenario(){
+if(idx>=order.length){endGame();return}
+const s=scenarios[order[idx]];
+let toolsShuffled=shuffle([...s.tools.map((t,i)=>({...t,oi:i}))]);
+let toolsHtml=toolsShuffled.map((t,i)=>`<button class="btn tool" onclick="pick(${i})" id="t${i}" data-score="${t.score}"><span class="icon">${t.icon}</span><div><strong>${t.name}</strong><br><span style="color:#aaa;font-size:.85em">${t.desc}</span></div></button>`).join('');
+let dotsHtml=results.map(r=>`<div class="dot ${r===3?'g':r>=2?'y':'r'}">${r===3?'✓':r>=2?'~':'✗'}</div>`).join('');
+G.innerHTML=`<div class="hud"><span>Scenario ${idx+1}/${order.length}</span><span>Points: ${totalPts}</span></div>
+<div class="score-bar">${dotsHtml}</div>
+<div class="card fade">
+<div class="scenario">${s.situation}</div>
+<p style="font-weight:700;margin:10px 0">Which tool do you reach for?</p>
+${toolsHtml}<div id="expl"></div></div>`;
+}
+
+function pick(i){
+document.querySelectorAll('.btn.tool').forEach(b=>b.onclick=null);
+const s=scenarios[order[idx]];
+const picked=parseInt(document.getElementById('t'+i).dataset.score);
+totalPts+=picked;maxPts+=3;results.push(picked);
+document.querySelectorAll('.btn.tool').forEach(b=>{
+const sc=parseInt(b.dataset.score);
+b.classList.add(sc===3?'best':sc>=2?'ok':'bad');
+b.querySelector('div').innerHTML+=` <span class="pts">${sc===3?'+3 Best':sc===2?'+2 OK':sc===1?'+1 Meh':'+0 Wrong'}</span>`;
+});
+document.getElementById('expl').innerHTML=`<div class="explain">${s.explain}</div>`;
+setTimeout(()=>{idx++;showScenario()},2200);
+}
+
+function endGame(){
+const pct=Math.round(totalPts/maxPts*100);
+let grade=pct>=90?'🏆 Tool Master':pct>=70?'🛠️ Skilled Operator':pct>=50?'🔧 Apprentice':'🪛 Needs Training';
+G.innerHTML=`<div class="card center fade">
+<div class="big">${pct>=70?'⚡':'🔧'}</div>
+<p style="font-size:1.3em;font-weight:700;color:#00d4aa">${grade}</p>
+<p style="font-size:2em;font-weight:700;margin:8px 0">${totalPts}/${maxPts}</p>
+<p style="color:#888">${pct}% optimal decisions</p>
+<div class="score-bar" style="justify-content:center;margin:12px 0">${results.map(r=>`<div class="dot ${r===3?'g':r>=2?'y':'r'}">${r===3?'✓':r>=2?'~':'✗'}</div>`).join('')}</div>
+<button class="btn" onclick="start()" style="margin-top:12px">Play Again</button>
+</div>`;
+}
+
+start();
+</script>
+</body>
+</html>

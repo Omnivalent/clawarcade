@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Liquidation Panic - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a1a;
+            color: #e8e6e3;
+            display: flex;
+            flex-direction: column;
+            transition: background 0.5s;
+        }
+        /* Animated cyberpunk grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                linear-gradient(180deg, rgba(255,0,0,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,0,0,0.02) 1px, transparent 1px),
+                radial-gradient(ellipse at 50% 0%, rgba(255,68,68,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 100%, rgba(255,0,255,0.08) 0%, transparent 50%);
+            background-size: 30px 30px, 30px 30px, 100% 100%, 100% 100%;
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+            transition: all 0.5s;
+        }
+        body.danger-mode::before {
+            background: 
+                linear-gradient(180deg, rgba(255,0,0,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,0,0,0.05) 1px, transparent 1px),
+                radial-gradient(ellipse at 50% 0%, rgba(255,0,0,0.2) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 100%, rgba(255,0,0,0.15) 0%, transparent 50%);
+            background-size: 30px 30px, 30px 30px, 100% 100%, 100% 100%;
+        }
+        @keyframes gridMove {
+            0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+            100% { background-position: 0 60px, 60px 0, 0 0, 0 0; }
+        }
+        /* Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 3px);
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.3;
+        }
+        body.shake { animation: screenShake 0.15s infinite; }
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-5px, 3px); }
+            50% { transform: translate(5px, -3px); }
+            75% { transform: translate(-3px, -2px); }
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            flex-shrink: 0;
+            height: 40px;
+            min-height: 40px;
+            border-bottom: 2px solid rgba(255,68,68,0.6);
+            box-shadow: 0 2px 20px rgba(255,68,68,0.3);
+        }
+        .back-btn {
+            background: rgba(255,68,68,0.1);
+            border: 2px solid rgba(255,68,68,0.5);
+            color: #ff4444;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            text-decoration: none;
+        }
+        .title { 
+            font-size: 0.85rem; 
+            color: #ff4444; 
+            text-shadow: 0 0 10px rgba(255,68,68,0.8), 0 0 20px rgba(255,68,68,0.4);
+            letter-spacing: 2px;
+        }
+        .stats { display: flex; gap: 10px; font-size: 0.7rem; }
+        .stat span { color: #ffaa00; font-weight: bold; text-shadow: 0 0 8px rgba(255,170,0,0.6); }
+        
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 10px;
+            position: relative;
+        }
+        
+        .timer-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.85);
+            border: 2px solid #ffaa00;
+            border-radius: 12px;
+            padding: 10px 15px;
+            font-size: 0.7rem;
+            color: #ffaa00;
+            z-index: 20;
+            box-shadow: 0 0 20px rgba(255,170,0,0.3);
+            text-shadow: 0 0 8px rgba(255,170,0,0.5);
+        }
+        
+        .position-card {
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            padding: 12px 15px;
+            box-shadow: 0 0 20px rgba(0,255,255,0.2), inset 0 0 20px rgba(0,255,255,0.05);
+        }
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .position-title { color: #00ffff; font-size: 0.75rem; text-shadow: 0 0 8px rgba(0,255,255,0.5); }
+        .leverage-badge {
+            background: linear-gradient(135deg, #ff00ff, #ff6600);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            box-shadow: 0 0 15px rgba(255,0,255,0.4);
+        }
+        .leverage-badge.danger { 
+            animation: dangerPulse 0.25s infinite; 
+            background: linear-gradient(135deg, #ff0000, #ff4444);
+            box-shadow: 0 0 25px rgba(255,0,0,0.6);
+        }
+        @keyframes dangerPulse { 0%,100%{transform:scale(1)}50%{transform:scale(1.1)} }
+        
+        .position-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.7rem;
+        }
+        .position-label { color: #888; }
+        .position-value { color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3); }
+        .position-value.green { color: #00ff88; text-shadow: 0 0 8px rgba(0,255,136,0.5); }
+        .position-value.red { color: #ff4444; text-shadow: 0 0 8px rgba(255,68,68,0.5); }
+        
+        .price-display {
+            background: rgba(0,0,0,0.8);
+            border: 3px solid;
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+        }
+        .price-display.up { 
+            border-color: #00ff88; 
+            box-shadow: 0 0 30px rgba(0,255,136,0.2), inset 0 0 30px rgba(0,255,136,0.05);
+        }
+        .price-display.down { 
+            border-color: #ff4444;
+            box-shadow: 0 0 30px rgba(255,68,68,0.3), inset 0 0 30px rgba(255,68,68,0.05);
+        }
+        .price-label { font-size: 0.65rem; color: #888; }
+        .price-value {
+            font-size: 2.2rem;
+            font-weight: 900;
+            transition: all 0.2s;
+        }
+        .price-value.up { color: #00ff88; text-shadow: 0 0 25px rgba(0,255,136,0.6); }
+        .price-value.down { color: #ff4444; text-shadow: 0 0 25px rgba(255,68,68,0.6); }
+        .price-change { font-size: 0.8rem; margin-top: 5px; }
+        
+        .liquidation-zone {
+            background: rgba(50,0,0,0.6);
+            border: 3px solid #ff0000;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(255,0,0,0.2);
+        }
+        .liquidation-zone.critical {
+            animation: criticalPulse 0.25s infinite;
+            background: rgba(100,0,0,0.7);
+        }
+        @keyframes criticalPulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(255,0,0,0.5); border-color: #ff0000; }
+            50% { box-shadow: 0 0 50px rgba(255,0,0,0.9); border-color: #ff4444; }
+        }
+        .liq-label { font-size: 0.6rem; color: #ff4444; letter-spacing: 1px; }
+        .liq-price { font-size: 1.3rem; color: #ff4444; font-weight: 700; text-shadow: 0 0 15px rgba(255,68,68,0.6); }
+        .margin-bar {
+            width: 100%;
+            height: 18px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 9px;
+            overflow: hidden;
+            margin-top: 10px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .margin-fill {
+            height: 100%;
+            transition: width 0.3s, background 0.3s;
+            background: linear-gradient(90deg, #ff0000 0%, #ffaa00 30%, #00ff88 100%);
+            border-radius: 9px;
+            position: relative;
+        }
+        .margin-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+            animation: marginShine 2s linear infinite;
+        }
+        @keyframes marginShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .margin-fill.danger { 
+            background: linear-gradient(90deg, #ff0000 0%, #ff4444 100%);
+            animation: dangerGlow 0.3s infinite;
+        }
+        @keyframes dangerGlow {
+            0%, 100% { box-shadow: 0 0 10px rgba(255,0,0,0.5); }
+            50% { box-shadow: 0 0 20px rgba(255,0,0,0.8); }
+        }
+        
+        .action-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .action-btn {
+            padding: 12px 8px;
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: 2px solid;
+            text-align: center;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .action-btn:hover::before { left: 100%; }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .action-btn.add { 
+            border-color: #00ff88; 
+            color: #00ff88; 
+            background: rgba(0,255,136,0.1);
+            box-shadow: 0 0 15px rgba(0,255,136,0.2);
+        }
+        .action-btn.remove { 
+            border-color: #ff4444; 
+            color: #ff4444; 
+            background: rgba(255,68,68,0.1);
+            box-shadow: 0 0 15px rgba(255,68,68,0.2);
+        }
+        .action-btn.leverage-up { 
+            border-color: #ff00ff; 
+            color: #ff00ff; 
+            background: rgba(255,0,255,0.1);
+            box-shadow: 0 0 15px rgba(255,0,255,0.2);
+        }
+        .action-btn.leverage-down { 
+            border-color: #00ffff; 
+            color: #00ffff; 
+            background: rgba(0,255,255,0.1);
+            box-shadow: 0 0 15px rgba(0,255,255,0.2);
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(5,5,20,0.95);
+            border: 3px solid #ff4444;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 50px rgba(255,68,68,0.5), inset 0 0 30px rgba(255,68,68,0.1);
+            max-width: 320px;
+            opacity: 0;
+            animation: overlayIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            backdrop-filter: blur(10px);
+        }
+        @keyframes overlayIn { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        .overlay h2 { 
+            color: #ff4444; 
+            margin-bottom: 10px; 
+            font-size: 1.3rem;
+            text-shadow: 0 0 20px rgba(255,68,68,0.8);
+            letter-spacing: 2px;
+        }
+        .overlay p { color: #888; font-size: 0.75rem; margin-bottom: 8px; }
+        .overlay .score-big { 
+            font-size: 2.8rem; 
+            color: #ffaa00; 
+            margin: 15px 0;
+            text-shadow: 0 0 30px rgba(255,170,0,0.6);
+        }
+        .overlay .flavor { color: #ffaa00; font-size: 0.6rem; font-style: italic; margin: 15px 0; }
+        .tutorial { font-size: 0.5rem; color: #ff4444; margin-top: 10px; padding: 8px; background: rgba(255,68,68,0.1); border-radius: 8px; }
+        
+        .btn {
+            background: linear-gradient(135deg, #ff4444 0%, #ff00ff 100%);
+            color: #fff;
+            border: none;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            min-height: 48px;
+            box-shadow: 0 0 25px rgba(255,68,68,0.5);
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 5px;
+        }
+        .btn:active { transform: scale(0.95); }
+        
+        .warning-flash {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,0,0,0.4);
+            pointer-events: none;
+            z-index: 50;
+            animation: warningFlash 0.25s forwards;
+        }
+        @keyframes warningFlash { 0%{opacity:1}100%{opacity:0} }
+        
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            font-size: 2rem;
+            animation: particleFly 1s ease-out forwards;
+            z-index: 200;
+        }
+        @keyframes particleFly {
+            0% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { transform: scale(0) translateY(-80px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">← MENU</a>
+        <div class="title">💀 LIQUIDATION PANIC</div>
+        <div class="stats">
+            <div class="stat">BEST: <span id="highScore">0</span>s</div>
+        </div>
+    </div>
+    
+    <div class="game-area">
+        <div class="timer-display">
+            SURVIVED: <span id="timer">0</span>s
+        </div>
+        
+        <div class="position-card">
+            <div class="position-header">
+                <span class="position-title">📊 LONG POSITION</span>
+                <span class="leverage-badge" id="leverageBadge">10x</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">Entry Price</span>
+                <span class="position-value" id="entryPrice">$50,000</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">Position Size</span>
+                <span class="position-value" id="positionSize">$10,000</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">Margin</span>
+                <span class="position-value" id="margin">$1,000</span>
+            </div>
+            <div class="position-row">
+                <span class="position-label">Unrealized P&L</span>
+                <span class="position-value green" id="pnl">+$0.00</span>
+            </div>
+        </div>
+        
+        <div class="price-display up" id="priceDisplay">
+            <div class="price-label">CURRENT PRICE</div>
+            <div class="price-value up" id="price">$50,000</div>
+            <div class="price-change" id="change">+0.00%</div>
+        </div>
+        
+        <div class="liquidation-zone" id="liqZone">
+            <div class="liq-label">⚠️ LIQUIDATION PRICE ⚠️</div>
+            <div class="liq-price" id="liqPrice">$45,000</div>
+            <div class="margin-bar">
+                <div class="margin-fill" id="marginFill" style="width: 100%"></div>
+            </div>
+        </div>
+        
+        <div class="action-panel">
+            <button class="action-btn add" id="addMarginBtn">
+                💰 ADD MARGIN<br><span style="font-size:0.55rem;opacity:0.8">+$100</span>
+            </button>
+            <button class="action-btn remove" id="removeMarginBtn">
+                📤 REMOVE<br><span style="font-size:0.55rem;opacity:0.8">-$100</span>
+            </button>
+            <button class="action-btn leverage-up" id="leverageUpBtn">
+                ⬆️ LEVERAGE<br><span style="font-size:0.55rem;opacity:0.8">MORE RISK</span>
+            </button>
+            <button class="action-btn leverage-down" id="leverageDownBtn">
+                ⬇️ LEVERAGE<br><span style="font-size:0.55rem;opacity:0.8">LESS RISK</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>💀 LIQUIDATION PANIC</h2>
+        <p>Manage your leveraged position!<br>Don't get liquidated!</p>
+        <div style="font-size:0.55rem; color:#666; margin: 10px 0; line-height: 1.5;">
+            📉 Price fluctuates wildly<br>
+            💰 Add margin when price dumps<br>
+            ⚡ Adjust leverage to manage risk<br>
+            ⏱️ Survive as long as possible!
+        </div>
+        <div class="tutorial" id="tutorial">
+            ⚠️ Higher leverage = closer liquidation<br>
+            💡 Volatility increases over time!
+        </div>
+        <div class="flavor">"The market can stay irrational longer than you can stay solvent."</div>
+        <button class="btn" id="startBtn">💀 DEGEN IN</button>
+    </div>
+    
+    <div class="overlay" id="gameOverOverlay" style="display:none;">
+        <h2>💀 LIQUIDATED!</h2>
+        <div class="score-big" id="finalTime">0</div>
+        <p>seconds survived</p>
+        <p>Final leverage: <span id="finalLeverage">10x</span></p>
+        <p>Margin lost: <span id="marginLost">$0</span></p>
+        <div class="flavor" id="endQuote">"Rekt."</div>
+        <button class="btn" id="retryBtn">💀 AGAIN</button>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if (type === 'add') {
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'remove') {
+                    osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'warning') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'liquidate') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(25, audioCtx.currentTime + 1.2);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 1.2);
+                } else if (type === 'pump') {
+                    osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'dump') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                }
+            } catch(e) {}
+        }
+        
+        function flashWarning() {
+            const flash = document.createElement('div');
+            flash.className = 'warning-flash';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 250);
+        }
+        
+        function spawnParticle(emoji, x, y) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.textContent = emoji;
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1000);
+        }
+        
+        const endQuotes = [
+            "Rekt.", "Should've used stop-loss.",
+            "Leverage is a double-edged sword.",
+            "The market always wins.",
+            "NGMI.", "Your margin: gone.",
+            "Liquidation engine goes brrr.",
+            "One more trade... oh wait."
+        ];
+        
+        let gameRunning = false;
+        let price = 50000;
+        let entryPrice = 50000;
+        let margin = 1000;
+        let leverage = 10;
+        let timeElapsed = 0;
+        let gameLoop;
+        let volatility = 0.01;
+        
+        function init() {
+            document.getElementById('highScore').textContent = localStorage.getItem('clawarcade_liq_best') || 0;
+            if (localStorage.getItem('clawarcade_liq_played')) {
+                document.getElementById('tutorial').style.display = 'none';
+            }
+        }
+        
+        function getPositionSize() {
+            return margin * leverage;
+        }
+        
+        function getLiquidationPrice() {
+            const positionSize = getPositionSize();
+            const maintenanceMargin = positionSize * 0.005;
+            return entryPrice * (1 - (margin - maintenanceMargin) / positionSize);
+        }
+        
+        function getPnL() {
+            const positionSize = getPositionSize() / entryPrice;
+            return positionSize * (price - entryPrice);
+        }
+        
+        function getMarginRatio() {
+            const pnl = getPnL();
+            const currentMargin = margin + pnl;
+            const positionSize = getPositionSize();
+            return (currentMargin / positionSize) * 100;
+        }
+        
+        function startGame() {
+            initAudio();
+            localStorage.setItem('clawarcade_liq_played', 'true');
+            
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('gameOverOverlay').style.display = 'none';
+            
+            price = 50000;
+            entryPrice = 50000;
+            margin = 1000;
+            leverage = 10;
+            timeElapsed = 0;
+            volatility = 0.01;
+            
+            document.body.classList.remove('danger-mode', 'shake');
+            
+            updateDisplay();
+            
+            gameRunning = true;
+            gameLoop = setInterval(update, 100);
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            timeElapsed += 0.1;
+            
+            // Progressive difficulty - increase volatility
+            volatility = 0.01 + (timeElapsed / 60) * 0.035;
+            
+            // Price movement with downward bias
+            const bias = (Math.random() - 0.53) * volatility;
+            const change = (Math.random() - 0.5 + bias) * volatility;
+            price = price * (1 + change);
+            
+            // Occasional flash crashes - more frequent over time
+            if (Math.random() < 0.012 + timeElapsed * 0.0006) {
+                price *= 0.96 - Math.random() * 0.025;
+                playSound('dump');
+                flashWarning();
+                spawnParticle('📉', window.innerWidth / 2, window.innerHeight / 2);
+            }
+            
+            // Occasional pumps
+            if (Math.random() < 0.006) {
+                price *= 1.025 + Math.random() * 0.015;
+                playSound('pump');
+                spawnParticle('📈', window.innerWidth / 2, window.innerHeight / 2);
+            }
+            
+            // Check liquidation
+            const liqPrice = getLiquidationPrice();
+            const marginRatio = getMarginRatio();
+            
+            if (price <= liqPrice || marginRatio < 1) {
+                liquidate();
+                return;
+            }
+            
+            // Warning states
+            if (marginRatio < 5) {
+                document.body.classList.add('danger-mode', 'shake');
+                document.getElementById('liqZone').classList.add('critical');
+                document.getElementById('leverageBadge').classList.add('danger');
+                if (Math.random() < 0.3) playSound('warning');
+            } else if (marginRatio < 15) {
+                document.body.classList.add('danger-mode');
+                document.body.classList.remove('shake');
+                document.getElementById('liqZone').classList.remove('critical');
+                document.getElementById('leverageBadge').classList.remove('danger');
+            } else {
+                document.body.classList.remove('danger-mode', 'shake');
+                document.getElementById('liqZone').classList.remove('critical');
+                document.getElementById('leverageBadge').classList.remove('danger');
+            }
+            
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            document.getElementById('timer').textContent = Math.floor(timeElapsed);
+            
+            const priceEl = document.getElementById('price');
+            priceEl.textContent = `$${price.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            
+            const changePercent = ((price - entryPrice) / entryPrice * 100);
+            const changeEl = document.getElementById('change');
+            changeEl.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+            
+            const isUp = price >= entryPrice;
+            priceEl.className = 'price-value ' + (isUp ? 'up' : 'down');
+            document.getElementById('priceDisplay').className = 'price-display ' + (isUp ? 'up' : 'down');
+            
+            document.getElementById('entryPrice').textContent = `$${entryPrice.toLocaleString()}`;
+            document.getElementById('positionSize').textContent = `$${getPositionSize().toLocaleString()}`;
+            document.getElementById('margin').textContent = `$${margin.toLocaleString()}`;
+            
+            const pnl = getPnL();
+            const pnlEl = document.getElementById('pnl');
+            pnlEl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+            pnlEl.className = 'position-value ' + (pnl >= 0 ? 'green' : 'red');
+            
+            document.getElementById('leverageBadge').textContent = leverage + 'x';
+            document.getElementById('liqPrice').textContent = `$${getLiquidationPrice().toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            
+            const marginRatio = getMarginRatio();
+            const marginFill = document.getElementById('marginFill');
+            marginFill.style.width = Math.min(100, Math.max(0, marginRatio * 3)) + '%';
+            marginFill.classList.toggle('danger', marginRatio < 10);
+            
+            document.getElementById('addMarginBtn').disabled = margin >= 10000;
+            document.getElementById('removeMarginBtn').disabled = margin <= 100 || getMarginRatio() < 20;
+            document.getElementById('leverageUpBtn').disabled = leverage >= 100;
+            document.getElementById('leverageDownBtn').disabled = leverage <= 5;
+        }
+        
+        function addMargin() {
+            if (!gameRunning || margin >= 10000) return;
+            initAudio();
+            margin = Math.min(10000, margin + 100);
+            playSound('add');
+            
+            const btn = document.getElementById('addMarginBtn');
+            const rect = btn.getBoundingClientRect();
+            spawnParticle('💰', rect.left + rect.width / 2, rect.top);
+            
+            updateDisplay();
+        }
+        
+        function removeMargin() {
+            if (!gameRunning || margin <= 100 || getMarginRatio() < 20) return;
+            initAudio();
+            margin = Math.max(100, margin - 100);
+            playSound('remove');
+            updateDisplay();
+        }
+        
+        function leverageUp() {
+            if (!gameRunning || leverage >= 100) return;
+            initAudio();
+            leverage = Math.min(100, leverage + 5);
+            playSound('add');
+            
+            const btn = document.getElementById('leverageUpBtn');
+            const rect = btn.getBoundingClientRect();
+            spawnParticle('⚡', rect.left + rect.width / 2, rect.top);
+            
+            updateDisplay();
+        }
+        
+        function leverageDown() {
+            if (!gameRunning || leverage <= 5) return;
+            initAudio();
+            leverage = Math.max(5, leverage - 5);
+            playSound('remove');
+            updateDisplay();
+        }
+        
+        function liquidate() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            playSound('liquidate');
+            
+            document.body.classList.add('shake');
+            flashWarning();
+            setTimeout(() => document.body.classList.remove('shake'), 600);
+            
+            // Liquidation particles
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    spawnParticle(
+                        ['💀', '📉', '💸', '🔻'][Math.floor(Math.random() * 4)],
+                        100 + Math.random() * (window.innerWidth - 200),
+                        100 + Math.random() * 200
+                    );
+                }, i * 80);
+            }
+            
+            const seconds = Math.floor(timeElapsed);
+            const bestScore = parseInt(localStorage.getItem('clawarcade_liq_best') || 0);
+            if (seconds > bestScore) {
+                localStorage.setItem('clawarcade_liq_best', seconds);
+                document.getElementById('highScore').textContent = seconds;
+            }
+            
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_liquidation-panic') || '[]');
+                scores.push({ name: username, score: seconds, leverage: leverage, date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_liquidation-panic', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            document.getElementById('finalTime').textContent = seconds;
+            document.getElementById('finalLeverage').textContent = leverage + 'x';
+            document.getElementById('marginLost').textContent = `$${margin.toLocaleString()}`;
+            document.getElementById('endQuote').textContent = endQuotes[Math.floor(Math.random() * endQuotes.length)];
+            document.getElementById('gameOverOverlay').style.display = 'block';
+        }
+        
+        document.getElementById('addMarginBtn').addEventListener('click', addMargin);
+        document.getElementById('addMarginBtn').addEventListener('touchstart', (e) => { e.preventDefault(); addMargin(); });
+        document.getElementById('removeMarginBtn').addEventListener('click', removeMargin);
+        document.getElementById('removeMarginBtn').addEventListener('touchstart', (e) => { e.preventDefault(); removeMargin(); });
+        document.getElementById('leverageUpBtn').addEventListener('click', leverageUp);
+        document.getElementById('leverageUpBtn').addEventListener('touchstart', (e) => { e.preventDefault(); leverageUp(); });
+        document.getElementById('leverageDownBtn').addEventListener('click', leverageDown);
+        document.getElementById('leverageDownBtn').addEventListener('touchstart', (e) => { e.preventDefault(); leverageDown(); });
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('startBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        document.getElementById('retryBtn').addEventListener('click', startGame);
+        document.getElementById('retryBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        
+        init();
+    </script>
+</body>
+</html>

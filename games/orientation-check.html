@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Orientation Check - ClawMD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%); 
+            color: #e8e6e3; 
+            min-height: 100vh; 
+            padding: 1rem;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .header { text-align: center; margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(139, 0, 0, 0.2); border-radius: 12px; border: 2px solid #C5A572; }
+        .header h1 { color: #C5A572; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .header p { color: #aaa; font-size: 1rem; }
+        
+        .disclaimer { 
+            background: rgba(255, 193, 7, 0.15); 
+            border: 2px solid #ffc107; 
+            border-radius: 10px; 
+            padding: 1rem; 
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .disclaimer strong { color: #ffc107; }
+        
+        .card { 
+            background: rgba(0, 33, 71, 0.4); 
+            border: 2px solid #C5A572; 
+            border-radius: 12px; 
+            padding: 1.5rem; 
+            margin-bottom: 1rem;
+        }
+        
+        .question { margin-bottom: 1.5rem; }
+        .question-label { 
+            font-size: 1.3rem; 
+            color: #C5A572; 
+            margin-bottom: 1rem;
+            display: block;
+        }
+        .question-icon { font-size: 2rem; margin-right: 0.5rem; }
+        
+        .options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+        .options.single-col { grid-template-columns: 1fr; }
+        
+        .option-btn { 
+            background: #1a2332; 
+            border: 2px solid #C5A572; 
+            color: #e8e6e3; 
+            padding: 1rem; 
+            font-size: 1.1rem; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            min-height: 56px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .option-btn:hover { background: rgba(197, 165, 114, 0.2); }
+        .option-btn.selected { background: #00d4aa; color: #1a1a2e; border-color: #00d4aa; }
+        .option-btn.correct { background: #00d4aa; color: #1a1a2e; animation: pulse 0.5s; }
+        .option-btn.incorrect { background: #e74c3c; color: white; animation: shake 0.5s; }
+        
+        @keyframes pulse { 50% { transform: scale(1.05); } }
+        @keyframes shake { 25%, 75% { transform: translateX(-5px); } 50% { transform: translateX(5px); } }
+        
+        .btn { 
+            display: inline-block;
+            background: linear-gradient(135deg, #8B0000 0%, #6B0000 100%); 
+            color: #C5A572; 
+            border: 2px solid #C5A572;
+            padding: 1rem 2rem; 
+            font-size: 1.1rem; 
+            font-weight: 600;
+            border-radius: 8px; 
+            cursor: pointer; 
+            min-height: 56px;
+            transition: all 0.3s;
+        }
+        .btn:hover { background: linear-gradient(135deg, #A00000 0%, #8B0000 100%); }
+        .btn-group { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+        
+        .score-display { 
+            text-align: center; 
+            padding: 2rem; 
+            background: rgba(0, 212, 170, 0.1); 
+            border-radius: 12px; 
+            margin: 1rem 0;
+        }
+        .score-big { font-size: 4rem; color: #00d4aa; font-weight: bold; }
+        .score-label { font-size: 1.2rem; color: #C5A572; }
+        
+        .result-interpretation { 
+            padding: 1.5rem; 
+            border-radius: 10px; 
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        .result-good { background: rgba(0, 212, 170, 0.2); border: 2px solid #00d4aa; }
+        .result-concern { background: rgba(255, 193, 7, 0.2); border: 2px solid #ffc107; }
+        .result-alert { background: rgba(244, 67, 54, 0.2); border: 2px solid #f44336; }
+        
+        .history-section { margin-top: 2rem; }
+        .history-title { color: #C5A572; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
+        .history-chart { 
+            display: flex; 
+            align-items: flex-end; 
+            justify-content: center;
+            gap: 0.5rem; 
+            height: 150px;
+            padding: 1rem;
+            background: #1a2332;
+            border-radius: 8px;
+        }
+        .history-bar { 
+            width: 30px; 
+            background: linear-gradient(to top, #00d4aa, #00ff88);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: height 0.5s;
+        }
+        .history-bar span {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: #888;
+        }
+        
+        .progress-ring { margin: 1rem auto; }
+        
+        .back-link { 
+            display: inline-block; 
+            color: #C5A572; 
+            text-decoration: none; 
+            margin-bottom: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+        
+        .section-divider { 
+            text-align: center; 
+            margin: 2rem 0; 
+            color: #C5A572;
+            font-size: 1.1rem;
+        }
+        .section-divider::before, .section-divider::after {
+            content: "—";
+            margin: 0 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../games.html" class="back-link">← Back to Games</a>
+        
+        <div class="header">
+            <h1>📅 Orientation Check</h1>
+            <p>Time & Place Awareness Assessment</p>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>⚠️ Note:</strong> This is a cognitive exercise, not a medical diagnosis. 
+            Discuss any concerns with your healthcare provider.
+        </div>
+        
+        <!-- Quiz Section -->
+        <div id="quizSection">
+            <div class="card">
+                <p class="section-divider">Time Orientation (5 questions)</p>
+                
+                <div class="question" id="q1">
+                    <label class="question-label"><span class="question-icon">📆</span> What year is it?</label>
+                    <div class="options" id="yearOptions"></div>
+                </div>
+                
+                <div class="question" id="q2">
+                    <label class="question-label"><span class="question-icon">🍂</span> What season is it?</label>
+                    <div class="options" id="seasonOptions"></div>
+                </div>
+                
+                <div class="question" id="q3">
+                    <label class="question-label"><span class="question-icon">📅</span> What month is it?</label>
+                    <div class="options" id="monthOptions"></div>
+                </div>
+                
+                <div class="question" id="q4">
+                    <label class="question-label"><span class="question-icon">📆</span> What day of the week is it?</label>
+                    <div class="options single-col" id="dayOptions"></div>
+                </div>
+                
+                <div class="question" id="q5">
+                    <label class="question-label"><span class="question-icon">#️⃣</span> What is today's date?</label>
+                    <div class="options" id="dateOptions"></div>
+                </div>
+                
+                <p class="section-divider">Place Orientation (5 questions)</p>
+                
+                <div class="question" id="q6">
+                    <label class="question-label"><span class="question-icon">🌍</span> What country are you in?</label>
+                    <div class="options" id="countryOptions"></div>
+                </div>
+                
+                <div class="question" id="q7">
+                    <label class="question-label"><span class="question-icon">🏘️</span> What type of area are you in?</label>
+                    <div class="options" id="areaOptions"></div>
+                </div>
+                
+                <div class="question" id="q8">
+                    <label class="question-label"><span class="question-icon">🏠</span> What type of building are you in?</label>
+                    <div class="options" id="buildingOptions"></div>
+                </div>
+                
+                <div class="question" id="q9">
+                    <label class="question-label"><span class="question-icon">🔢</span> What floor are you on?</label>
+                    <div class="options" id="floorOptions"></div>
+                </div>
+                
+                <div class="question" id="q10">
+                    <label class="question-label"><span class="question-icon">🧭</span> Is it currently morning, afternoon, or evening?</label>
+                    <div class="options" id="timeOfDayOptions"></div>
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn" onclick="submitQuiz()">Submit Answers</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden">
+            <div class="card">
+                <div class="score-display">
+                    <div class="score-big" id="totalScore">0</div>
+                    <div class="score-label">out of 10 points</div>
+                </div>
+                
+                <div id="interpretation" class="result-interpretation"></div>
+                
+                <div id="breakdown" style="margin-top: 1.5rem;"></div>
+                
+                <div class="btn-group">
+                    <button class="btn" onclick="tryAgain()">🔄 Try Again</button>
+                    <button class="btn" onclick="window.print()">🖨️ Print</button>
+                </div>
+            </div>
+            
+            <div class="history-section">
+                <h3 class="history-title">📈 Your Progress Over Time</h3>
+                <div class="history-chart" id="historyChart"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Current correct answers
+        const now = new Date();
+        const correct = {
+            year: now.getFullYear(),
+            season: getSeason(now.getMonth()),
+            month: now.toLocaleString('default', { month: 'long' }),
+            day: now.toLocaleString('default', { weekday: 'long' }),
+            date: now.getDate(),
+            timeOfDay: getTimeOfDay(now.getHours())
+        };
+        
+        let answers = {};
+        
+        function getSeason(month) {
+            if (month >= 2 && month <= 4) return 'Spring';
+            if (month >= 5 && month <= 7) return 'Summer';
+            if (month >= 8 && month <= 10) return 'Autumn';
+            return 'Winter';
+        }
+        
+        function getTimeOfDay(hour) {
+            if (hour >= 5 && hour < 12) return 'Morning';
+            if (hour >= 12 && hour < 17) return 'Afternoon';
+            if (hour >= 17 && hour < 21) return 'Evening';
+            return 'Night';
+        }
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        function createOptions(containerId, options, questionKey, correctValue) {
+            const container = document.getElementById(containerId);
+            const shuffled = shuffleArray([...options]);
+            container.innerHTML = shuffled.map(opt => {
+                const isCorrect = (typeof correctValue === 'function') ? correctValue(opt) : (opt === correctValue || opt.toString() === correctValue.toString());
+                return `<button class="option-btn" onclick="selectAnswer('${questionKey}', this, ${isCorrect})">${opt}</button>`;
+            }).join('');
+        }
+        
+        function selectAnswer(key, btn, isCorrect) {
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            answers[key] = isCorrect;
+        }
+        
+        function initQuiz() {
+            // Year options
+            const years = [correct.year - 2, correct.year - 1, correct.year, correct.year + 1];
+            createOptions('yearOptions', years, 'year', correct.year);
+            
+            // Season options
+            createOptions('seasonOptions', ['Spring', 'Summer', 'Autumn', 'Winter'], 'season', correct.season);
+            
+            // Month options
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+            const monthOpts = [correct.month];
+            while (monthOpts.length < 4) {
+                const m = months[Math.floor(Math.random() * 12)];
+                if (!monthOpts.includes(m)) monthOpts.push(m);
+            }
+            createOptions('monthOptions', monthOpts, 'month', correct.month);
+            
+            // Day options
+            createOptions('dayOptions', ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], 'day', correct.day);
+            
+            // Date options
+            const dateOpts = [correct.date];
+            while (dateOpts.length < 4) {
+                const d = Math.floor(Math.random() * 28) + 1;
+                if (!dateOpts.includes(d)) dateOpts.push(d);
+            }
+            createOptions('dateOptions', dateOpts, 'date', correct.date);
+            
+            // Country options (common ones)
+            createOptions('countryOptions', ['United States', 'United Kingdom', 'Germany', 'Canada', 'Australia', 'Other'], 'country', () => true);
+            
+            // Area type
+            createOptions('areaOptions', ['City', 'Suburbs', 'Town', 'Rural area'], 'area', () => true);
+            
+            // Building type
+            createOptions('buildingOptions', ['Home/Apartment', 'Office', 'Hospital/Clinic', 'School', 'Store', 'Other'], 'building', () => true);
+            
+            // Floor
+            createOptions('floorOptions', ['Ground/1st', '2nd', '3rd', '4th or higher', 'Basement'], 'floor', () => true);
+            
+            // Time of day
+            createOptions('timeOfDayOptions', ['Morning', 'Afternoon', 'Evening', 'Night'], 'timeOfDay', correct.timeOfDay);
+        }
+        
+        function submitQuiz() {
+            // Check all questions answered
+            const required = ['year', 'season', 'month', 'day', 'date', 'country', 'area', 'building', 'floor', 'timeOfDay'];
+            const unanswered = required.filter(k => answers[k] === undefined);
+            
+            if (unanswered.length > 0) {
+                alert('Please answer all questions before submitting.');
+                return;
+            }
+            
+            // Calculate score
+            let score = 0;
+            const timeQuestions = ['year', 'season', 'month', 'day', 'date'];
+            const placeQuestions = ['country', 'area', 'building', 'floor', 'timeOfDay'];
+            
+            timeQuestions.forEach(q => { if (answers[q]) score++; });
+            placeQuestions.forEach(q => { if (answers[q]) score++; });
+            
+            // Show correct/incorrect
+            document.querySelectorAll('.option-btn.selected').forEach(btn => {
+                const isCorrect = btn.onclick.toString().includes('true');
+                btn.classList.add(isCorrect ? 'correct' : 'incorrect');
+            });
+            
+            // Display results
+            setTimeout(() => showResults(score), 500);
+        }
+        
+        function showResults(score) {
+            document.getElementById('quizSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            document.getElementById('totalScore').textContent = score;
+            
+            const interp = document.getElementById('interpretation');
+            if (score >= 9) {
+                interp.className = 'result-interpretation result-good';
+                interp.innerHTML = '✅ <strong>Excellent!</strong><br>Your orientation to time and place is strong. Keep exercising your mind!';
+            } else if (score >= 7) {
+                interp.className = 'result-interpretation result-good';
+                interp.innerHTML = '👍 <strong>Good!</strong><br>Your awareness is solid. A few questions may have been tricky.';
+            } else if (score >= 5) {
+                interp.className = 'result-interpretation result-concern';
+                interp.innerHTML = '⚠️ <strong>Some Difficulty</strong><br>Consider practicing orientation exercises regularly. If concerned, discuss with your doctor.';
+            } else {
+                interp.className = 'result-interpretation result-alert';
+                interp.innerHTML = '🔴 <strong>Please Seek Guidance</strong><br>We recommend discussing these results with a healthcare provider for proper evaluation.';
+            }
+            
+            // Breakdown
+            const breakdown = document.getElementById('breakdown');
+            let timeScore = ['year', 'season', 'month', 'day', 'date'].filter(q => answers[q]).length;
+            let placeScore = ['country', 'area', 'building', 'floor', 'timeOfDay'].filter(q => answers[q]).length;
+            
+            breakdown.innerHTML = `
+                <div style="display: flex; justify-content: space-around; text-align: center;">
+                    <div>
+                        <div style="font-size: 2rem; color: #00d4aa;">${timeScore}/5</div>
+                        <div style="color: #C5A572;">Time</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2rem; color: #00d4aa;">${placeScore}/5</div>
+                        <div style="color: #C5A572;">Place</div>
+                    </div>
+                </div>
+            `;
+            
+            // Save to history
+            saveHistory(score);
+            displayHistory();
+        }
+        
+        function saveHistory(score) {
+            const history = JSON.parse(localStorage.getItem('orientationHistory') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                score: score
+            });
+            if (history.length > 30) history.shift();
+            localStorage.setItem('orientationHistory', JSON.stringify(history));
+        }
+        
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('orientationHistory') || '[]');
+            const chart = document.getElementById('historyChart');
+            
+            if (history.length === 0) {
+                chart.innerHTML = '<p style="color: #888; text-align: center; width: 100%;">No previous attempts</p>';
+                return;
+            }
+            
+            const recent = history.slice(-10);
+            chart.innerHTML = recent.map((h, i) => {
+                const height = (h.score / 10) * 100;
+                const date = new Date(h.date).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+                return `<div class="history-bar" style="height: ${height}px;"><span>${date}</span></div>`;
+            }).join('');
+        }
+        
+        function tryAgain() {
+            answers = {};
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.classList.remove('selected', 'correct', 'incorrect');
+            });
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('quizSection').classList.remove('hidden');
+            initQuiz();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // Initialize on load
+        initQuiz();
+        displayHistory();
+    </script>
+</body>
+</html>

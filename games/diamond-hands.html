@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Diamond Hands - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a1a;
+            color: #e8e6e3;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Animated cyberpunk grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                linear-gradient(180deg, rgba(0,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,255,255,0.03) 1px, transparent 1px),
+                radial-gradient(ellipse at 50% 0%, rgba(0,255,255,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 100%, rgba(255,0,255,0.08) 0%, transparent 50%);
+            background-size: 30px 30px, 30px 30px, 100% 100%, 100% 100%;
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        @keyframes gridMove {
+            0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+            100% { background-position: 0 60px, 60px 0, 0 0, 0 0; }
+        }
+        /* Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 3px);
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.3;
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            flex-shrink: 0;
+            height: 40px;
+            min-height: 40px;
+            border-bottom: 2px solid rgba(0,255,255,0.6);
+            box-shadow: 0 2px 20px rgba(0,255,255,0.3);
+        }
+        .back-btn {
+            background: rgba(0,255,255,0.1);
+            border: 2px solid rgba(0,255,255,0.5);
+            color: #00ffff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .title { 
+            font-size: 0.9rem; 
+            color: #00ffff; 
+            text-shadow: 0 0 10px rgba(0,255,255,0.8), 0 0 20px rgba(0,255,255,0.4);
+            letter-spacing: 2px;
+        }
+        .stats { display: flex; gap: 10px; font-size: 0.7rem; align-items: center; }
+        .stat span { color: #ffaa00; font-weight: bold; text-shadow: 0 0 8px rgba(255,170,0,0.6); }
+        
+        .game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .price-display {
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            text-align: center;
+            border-bottom: 3px solid;
+            transition: border-color 0.3s, background 0.3s;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .price-display.green { 
+            border-color: #00ff88; 
+            box-shadow: 0 0 30px rgba(0,255,136,0.2);
+        }
+        .price-display.red { 
+            border-color: #ff4444; 
+            background: rgba(50,0,0,0.8);
+            box-shadow: 0 0 30px rgba(255,68,68,0.3);
+        }
+        
+        .price-big {
+            font-size: 2.2rem;
+            font-weight: 900;
+            transition: all 0.2s;
+        }
+        .price-big.green { color: #00ff88; text-shadow: 0 0 25px rgba(0,255,136,0.6); }
+        .price-big.red { color: #ff4444; text-shadow: 0 0 25px rgba(255,68,68,0.6); }
+        
+        .price-change { font-size: 0.9rem; margin-top: 5px; }
+        .price-change.up { color: #00ff88; }
+        .price-change.down { color: #ff4444; }
+        
+        .chart-area {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%);
+            transition: background 0.5s;
+        }
+        .chart-area.panic {
+            background: linear-gradient(180deg, rgba(255,0,0,0.3) 0%, rgba(255,0,0,0.1) 100%);
+            animation: panicPulse 0.4s infinite;
+        }
+        .chart-area.shake { animation: screenShake 0.1s infinite; }
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-4px, 3px); }
+            50% { transform: translate(4px, -3px); }
+            75% { transform: translate(-2px, -2px); }
+        }
+        @keyframes panicPulse {
+            0%, 100% { background: linear-gradient(180deg, rgba(255,0,0,0.3) 0%, rgba(255,0,0,0.1) 100%); }
+            50% { background: linear-gradient(180deg, rgba(255,0,0,0.5) 0%, rgba(255,0,0,0.2) 100%); }
+        }
+        
+        #chart { width: 100%; height: 100%; }
+        
+        .hands-container {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 4rem;
+            display: flex;
+            gap: 30px;
+            z-index: 10;
+            filter: drop-shadow(0 0 30px rgba(0,255,255,0.6));
+        }
+        .hand {
+            animation: shake 0.15s infinite;
+            transition: filter 0.3s;
+        }
+        .hand.shaking-1 { animation-duration: 0.1s; filter: drop-shadow(0 0 30px rgba(255,255,0,0.6)); }
+        .hand.shaking-2 { animation-duration: 0.07s; filter: drop-shadow(0 0 30px rgba(255,170,0,0.8)); }
+        .hand.shaking-3 { animation-duration: 0.04s; animation-name: shakeHard; filter: drop-shadow(0 0 40px rgba(255,0,0,0.9)); }
+        
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(-2px, 1px) rotate(-1deg); }
+            50% { transform: translate(2px, -1px) rotate(1deg); }
+            75% { transform: translate(-1px, -1px) rotate(-1deg); }
+        }
+        
+        @keyframes shakeHard {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-6px, 4px) rotate(-6deg); }
+            40% { transform: translate(6px, -4px) rotate(6deg); }
+            60% { transform: translate(-4px, -3px) rotate(-4deg); }
+            80% { transform: translate(4px, 3px) rotate(4deg); }
+        }
+        
+        .sell-button-container {
+            padding: 15px;
+            background: rgba(0,0,0,0.8);
+            border-top: 2px solid rgba(255,68,68,0.3);
+        }
+        
+        .sell-btn {
+            width: 100%;
+            padding: 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 3px solid #ff4444;
+            background: rgba(255,68,68,0.15);
+            color: #ff4444;
+            box-shadow: 0 0 20px rgba(255,68,68,0.2);
+            letter-spacing: 2px;
+        }
+        .sell-btn:active { 
+            background: rgba(255,68,68,0.4); 
+            transform: scale(0.98);
+            box-shadow: 0 0 40px rgba(255,68,68,0.5);
+        }
+        .sell-btn.shaking {
+            animation: btnShake 0.08s infinite;
+            border-color: #ff0000;
+            color: #ff0000;
+            box-shadow: 0 0 30px rgba(255,0,0,0.5);
+        }
+        @keyframes btnShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        
+        .fud-messages {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .fud-message {
+            position: absolute;
+            background: rgba(255,0,0,0.9);
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            animation: fudFloat 3s ease-out forwards;
+            white-space: nowrap;
+            box-shadow: 0 0 20px rgba(255,0,0,0.5);
+            letter-spacing: 1px;
+        }
+        @keyframes fudFloat {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-120px) scale(0.7); opacity: 0; }
+        }
+        
+        .timer-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.85);
+            border: 2px solid #00ffff;
+            border-radius: 12px;
+            padding: 10px 15px;
+            font-size: 0.7rem;
+            z-index: 20;
+            box-shadow: 0 0 20px rgba(0,255,255,0.3);
+        }
+        .timer-display .big { 
+            font-size: 1.6rem; 
+            color: #00ffff; 
+            text-shadow: 0 0 15px rgba(0,255,255,0.6);
+        }
+        
+        .difficulty-display {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            background: rgba(0,0,0,0.85);
+            border: 2px solid #ff00ff;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.6rem;
+            z-index: 20;
+            color: #ff00ff;
+            text-shadow: 0 0 8px rgba(255,0,255,0.5);
+            box-shadow: 0 0 15px rgba(255,0,255,0.2);
+        }
+        
+        .entry-price {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.85);
+            border: 2px solid #ffaa00;
+            border-radius: 12px;
+            padding: 10px 15px;
+            font-size: 0.65rem;
+            z-index: 20;
+            box-shadow: 0 0 15px rgba(255,170,0,0.2);
+        }
+        .entry-price .value { color: #ffaa00; font-size: 0.95rem; text-shadow: 0 0 8px rgba(255,170,0,0.5); }
+        
+        .overlay {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(5,5,20,0.95);
+            border: 3px solid #00ffff;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 50px rgba(0,255,255,0.4), inset 0 0 30px rgba(0,255,255,0.1);
+            max-width: 320px;
+            opacity: 0;
+            animation: overlayIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            backdrop-filter: blur(10px);
+        }
+        @keyframes overlayIn { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        .overlay h2 { 
+            color: #00ffff; 
+            margin-bottom: 10px; 
+            font-size: 1.3rem;
+            text-shadow: 0 0 20px rgba(0,255,255,0.8);
+            letter-spacing: 2px;
+        }
+        .overlay.paper { border-color: #ff4444; box-shadow: 0 0 50px rgba(255,68,68,0.4); }
+        .overlay.paper h2 { color: #ff4444; text-shadow: 0 0 20px rgba(255,68,68,0.8); }
+        .overlay p { color: #888; font-size: 0.75rem; margin-bottom: 8px; }
+        .overlay .score-big { 
+            font-size: 2.8rem; 
+            color: #ffaa00; 
+            margin: 15px 0;
+            text-shadow: 0 0 30px rgba(255,170,0,0.6);
+        }
+        .overlay .flavor { color: #ffaa00; font-size: 0.6rem; font-style: italic; margin: 15px 0; }
+        
+        .btn {
+            background: linear-gradient(135deg, #00ffff 0%, #00ff88 100%);
+            color: #000;
+            border: none;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            min-height: 48px;
+            box-shadow: 0 0 25px rgba(0,255,255,0.5);
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 5px;
+        }
+        .btn:active { transform: scale(0.95); }
+        
+        .instructions { font-size: 0.55rem; color: #888; margin: 10px 0; line-height: 1.6; }
+        .tutorial { font-size: 0.5rem; color: #00ffff; margin-top: 10px; padding: 8px; background: rgba(0,255,255,0.1); border-radius: 8px; }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            animation: particleFade 1s ease-out forwards;
+        }
+        @keyframes particleFade {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0) translateY(-30px); opacity: 0; }
+        }
+        
+        /* Flash crash effect */
+        .flash-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,0,0,0.4);
+            pointer-events: none;
+            z-index: 50;
+            animation: flashCrash 0.3s ease-out forwards;
+        }
+        @keyframes flashCrash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">← MENU</a>
+        <div class="title">💎 DIAMOND HANDS</div>
+        <div class="stats">
+            <div class="stat">BEST: <span id="highScore">0</span>s</div>
+        </div>
+    </div>
+    
+    <div class="game-container" id="gameContainer">
+        <div class="price-display green" id="priceDisplay">
+            <div class="price-big green" id="price">$50,000</div>
+            <div class="price-change up" id="change">+0.00%</div>
+        </div>
+        
+        <div class="chart-area" id="chartArea">
+            <canvas id="chart"></canvas>
+            
+            <div class="entry-price">
+                ENTRY: <span class="value" id="entryPrice">$50,000</span>
+            </div>
+            
+            <div class="timer-display">
+                SURVIVED<br><span class="big" id="timer">0</span>s
+            </div>
+            
+            <div class="difficulty-display" id="diffDisplay">
+                LEVEL 1
+            </div>
+            
+            <div class="fud-messages" id="fudContainer"></div>
+            
+            <div class="hands-container">
+                <span class="hand" id="leftHand">💎</span>
+                <span class="hand" id="rightHand">💎</span>
+            </div>
+        </div>
+        
+        <div class="sell-button-container">
+            <button class="sell-btn" id="sellBtn">
+                🧻 SELL EVERYTHING
+            </button>
+        </div>
+    </div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>💎 DIAMOND HANDS</h2>
+        <p>The market is crashing.<br>Your only job: DON'T CLICK SELL.</p>
+        <div class="instructions">
+            📉 The price will dump HARD<br>
+            🤲 Your hands will shake<br>
+            📢 FUD will flood your screen<br><br>
+            Just... don't... sell.
+        </div>
+        <div class="tutorial" id="tutorial">
+            💡 The longer you hold, the harder it gets!<br>
+            Difficulty increases every 10 seconds.
+        </div>
+        <div class="flavor">"Fortune favors the brave. And the stubborn."</div>
+        <button class="btn" id="startBtn">💎 HODL</button>
+    </div>
+    
+    <div class="overlay paper" id="paperOverlay" style="display:none;">
+        <h2>🧻 PAPER HANDS!</h2>
+        <div class="score-big" id="surviveTime">0</div>
+        <p>seconds survived</p>
+        <p>You sold at: <span id="soldPrice">$0</span></p>
+        <div class="flavor" id="paperQuote">"Weak."</div>
+        <button class="btn" id="retryBtn1">💎 TRY AGAIN</button>
+    </div>
+    
+    <div class="overlay" id="winOverlay" style="display:none;">
+        <h2>💎 DIAMOND HANDS!</h2>
+        <div class="score-big" id="finalTime">60</div>
+        <p>seconds survived!</p>
+        <p>Final price: <span id="finalPrice">$0</span></p>
+        <div class="flavor">"You held through the storm. Respect."</div>
+        <button class="btn" id="retryBtn2">💎 AGAIN</button>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        const dpr = window.devicePixelRatio || 1;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        
+        function playSound(type) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if (type === 'dump') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'sell') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+                } else if (type === 'win') {
+                    [523, 659, 784, 1047].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g); g.connect(audioCtx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.12);
+                        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.12 + 0.3);
+                        o.start(audioCtx.currentTime + i * 0.12);
+                        o.stop(audioCtx.currentTime + i * 0.12 + 0.3);
+                    });
+                } else if (type === 'fud') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(120 + Math.random() * 50, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'crash') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                }
+            } catch(e) {}
+        }
+        
+        function spawnParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 20 + Math.random() * 40;
+                p.style.left = (x + Math.cos(angle) * dist) + 'px';
+                p.style.top = (y + Math.sin(angle) * dist) + 'px';
+                p.style.width = (4 + Math.random() * 6) + 'px';
+                p.style.height = p.style.width;
+                p.style.background = color;
+                p.style.boxShadow = `0 0 10px ${color}`;
+                document.getElementById('chartArea').appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+        
+        function flashScreen() {
+            const flash = document.createElement('div');
+            flash.className = 'flash-overlay';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 300);
+        }
+        
+        const fudMessages = [
+            "SELL NOW!!!", "It's going to ZERO", "PANIC SELL", "Get out while you can",
+            "This is the end", "DUMP IT", "-99% incoming", "You're losing everything",
+            "RUGPULL!!!", "It's over", "Save yourself", "Exit liquidity",
+            "Going to $0", "You'll lose it all", "SELL SELL SELL",
+            "This is financial ruin", "Cut your losses", "Why are you still holding?",
+            "Market is dead", "Crypto is finished", "NGMI if you hold",
+            "Devs are rugging", "Whale dump detected", "Support broken",
+            "EVERYONE IS SELLING", "You're the last holder", "DON'T BE STUPID"
+        ];
+        
+        const paperQuotes = [
+            "Weak.", "Couldn't handle the pressure.",
+            "The market thanks you for your liquidity.",
+            "Sold at the bottom. Classic.", "Paper hands fold, diamond hands hold.",
+            "NGMI.", "One job. You had one job."
+        ];
+        
+        let gameRunning = false;
+        let price = 50000;
+        let entryPrice = 50000;
+        let priceHistory = [];
+        let timeElapsed = 0;
+        let gameLoop;
+        let fudInterval;
+        let shakeLevel = 0;
+        let difficulty = 1;
+        
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = (rect.height - 100) + 'px';
+            canvas.width = rect.width * dpr;
+            canvas.height = (rect.height - 100) * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        
+        function init() {
+            document.getElementById('highScore').textContent = localStorage.getItem('clawarcade_lb_diamond-hands_best') || 0;
+            resizeCanvas();
+            
+            if (localStorage.getItem('clawarcade_diamond_played')) {
+                document.getElementById('tutorial').style.display = 'none';
+            }
+            
+            window.addEventListener('resize', resizeCanvas);
+        }
+        
+        function startGame() {
+            initAudio();
+            localStorage.setItem('clawarcade_diamond_played', 'true');
+            
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('paperOverlay').style.display = 'none';
+            document.getElementById('winOverlay').style.display = 'none';
+            
+            price = 50000;
+            entryPrice = 50000;
+            priceHistory = [price];
+            timeElapsed = 0;
+            shakeLevel = 0;
+            difficulty = 1;
+            
+            document.getElementById('entryPrice').textContent = `$${entryPrice.toLocaleString()}`;
+            document.getElementById('chartArea').classList.remove('panic', 'shake');
+            document.getElementById('sellBtn').classList.remove('shaking');
+            document.getElementById('diffDisplay').textContent = 'LEVEL 1';
+            
+            updateHands();
+            updateDisplay();
+            resizeCanvas();
+            
+            gameRunning = true;
+            
+            gameLoop = setInterval(() => {
+                timeElapsed += 0.1;
+                
+                // Progressive difficulty
+                const newDiff = Math.floor(timeElapsed / 10) + 1;
+                if (newDiff > difficulty) {
+                    difficulty = newDiff;
+                    document.getElementById('diffDisplay').textContent = `LEVEL ${difficulty}`;
+                    spawnParticles(window.innerWidth / 2, 100, '#ff00ff', 15);
+                    playSound('dump');
+                }
+                
+                // Volatility increases with difficulty
+                const volatility = 0.02 + (difficulty * 0.018);
+                const bias = -0.004 - (difficulty * 0.006);
+                const change = (Math.random() - 0.5 + bias) * volatility;
+                
+                price = price * (1 + change);
+                
+                // Flash crashes increase with difficulty
+                if (Math.random() < 0.015 + difficulty * 0.012) {
+                    price *= 0.94 - difficulty * 0.012;
+                    playSound('crash');
+                    flashScreen();
+                    document.getElementById('chartArea').classList.add('shake');
+                    setTimeout(() => document.getElementById('chartArea').classList.remove('shake'), 250);
+                    spawnParticles(window.innerWidth / 2, window.innerHeight / 2, '#ff4444', 20);
+                }
+                
+                // Occasional recovery pumps
+                if (Math.random() < 0.008 && price < entryPrice * 0.5) {
+                    price *= 1.08;
+                }
+                
+                // Floor at 10%
+                if (price < entryPrice * 0.1) price = entryPrice * 0.1;
+                
+                priceHistory.push(price);
+                if (priceHistory.length > 200) priceHistory.shift();
+                
+                // Calculate shake level based on loss
+                const dropPercent = (entryPrice - price) / entryPrice;
+                shakeLevel = Math.floor(dropPercent * (3 + difficulty * 0.5));
+                if (shakeLevel > 3) shakeLevel = 3;
+                
+                updateHands();
+                updateDisplay();
+                drawChart();
+                
+                if (timeElapsed >= 60) {
+                    win();
+                }
+            }, 100);
+            
+            // FUD frequency increases with difficulty
+            scheduleFud();
+        }
+        
+        function scheduleFud() {
+            if (!gameRunning) return;
+            if (price < entryPrice * 0.85) {
+                spawnFud();
+            }
+            const delay = Math.max(150, 700 - difficulty * 80) + Math.random() * 400;
+            fudInterval = setTimeout(scheduleFud, delay);
+        }
+        
+        function updateHands() {
+            const leftHand = document.getElementById('leftHand');
+            const rightHand = document.getElementById('rightHand');
+            
+            leftHand.className = 'hand';
+            rightHand.className = 'hand';
+            
+            if (shakeLevel >= 1) {
+                leftHand.classList.add('shaking-1');
+                rightHand.classList.add('shaking-1');
+            }
+            if (shakeLevel >= 2) {
+                leftHand.className = 'hand shaking-2';
+                rightHand.className = 'hand shaking-2';
+            }
+            if (shakeLevel >= 3) {
+                leftHand.className = 'hand shaking-3';
+                rightHand.className = 'hand shaking-3';
+                
+                document.getElementById('chartArea').classList.add('panic');
+                document.getElementById('sellBtn').classList.add('shaking');
+            } else {
+                document.getElementById('chartArea').classList.remove('panic');
+                document.getElementById('sellBtn').classList.remove('shaking');
+            }
+        }
+        
+        function updateDisplay() {
+            document.getElementById('timer').textContent = Math.floor(timeElapsed);
+            
+            const priceEl = document.getElementById('price');
+            priceEl.textContent = `$${price.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            
+            const changePercent = ((price - entryPrice) / entryPrice * 100);
+            const changeEl = document.getElementById('change');
+            changeEl.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+            
+            const isUp = price >= entryPrice;
+            priceEl.className = 'price-big ' + (isUp ? 'green' : 'red');
+            changeEl.className = 'price-change ' + (isUp ? 'up' : 'down');
+            document.getElementById('priceDisplay').className = 'price-display ' + (isUp ? 'green' : 'red');
+        }
+        
+        function drawChart() {
+            const w = canvas.width / dpr;
+            const h = canvas.height / dpr;
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            if (priceHistory.length < 2) return;
+            
+            const padding = 20;
+            const chartW = w - padding * 2;
+            const chartH = h - padding * 2;
+            
+            const minPrice = Math.min(...priceHistory) * 0.95;
+            const maxPrice = Math.max(...priceHistory) * 1.05;
+            const priceRange = maxPrice - minPrice;
+            
+            // Entry price line
+            const entryY = padding + chartH - ((entryPrice - minPrice) / priceRange) * chartH;
+            ctx.strokeStyle = 'rgba(255, 170, 0, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+            ctx.moveTo(padding, entryY);
+            ctx.lineTo(padding + chartW, entryY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Grid lines
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.15)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (chartH / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + chartW, y);
+                ctx.stroke();
+            }
+            
+            // Price line
+            const isDown = price < entryPrice;
+            const gradient = ctx.createLinearGradient(0, 0, w, 0);
+            if (isDown) {
+                gradient.addColorStop(0, '#ffaa00');
+                gradient.addColorStop(1, '#ff4444');
+            } else {
+                gradient.addColorStop(0, '#00ff88');
+                gradient.addColorStop(1, '#00ffaa');
+            }
+            
+            ctx.beginPath();
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.shadowColor = isDown ? '#ff4444' : '#00ff88';
+            ctx.shadowBlur = 15;
+            
+            priceHistory.forEach((p, i) => {
+                const x = padding + (i / (priceHistory.length - 1)) * chartW;
+                const y = padding + chartH - ((p - minPrice) / priceRange) * chartH;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Fill under curve
+            const lastX = padding + chartW;
+            const lastY = padding + chartH - ((priceHistory[priceHistory.length - 1] - minPrice) / priceRange) * chartH;
+            ctx.lineTo(lastX, padding + chartH);
+            ctx.lineTo(padding, padding + chartH);
+            ctx.closePath();
+            
+            const fillGradient = ctx.createLinearGradient(0, 0, 0, h);
+            fillGradient.addColorStop(0, isDown ? 'rgba(255, 68, 68, 0.3)' : 'rgba(0, 255, 136, 0.2)');
+            fillGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = fillGradient;
+            ctx.fill();
+        }
+        
+        function spawnFud() {
+            const container = document.getElementById('fudContainer');
+            const fud = document.createElement('div');
+            fud.className = 'fud-message';
+            fud.textContent = fudMessages[Math.floor(Math.random() * fudMessages.length)];
+            fud.style.left = (20 + Math.random() * (window.innerWidth - 200)) + 'px';
+            fud.style.top = (80 + Math.random() * 200) + 'px';
+            container.appendChild(fud);
+            playSound('fud');
+            setTimeout(() => fud.remove(), 3000);
+        }
+        
+        function paperHands() {
+            if (!gameRunning) return;
+            initAudio();
+            
+            gameRunning = false;
+            clearInterval(gameLoop);
+            clearTimeout(fudInterval);
+            playSound('sell');
+            
+            const seconds = Math.floor(timeElapsed);
+            const bestScore = parseInt(localStorage.getItem('clawarcade_lb_diamond-hands_best') || 0);
+            if (seconds > bestScore) {
+                localStorage.setItem('clawarcade_lb_diamond-hands_best', seconds);
+                document.getElementById('highScore').textContent = seconds;
+            }
+            
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_diamond-hands') || '[]');
+                scores.push({ name: username, score: seconds, date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_diamond-hands', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            document.getElementById('surviveTime').textContent = seconds;
+            document.getElementById('soldPrice').textContent = `$${price.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            document.getElementById('paperQuote').textContent = paperQuotes[Math.floor(Math.random() * paperQuotes.length)];
+            document.getElementById('paperOverlay').style.display = 'block';
+        }
+        
+        function win() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            clearTimeout(fudInterval);
+            playSound('win');
+            
+            const seconds = 60;
+            localStorage.setItem('clawarcade_lb_diamond-hands_best', Math.max(seconds, parseInt(localStorage.getItem('clawarcade_lb_diamond-hands_best') || 0)));
+            document.getElementById('highScore').textContent = localStorage.getItem('clawarcade_lb_diamond-hands_best');
+            
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_diamond-hands') || '[]');
+                scores.push({ name: username, score: seconds, date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_diamond-hands', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            document.getElementById('finalTime').textContent = seconds;
+            document.getElementById('finalPrice').textContent = `$${price.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            document.getElementById('winOverlay').style.display = 'block';
+            
+            // Victory particles
+            for (let i = 0; i < 30; i++) {
+                setTimeout(() => {
+                    spawnParticles(
+                        100 + Math.random() * (window.innerWidth - 200),
+                        100 + Math.random() * 200,
+                        i % 2 === 0 ? '#00ffff' : '#ff00ff',
+                        5
+                    );
+                }, i * 50);
+            }
+        }
+        
+        document.getElementById('sellBtn').addEventListener('click', paperHands);
+        document.getElementById('sellBtn').addEventListener('touchstart', (e) => { e.preventDefault(); paperHands(); });
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('startBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        document.getElementById('retryBtn1').addEventListener('click', startGame);
+        document.getElementById('retryBtn1').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        document.getElementById('retryBtn2').addEventListener('click', startGame);
+        document.getElementById('retryBtn2').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        
+        init();
+    </script>
+</body>
+</html>

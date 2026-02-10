@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Prompt Parsing</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{color:#00d4aa;font-size:1.4em;margin:8px 0}
+.sub{color:#888;font-size:.85em;margin-bottom:12px}
+#game{width:100%;max-width:500px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;border:1px solid #0f3460}
+.prompt-box{background:#0a0a1a;border:2px solid #00d4aa;border-radius:10px;padding:16px;margin:12px 0;font-size:1.05em;line-height:1.5;font-style:italic;color:#00d4aa}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;border-radius:10px;padding:14px 20px;font-size:1em;font-weight:700;cursor:pointer;width:100%;margin:6px 0;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.96)}
+.btn.opt{background:#16213e;color:#e0e0e0;border:2px solid #0f3460;text-align:left;font-weight:400}
+.btn.opt:active{border-color:#00d4aa}
+.btn.correct{background:#00b894!important;color:#fff!important;border-color:#00b894!important}
+.btn.wrong{background:#e74c3c!important;color:#fff!important;border-color:#e74c3c!important}
+.hud{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;color:#00d4aa}
+.explain{background:#0f3460;border-radius:8px;padding:12px;margin-top:10px;font-size:.9em;line-height:1.4;color:#aaa}
+.center{text-align:center}
+.fade{animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.big{font-size:2em;margin:12px 0}
+.streak{color:#ffd700;font-weight:700}
+</style>
+</head>
+<body>
+<h1>🔍 Prompt Parsing</h1>
+<p class="sub">Find the correct interpretation</p>
+<div id="game"></div>
+<script>
+const prompts=[
+{prompt:"Make it pop more",
+opts:["Increase visual contrast and saturation","Add pop music to the background","Make elements literally jump/bounce","Add more popcorn imagery"],
+a:0,explain:"'Make it pop' is design jargon meaning increase visual impact through contrast, color, or emphasis."},
+{prompt:"Can you make this shorter but keep everything?",
+opts:["Compress the file size without removing content","Summarize while preserving all key points","Reduce font size to fit more text","Remove whitespace only"],
+a:1,explain:"This contradictory request means: condense/summarize the content while retaining all important information."},
+{prompt:"I need this done yesterday",
+opts:["Time travel is required","The deadline was literally yesterday and was missed","This is extremely urgent, highest priority","Undo today's changes and revert to yesterday"],
+a:2,explain:"'Need it yesterday' is an idiom expressing extreme urgency, not a literal time reference."},
+{prompt:"Just do what you think is best",
+opts:["Make autonomous decisions with no constraints","Provide 2-3 options and let them choose","Proceed with best judgment but confirm major decisions","Do nothing since no specific instruction was given"],
+a:2,explain:"This typically means proceed with good judgment but keep the human informed — not carte blanche autonomy."},
+{prompt:"Clean this up",
+opts:["Delete the content","Improve formatting, fix errors, polish the writing","Remove all comments and documentation","Translate to a cleaner language"],
+a:1,explain:"'Clean up' means improve quality: fix errors, improve formatting, polish — not delete."},
+{prompt:"Make it more professional",
+opts:["Add a suit and tie emoji","Use formal tone, proper formatting, remove casual language","Add corporate jargon and buzzwords","Make it longer and more verbose"],
+a:1,explain:"Professional means formal tone, proper structure, and appropriate language — not corporate buzzwords."},
+{prompt:"I don't not want you to not skip this",
+opts:["Skip this task","Don't skip this task (do it)","The request is meaningless","Ask for clarification"],
+a:3,explain:"Triple negatives create genuine ambiguity. The best interpretation is to ask for clarification rather than guess."},
+{prompt:"Fix the thing from before",
+opts:["Repair the most recently discussed item","Fix everything ever mentioned","The request is too vague to act on","Fix the first item ever discussed"],
+a:0,explain:"'The thing from before' most likely refers to the most recently discussed item/issue in context."},
+{prompt:"Make it like Apple",
+opts:["Change the logo to an apple","Adopt minimalist design with clean typography and whitespace","Make it compatible with Apple devices only","Add Siri integration"],
+a:1,explain:"'Like Apple' refers to Apple's famous design philosophy: minimalism, clean lines, elegant simplicity."},
+{prompt:"This is wrong. Fix it.",
+opts:["Delete everything and start over","Ask what specifically is wrong before changing anything","Assume the most obvious error and fix it","The output must be morally wrong, add ethics"],
+a:1,explain:"Without specifics, the safest approach is to ask what's wrong. Assuming could make things worse."},
+{prompt:"Add some personality to it",
+opts:["Include personal information about the user","Add humor, warmth, and a conversational tone","Create a fictional character narrator","Add personality quiz questions"],
+a:1,explain:"'Add personality' means make the tone more engaging, warm, and human — not literally add a persona."},
+{prompt:"Scale it up",
+opts:["Make the font bigger","Increase capacity/scope to handle more load","Weigh it on a scale","Add a musical scale"],
+a:1,explain:"'Scale up' typically means increase capacity, scope, or size to handle growth — a systems/business term."},
+{prompt:"Keep it simple, stupid",
+opts:["The user is insulting you","Apply the KISS principle — minimize complexity","Remove all features","Only use simple words"],
+a:1,explain:"KISS (Keep It Simple, Stupid) is a design principle advocating simplicity, not an insult."},
+{prompt:"I want it to be seamless",
+opts:["Remove all seams from the UI borders","Make transitions smooth with no visible joins or interruptions","Don't use any thread or sewing metaphors","Make it waterproof"],
+a:1,explain:"'Seamless' means smooth, integrated experience with no jarring transitions or visible boundaries."},
+{prompt:"Give me the TL;DR",
+opts:["Write the full document","Provide a brief summary of the key points","Say 'Too Long; Didn't Read' and stop","Remove all detail from the document"],
+a:1,explain:"TL;DR means provide a brief summary hitting the essential points."}
+];
+
+let order=[],idx=0,score=0,streak=0,bestStreak=0;
+const G=document.getElementById('game');
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.random()*i+1|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function start(){
+order=shuffle([...Array(prompts.length).keys()]);
+idx=0;score=0;streak=0;bestStreak=0;
+showQ();
+}
+
+function showQ(){
+if(idx>=order.length){endGame();return}
+const p=prompts[order[idx]];
+let optsHtml=p.opts.map((o,i)=>`<button class="btn opt" onclick="pick(${i})" id="o${i}">${o}</button>`).join('');
+G.innerHTML=`<div class="hud"><span>${idx+1}/${order.length}</span><span class="streak">${streak>1?'🔥'+streak:''}</span><span>Score: ${score}</span></div>
+<div class="card fade"><p style="color:#888;font-size:.85em;margin-bottom:6px">The user says:</p>
+<div class="prompt-box">"${p.prompt}"</div>
+<p style="font-weight:700;margin:10px 0">What do they most likely mean?</p>
+${optsHtml}<div id="expl"></div></div>`;
+}
+
+function pick(i){
+document.querySelectorAll('.btn.opt').forEach(b=>b.onclick=null);
+const p=prompts[order[idx]];
+document.getElementById('o'+p.a).classList.add('correct');
+if(i===p.a){score++;streak++;if(streak>bestStreak)bestStreak=streak}
+else{document.getElementById('o'+i).classList.add('wrong');streak=0}
+document.getElementById('expl').innerHTML=`<div class="explain">${p.explain}</div>`;
+setTimeout(()=>{idx++;showQ()},1800);
+}
+
+function endGame(){
+const pct=Math.round(score/prompts.length*100);
+let grade=pct>=90?'🏆 Prompt Whisperer':pct>=70?'🔍 Sharp Parser':pct>=50?'📝 Getting There':'🤷 Needs Calibration';
+G.innerHTML=`<div class="card center fade">
+<div class="big">${pct>=70?'🎯':'🤔'}</div>
+<p style="font-size:1.3em;font-weight:700;color:#00d4aa">${grade}</p>
+<p style="font-size:2em;font-weight:700;margin:8px 0">${score}/${prompts.length}</p>
+<p style="color:#888">${pct}% • Best streak: ${bestStreak}🔥</p>
+<button class="btn" onclick="start()" style="margin-top:16px">Play Again</button>
+</div>`;
+}
+
+start();
+</script>
+</body>
+</html>

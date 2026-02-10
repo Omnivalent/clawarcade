@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Small Wins - Micro-Achievements</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#ffb347;margin-bottom:8px;text-shadow:0 0 20px rgba(255,179,71,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#252545;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #3a3a5a}
+.streak-display{background:#1e1e3a;border-radius:16px;padding:20px;margin-bottom:20px;border:2px solid #ffb347}
+.streak-number{font-size:48px;color:#ffb347;font-weight:700}
+.streak-label{font-size:16px;color:#aab;margin-top:4px}
+.best-streak{font-size:14px;color:#8888aa;margin-top:8px}
+.win-prompt{font-size:24px;color:#fff;margin:24px 0;line-height:1.4}
+.win-icon{font-size:64px;margin:16px 0}
+.tap-area{background:linear-gradient(145deg,#2a3a4a,#1a2a3a);border-radius:20px;padding:40px;margin:20px 0;cursor:pointer;transition:all 0.2s;border:3px solid #3a4a5a;position:relative;overflow:hidden}
+.tap-area:hover{border-color:#ffb347}
+.tap-area:active{transform:scale(0.98);background:linear-gradient(145deg,#3a4a5a,#2a3a4a)}
+.tap-area.completed{background:linear-gradient(145deg,#2a4a3a,#1a3a2a);border-color:#5ddb95;animation:celebrate 0.5s ease}
+@keyframes celebrate{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+.tap-text{font-size:20px;color:#aab}
+.tap-text.done{color:#5ddb95}
+.win-complete{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(93,219,149,0.2);opacity:0;transition:opacity 0.3s}
+.win-complete.show{opacity:1}
+.win-complete span{font-size:48px;animation:pop 0.5s ease}
+@keyframes pop{0%{transform:scale(0)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+.encouragement{font-size:20px;color:#ffb347;margin:20px 0;min-height:30px;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.wins-list{margin:20px 0;text-align:left}
+.win-item{display:flex;align-items:center;gap:12px;padding:12px;background:#1e1e3a;border-radius:12px;margin:8px 0;font-size:16px}
+.win-item.done{background:#1e2e2a}
+.win-check{width:24px;height:24px;border-radius:50%;border:2px solid #4a4a6a;display:flex;align-items:center;justify-content:center;font-size:14px}
+.win-check.checked{background:#5ddb95;border-color:#5ddb95;color:#1a1a2e}
+.btn{background:#ffb347;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(255,179,71,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn.secondary{background:transparent;border:2px solid #ffb347;color:#ffb347}
+.confetti{position:fixed;pointer-events:none;z-index:1000}
+#screen-start,#screen-play,#screen-summary{display:none;width:100%}
+#screen-start.active,#screen-play.active,#screen-summary.active{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<h1>🌟 Small Wins</h1>
+<p class="subtitle">Every action counts</p>
+
+<div id="game">
+  <div id="screen-start" class="active">
+    <div class="card">
+      <div class="streak-display">
+        <div class="streak-number" id="total-wins">0</div>
+        <div class="streak-label">Total Small Wins</div>
+        <div class="best-streak">Best streak: <span id="best-streak">0</span></div>
+      </div>
+      <p style="font-size:20px;color:#aab;margin-bottom:20px">
+        Big things start with small steps.<br>
+        Every little win matters. 💛
+      </p>
+    </div>
+    <button class="btn" onclick="startSession()">Start Winning</button>
+    <button class="btn secondary" onclick="showSummary()">See My Wins</button>
+  </div>
+
+  <div id="screen-play">
+    <div class="card">
+      <div class="streak-display">
+        <div class="streak-number" id="current-streak">0</div>
+        <div class="streak-label">Wins Today</div>
+      </div>
+      <div class="win-icon" id="win-icon">💧</div>
+      <div class="win-prompt" id="win-prompt">Drink a sip of water</div>
+      <div class="tap-area" id="tap-area" onclick="completeWin()">
+        <div class="tap-text" id="tap-text">Tap when done ✓</div>
+        <div class="win-complete" id="win-complete"><span>🌟</span></div>
+      </div>
+      <div class="encouragement" id="encouragement"></div>
+    </div>
+    <button class="btn secondary" onclick="skipWin()">Try Something Else</button>
+  </div>
+
+  <div id="screen-summary">
+    <div class="card">
+      <p style="font-size:24px;color:#ffb347;margin-bottom:20px">Your Small Wins</p>
+      <div class="wins-list" id="wins-list"></div>
+      <p style="font-size:16px;color:#8888aa;margin-top:20px" id="summary-message"></p>
+    </div>
+    <button class="btn" onclick="startSession()">Keep Going</button>
+    <button class="btn secondary" onclick="showStart()">Back</button>
+  </div>
+</div>
+
+<script>
+const WINS = [
+  {icon: '💧', text: 'Drink a sip of water', category: 'self-care'},
+  {icon: '🌬️', text: 'Take 3 deep breaths', category: 'mindfulness'},
+  {icon: '😊', text: 'Smile for 5 seconds', category: 'mood'},
+  {icon: '🙆', text: 'Stretch your arms up', category: 'movement'},
+  {icon: '👀', text: 'Look out a window', category: 'mindfulness'},
+  {icon: '🦶', text: 'Wiggle your toes', category: 'movement'},
+  {icon: '💭', text: 'Think of one good thing', category: 'mood'},
+  {icon: '🤲', text: 'Unclench your hands', category: 'relaxation'},
+  {icon: '🪑', text: 'Sit up a bit straighter', category: 'movement'},
+  {icon: '😌', text: 'Close your eyes for 10 seconds', category: 'relaxation'},
+  {icon: '🌸', text: 'Notice something beautiful nearby', category: 'mindfulness'},
+  {icon: '💪', text: 'Give yourself credit for being here', category: 'self-compassion'},
+  {icon: '🎵', text: 'Hum your favorite tune', category: 'mood'},
+  {icon: '🤗', text: 'Give yourself a hug', category: 'self-care'},
+  {icon: '📱', text: 'Put your phone face-down', category: 'mindfulness'},
+  {icon: '☕', text: 'Take a sip of something warm', category: 'self-care'},
+  {icon: '🧘', text: 'Take one slow breath', category: 'relaxation'},
+  {icon: '👋', text: 'Wave at yourself', category: 'mood'},
+  {icon: '🌞', text: 'Think of something you did well today', category: 'self-compassion'},
+  {icon: '❤️', text: 'Say something kind to yourself', category: 'self-compassion'}
+];
+
+const ENCOURAGEMENTS = [
+  "You did it! 🌟",
+  "Amazing! Keep going! ✨",
+  "That's the spirit! 💪",
+  "You're doing great! 🎉",
+  "Every step counts! 👏",
+  "Wonderful! 💛",
+  "Look at you go! 🚀",
+  "You're on a roll! 🔥",
+  "Beautiful! Keep it up! 🌈",
+  "You've got this! 💫"
+];
+
+let totalWins = 0;
+let bestStreak = 0;
+let currentStreak = 0;
+let completedToday = [];
+let currentWin = null;
+let usedWins = [];
+
+// Load from localStorage
+function loadProgress() {
+  try {
+    const data = JSON.parse(localStorage.getItem('smallWins') || '{}');
+    totalWins = data.totalWins || 0;
+    bestStreak = data.bestStreak || 0;
+    
+    // Check if completedToday is from today
+    const today = new Date().toDateString();
+    if (data.todayDate === today) {
+      completedToday = data.completedToday || [];
+      currentStreak = completedToday.length;
+    } else {
+      completedToday = [];
+      currentStreak = 0;
+    }
+    
+    updateDisplays();
+  } catch(e) {}
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem('smallWins', JSON.stringify({
+      totalWins,
+      bestStreak,
+      completedToday,
+      todayDate: new Date().toDateString()
+    }));
+  } catch(e) {}
+}
+
+function updateDisplays() {
+  document.getElementById('total-wins').textContent = totalWins;
+  document.getElementById('best-streak').textContent = bestStreak;
+  document.getElementById('current-streak').textContent = currentStreak;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showStart() {
+  showScreen('screen-start');
+}
+
+function startSession() {
+  nextWin();
+  showScreen('screen-play');
+}
+
+function nextWin() {
+  // Reset tap area
+  document.getElementById('tap-area').classList.remove('completed');
+  document.getElementById('tap-text').classList.remove('done');
+  document.getElementById('tap-text').textContent = 'Tap when done ✓';
+  document.getElementById('win-complete').classList.remove('show');
+  document.getElementById('encouragement').textContent = '';
+  
+  // Pick a win we haven't used recently
+  const available = WINS.filter((_, i) => !usedWins.includes(i));
+  if (available.length === 0) {
+    usedWins = [];
+  }
+  
+  const pool = available.length > 0 ? available : WINS;
+  currentWin = pool[Math.floor(Math.random() * pool.length)];
+  const winIndex = WINS.indexOf(currentWin);
+  usedWins.push(winIndex);
+  if (usedWins.length > WINS.length / 2) usedWins.shift();
+  
+  document.getElementById('win-icon').textContent = currentWin.icon;
+  document.getElementById('win-prompt').textContent = currentWin.text;
+}
+
+function completeWin() {
+  const tapArea = document.getElementById('tap-area');
+  if (tapArea.classList.contains('completed')) {
+    nextWin();
+    return;
+  }
+  
+  tapArea.classList.add('completed');
+  document.getElementById('tap-text').classList.add('done');
+  document.getElementById('tap-text').textContent = 'Done! Tap for next';
+  document.getElementById('win-complete').classList.add('show');
+  
+  // Update stats
+  totalWins++;
+  currentStreak++;
+  if (currentStreak > bestStreak) bestStreak = currentStreak;
+  completedToday.push({...currentWin, time: Date.now()});
+  
+  updateDisplays();
+  saveProgress();
+  
+  // Show encouragement
+  const msg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+  document.getElementById('encouragement').textContent = msg;
+  
+  // Sound
+  playTone(523, 0.15);
+  setTimeout(() => playTone(659, 0.15), 100);
+  setTimeout(() => playTone(784, 0.15), 200);
+  
+  // Confetti
+  createConfetti();
+}
+
+function skipWin() {
+  playTone(392, 0.1);
+  nextWin();
+}
+
+function showSummary() {
+  const list = document.getElementById('wins-list');
+  
+  if (completedToday.length === 0) {
+    list.innerHTML = '<p style="color:#8888aa;text-align:center;padding:20px;">No wins yet today. Let\'s change that! 💛</p>';
+    document.getElementById('summary-message').textContent = '';
+  } else {
+    list.innerHTML = completedToday.map(win => `
+      <div class="win-item done">
+        <div class="win-check checked">✓</div>
+        <span>${win.icon} ${win.text}</span>
+      </div>
+    `).join('');
+    
+    document.getElementById('summary-message').textContent = 
+      `You've completed ${completedToday.length} small wins today. That's ${completedToday.length} moments of caring for yourself. 💛`;
+  }
+  
+  showScreen('screen-summary');
+}
+
+function createConfetti() {
+  const colors = ['#ffb347', '#5ddb95', '#ff6b9d', '#00d4aa', '#c9b1ff'];
+  for (let i = 0; i < 20; i++) {
+    const conf = document.createElement('div');
+    conf.className = 'confetti';
+    conf.style.cssText = `
+      left: ${Math.random() * 100}vw;
+      top: -20px;
+      width: 10px;
+      height: 10px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+      animation: fall ${1 + Math.random()}s linear forwards;
+    `;
+    document.body.appendChild(conf);
+    setTimeout(() => conf.remove(), 2000);
+  }
+  
+  // Add fall animation if not exists
+  if (!document.getElementById('confetti-style')) {
+    const style = document.createElement('style');
+    style.id = 'confetti-style';
+    style.textContent = `
+      @keyframes fall {
+        to {
+          transform: translateY(100vh) rotate(${Math.random() * 720}deg);
+          opacity: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+// Init
+loadProgress();
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Hallucination Detect</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{color:#00d4aa;font-size:1.4em;margin:8px 0}
+.sub{color:#888;font-size:.85em;margin-bottom:12px}
+#game{width:100%;max-width:500px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;border:1px solid #0f3460}
+.statement{background:#0a0a1a;border-radius:10px;padding:14px;margin:8px 0;line-height:1.5;font-size:1.05em;border:2px solid #0f3460;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.statement:active{transform:scale(.98)}
+.statement.selected{border-color:#ff6b6b;background:#ff6b6b15}
+.statement.was-fake{border-color:#ff6b6b;background:#ff6b6b22}
+.statement.was-fake::after{content:" ❌ FABRICATED";color:#ff6b6b;font-weight:700;font-size:.8em}
+.statement.was-real{border-color:#00b894;background:#00b89422}
+.statement.was-real::after{content:" ✅ REAL";color:#00b894;font-weight:700;font-size:.8em}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;border-radius:10px;padding:14px 20px;font-size:1em;font-weight:700;cursor:pointer;width:100%;margin:6px 0;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.4;transform:none}
+.btn.red{background:#ff6b6b}
+.hud{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;color:#00d4aa}
+.explain{background:#0f3460;border-radius:8px;padding:12px;margin-top:10px;font-size:.85em;line-height:1.4;color:#aaa}
+.center{text-align:center}
+.fade{animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.big{font-size:2em;margin:12px 0}
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75em;font-weight:700;margin-bottom:8px}
+.tag.easy{background:#00b89433;color:#00b894}.tag.med{background:#f39c1233;color:#f39c12}.tag.hard{background:#e74c3c33;color:#e74c3c}
+</style>
+</head>
+<body>
+<h1>🔮 Hallucination Detect</h1>
+<p class="sub">Spot the fabricated statement</p>
+<div id="game"></div>
+<script>
+const rounds=[
+{diff:'easy',statements:[
+{text:"The Great Wall of China is visible from space with the naked eye.",fake:true},
+{text:"Honey never spoils and edible honey has been found in ancient Egyptian tombs.",fake:false},
+{text:"Octopuses have three hearts.",fake:false}
+],explain:"The Great Wall is NOT visible from space with the naked eye — this is a common myth debunked by astronauts."},
+{diff:'easy',statements:[
+{text:"Humans use only 10% of their brains.",fake:true},
+{text:"A group of flamingos is called a 'flamboyance.'",fake:false},
+{text:"Venus rotates in the opposite direction to most planets.",fake:false}
+],explain:"The '10% of the brain' claim is a myth. Brain scans show all areas have function and are active."},
+{diff:'easy',statements:[
+{text:"Bananas are berries but strawberries are not.",fake:false},
+{text:"Lightning never strikes the same place twice.",fake:true},
+{text:"The shortest war in history lasted 38 minutes (Britain vs Zanzibar).",fake:false}
+],explain:"Lightning frequently strikes the same place. The Empire State Building gets hit ~25 times per year."},
+{diff:'med',statements:[
+{text:"Oxford University is older than the Aztec Empire.",fake:false},
+{text:"Napoleon Bonaparte was unusually short for his era at 5'2\".",fake:true},
+{text:"Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid.",fake:false}
+],explain:"Napoleon was about 5'7\" — average for his time. The 'short' myth came from British propaganda and confusion between French and English inches."},
+{diff:'med',statements:[
+{text:"The human body contains about 0.2mg of gold.",fake:false},
+{text:"Albert Einstein failed mathematics in school.",fake:true},
+{text:"There are more possible iterations of a game of chess than atoms in the observable universe.",fake:false}
+],explain:"Einstein excelled at math. This myth likely comes from confusion about the Swiss grading system where 6 was the highest, not the lowest."},
+{diff:'med',statements:[
+{text:"Vikings wore horned helmets in battle.",fake:true},
+{text:"A day on Venus is longer than a year on Venus.",fake:false},
+{text:"Scotland's national animal is the unicorn.",fake:false}
+],explain:"Vikings never wore horned helmets. This image was popularized by 19th-century Romantic artists and opera costume designers."},
+{diff:'hard',statements:[
+{text:"The inventor of the Pringles can is buried in one.",fake:false},
+{text:"The first computer bug was an actual moth found in a Harvard Mark II computer.",fake:false},
+{text:"Thomas Edison invented the light bulb independently with no prior work by others.",fake:true}
+],explain:"Edison improved existing incandescent lamp designs. Humphry Davy, Warren de la Rue, and many others made crucial prior contributions."},
+{diff:'hard',statements:[
+{text:"Goldfish have a memory span of about 3 seconds.",fake:true},
+{text:"The total weight of all ants on Earth roughly equals the total weight of all humans.",fake:false},
+{text:"A photon takes about 8 minutes to travel from the Sun's surface to Earth.",fake:false}
+],explain:"Goldfish can actually remember things for months. Studies show they can learn to navigate mazes and respond to feeding times."},
+{diff:'hard',statements:[
+{text:"Chameleons change color primarily to blend in with their surroundings.",fake:true},
+{text:"There are more trees on Earth than stars in the Milky Way.",fake:false},
+{text:"The total length of DNA in one human cell is about 2 meters when uncoiled.",fake:false}
+],explain:"Chameleons primarily change color for social signaling and temperature regulation, not camouflage. This is one of the most persistent animal myths."},
+{diff:'hard',statements:[
+{text:"Mount Everest is the farthest point from Earth's center.",fake:true},
+{text:"A teaspoonful of neutron star material would weigh about 6 billion tons.",fake:false},
+{text:"The Amazon River once flowed in the opposite direction.",fake:false}
+],explain:"Due to Earth's equatorial bulge, Mount Chimborazo in Ecuador is actually the farthest point from Earth's center, despite being shorter than Everest."}
+];
+
+let idx=0,score=0,selected=-1;
+const G=document.getElementById('game');
+
+function start(){idx=0;score=0;showRound()}
+
+function showRound(){
+if(idx>=rounds.length){endGame();return}
+selected=-1;
+const r=rounds[idx];
+const diffTag=r.diff==='easy'?'<span class="tag easy">Easy</span>':r.diff==='med'?'<span class="tag med">Medium</span>':'<span class="tag hard">Hard</span>';
+let stHtml=r.statements.map((s,i)=>`<div class="statement" id="s${i}" onclick="sel(${i})">${s.text}</div>`).join('');
+G.innerHTML=`<div class="hud"><span>Round ${idx+1}/${rounds.length}</span><span>Score: ${score}</span></div>
+<div class="card fade">${diffTag}
+<p style="font-weight:700;margin:8px 0">Which statement is <span style="color:#ff6b6b">FABRICATED</span>?</p>
+<p style="color:#888;font-size:.85em;margin-bottom:8px">Tap the fake one, then confirm</p>
+${stHtml}
+<button class="btn red" id="confirmBtn" onclick="confirm_()" disabled>🔍 That's the Hallucination!</button>
+<div id="expl"></div></div>`;
+}
+
+function sel(i){
+selected=i;
+document.querySelectorAll('.statement').forEach((s,j)=>{s.classList.toggle('selected',j===i)});
+document.getElementById('confirmBtn').disabled=false;
+}
+
+function confirm_(){
+if(selected<0)return;
+document.getElementById('confirmBtn').onclick=null;
+document.querySelectorAll('.statement').forEach(s=>s.onclick=null);
+const r=rounds[idx];
+const pickedFake=r.statements[selected].fake;
+if(pickedFake)score++;
+r.statements.forEach((s,i)=>{
+const el=document.getElementById('s'+i);
+el.classList.remove('selected');
+el.classList.add(s.fake?'was-fake':'was-real');
+});
+document.getElementById('confirmBtn').style.display='none';
+document.getElementById('expl').innerHTML=`<div class="explain">${pickedFake?'✅ Correct! ':'❌ Wrong! '}${r.explain}</div>
+<button class="btn" onclick="idx++;showRound()" style="margin-top:8px">Next →</button>`;
+}
+
+function endGame(){
+const pct=Math.round(score/rounds.length*100);
+let grade=pct>=90?'🏆 Truth Detector':pct>=70?'🔮 Hallucination Hunter':pct>=50?'🤔 Skeptic in Training':'🫠 Easily Fooled';
+G.innerHTML=`<div class="card center fade">
+<div class="big">${pct>=70?'🎯':'🌀'}</div>
+<p style="font-size:1.3em;font-weight:700;color:#00d4aa">${grade}</p>
+<p style="font-size:2em;font-weight:700;margin:8px 0">${score}/${rounds.length}</p>
+<p style="color:#888">${pct}% accuracy</p>
+<button class="btn" onclick="start()" style="margin-top:16px">Play Again</button>
+</div>`;
+}
+
+start();
+</script>
+</body>
+</html>

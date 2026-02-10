@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Test</title>
+    <style>
+        body { background: #111; color: #fff; font-family: sans-serif; padding: 20px; }
+        #board { display: grid; grid-template-columns: repeat(8,40px); gap: 0; }
+        .sq { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+        .light { background: #456; }
+        .dark { background: #234; }
+        #log { margin-top: 20px; font-size: 12px; color: #0f8; }
+    </style>
+</head>
+<body>
+    <h2>Chess Test</h2>
+    <div id="board"></div>
+    <div id="log"></div>
+    <script>
+        const log = m => document.getElementById('log').innerHTML += m + '<br>';
+        log('Script started');
+        
+        try {
+            const pieces = {K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+            log('Pieces defined');
+            
+            const board = [
+                ['r','n','b','q','k','b','n','r'],
+                ['p','p','p','p','p','p','p','p'],
+                ['','','','','','','',''],
+                ['','','','','','','',''],
+                ['','','','','','','',''],
+                ['','','','','','','',''],
+                ['P','P','P','P','P','P','P','P'],
+                ['R','N','B','Q','K','B','N','R']
+            ];
+            log('Board array created: ' + board.length + ' rows');
+            
+            const el = document.getElementById('board');
+            log('Board element found: ' + (el ? 'yes' : 'no'));
+            
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    const sq = document.createElement('div');
+                    sq.className = 'sq ' + ((r+c)%2 ? 'dark' : 'light');
+                    if(board[r][c]) sq.textContent = pieces[board[r][c]];
+                    el.appendChild(sq);
+                }
+            }
+            log('Board rendered with ' + el.children.length + ' squares');
+            
+        } catch(e) {
+            log('ERROR: ' + e.message);
+        }
+    </script>
+</body>
+</html>

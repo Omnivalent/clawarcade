@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Glitch Hunter - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            display: flex;
+            flex-direction: column;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,20,0,0.9);
+            border-bottom: 2px solid #00ff00;
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+        }
+        .back-btn {
+            background: rgba(0,255,0,0.1);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 6px 12px;
+            border-radius: 0;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            text-decoration: none;
+        }
+        .title { 
+            font-size: 1rem; 
+            color: #00ff00; 
+            text-shadow: 0 0 10px rgba(0,255,0,0.8);
+            animation: glitchText 2s infinite;
+        }
+        @keyframes glitchText {
+            0%, 90%, 100% { text-shadow: 0 0 10px rgba(0,255,0,0.8); }
+            92% { text-shadow: -2px 0 #ff0000, 2px 0 #0000ff; }
+            94% { text-shadow: 2px 0 #ff0000, -2px 0 #0000ff; }
+        }
+        .stats { display: flex; gap: 15px; font-size: 0.7rem; font-family: 'Courier New', monospace; }
+        
+        .game-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Fake game UI */
+        .fake-game {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .fake-header {
+            background: linear-gradient(90deg, #333, #222);
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #444;
+        }
+        .fake-header span { color: #888; font-size: 0.7rem; }
+        
+        .fake-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 5px;
+            padding: 10px;
+            background: linear-gradient(135deg, #111 0%, #0a0a0a 100%);
+        }
+        
+        .fake-element {
+            background: rgba(50,50,50,0.5);
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .glitch-target {
+            cursor: pointer;
+            animation: glitchElement 0.5s infinite;
+        }
+        
+        @keyframes glitchElement {
+            0%, 100% { transform: translate(0, 0); filter: none; }
+            25% { transform: translate(-1px, 1px); filter: hue-rotate(90deg); }
+            50% { transform: translate(1px, -1px); filter: brightness(1.5); }
+            75% { transform: translate(-1px, -1px); filter: saturate(2); }
+        }
+        
+        .glitch-target:hover {
+            box-shadow: 0 0 20px rgba(0,255,0,0.5);
+            border-color: #00ff00;
+        }
+        
+        .glitch-found {
+            animation: glitchExplode 0.5s ease-out forwards;
+        }
+        
+        @keyframes glitchExplode {
+            0% { transform: scale(1); background: rgba(0,255,0,0.3); }
+            50% { transform: scale(1.2); background: rgba(0,255,0,0.6); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        
+        /* Error popup that's actually a glitch */
+        .error-popup {
+            position: absolute;
+            background: #c0c0c0;
+            border: 2px outset #fff;
+            padding: 0;
+            min-width: 200px;
+            font-family: 'MS Sans Serif', Arial, sans-serif;
+            font-size: 11px;
+            color: #000;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            z-index: 50;
+            cursor: default;
+        }
+        .error-popup.glitch-target { cursor: pointer; }
+        .error-title {
+            background: linear-gradient(90deg, #000080, #1084d0);
+            color: white;
+            padding: 2px 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .error-close {
+            background: #c0c0c0;
+            border: 1px outset #fff;
+            width: 16px;
+            height: 14px;
+            font-size: 10px;
+            line-height: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .error-body {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .error-icon { font-size: 32px; }
+        .error-btn {
+            background: #c0c0c0;
+            border: 2px outset #fff;
+            padding: 3px 15px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        
+        /* Floating debug text */
+        .debug-text {
+            position: absolute;
+            font-family: 'Courier New', monospace;
+            font-size: 0.5rem;
+            color: rgba(0,255,0,0.3);
+            pointer-events: none;
+        }
+        .debug-text.glitch-target {
+            pointer-events: auto;
+            cursor: pointer;
+            color: rgba(0,255,0,0.8);
+            animation: glitchElement 0.3s infinite;
+        }
+        
+        /* Out of bounds clickable */
+        .oob-area {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: transparent;
+        }
+        .oob-area.glitch-target {
+            cursor: pointer;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 5px,
+                rgba(255,0,255,0.1) 5px,
+                rgba(255,0,255,0.1) 10px
+            );
+            animation: oobPulse 1s infinite;
+        }
+        @keyframes oobPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+        
+        .console-panel {
+            background: #000;
+            border-top: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.6rem;
+            color: #00ff00;
+            height: 60px;
+            overflow-y: auto;
+        }
+        .console-line { margin: 2px 0; }
+        .console-line.error { color: #ff0000; }
+        .console-line.warn { color: #ffff00; }
+        .console-line.success { color: #00ffff; }
+        
+        .overlay {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,10,0,0.95);
+            border: 3px solid #00ff00;
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(0,255,0,0.4);
+            min-width: 300px;
+            font-family: 'Courier New', monospace;
+        }
+        .overlay h2 { color: #00ff00; margin-bottom: 10px; font-size: 1.3rem; }
+        .overlay p { color: #0a0; margin-bottom: 10px; font-size: 0.75rem; }
+        .overlay .score-big { font-size: 2.5rem; color: #00ffff; margin: 15px 0; }
+        
+        .btn {
+            background: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 12px 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .btn:hover { 
+            background: #00ff00; 
+            color: #000;
+            box-shadow: 0 0 20px rgba(0,255,0,0.6);
+        }
+        
+        .level-indicator {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-size: 0.6rem;
+            z-index: 30;
+        }
+        
+        .hint-text {
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #666;
+            font-size: 0.55rem;
+            font-style: italic;
+        }
+        
+        /* Screen glitch effect */
+        .screen-glitch {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: transparent;
+            pointer-events: none;
+            z-index: 200;
+        }
+        .screen-glitch.active {
+            animation: screenGlitch 0.3s ease-out;
+        }
+        @keyframes screenGlitch {
+            0% { background: transparent; }
+            20% { background: rgba(0,255,0,0.1); transform: translateX(-5px); }
+            40% { background: rgba(255,0,255,0.1); transform: translateX(5px); }
+            60% { background: rgba(0,255,255,0.1); transform: translateY(-3px); }
+            80% { background: rgba(255,0,0,0.1); transform: translateY(3px); }
+            100% { background: transparent; transform: translate(0,0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">[EXIT]</a>
+        <div class="title">// GLITCH_HUNTER.exe</div>
+        <div class="stats">
+            <span>BUGS: <span id="bugsFound">0</span>/<span id="totalBugs">5</span></span>
+            <span>SCORE: <span id="score">0</span></span>
+        </div>
+    </div>
+    
+    <div class="game-area" id="gameArea">
+        <div class="level-indicator">LEVEL: <span id="level">1</span></div>
+        <div class="hint-text" id="hint">Click on anything that looks wrong...</div>
+    </div>
+    
+    <div class="console-panel" id="console">
+        <div class="console-line">> GLITCH_HUNTER v1.0.3 initialized</div>
+        <div class="console-line">> Scanning for anomalies...</div>
+    </div>
+    
+    <div class="screen-glitch" id="screenGlitch"></div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>// GLITCH_HUNTER</h2>
+        <p>The game is broken. That's the point.</p>
+        <p style="color:#666; font-size:0.6rem;">
+            Find bugs, exploits, and glitches.<br>
+            Click things that shouldn't be clickable.<br>
+            The bugs ARE the gameplay.
+        </p>
+        <p style="color:#ff0000; margin-top:15px; font-size:0.55rem;">
+            WARNING: May contain fake errors, broken UI,<br>
+            and intentional jank. That's a feature.
+        </p>
+        <button class="btn" onclick="startGame()">[START_HUNT]</button>
+    </div>
+    
+    <div class="overlay" id="levelCompleteOverlay" style="display:none;">
+        <h2>// LEVEL_CLEARED</h2>
+        <p>All bugs found!</p>
+        <div class="score-big" id="levelScore">500</div>
+        <button class="btn" onclick="nextLevel()">[NEXT_LEVEL]</button>
+    </div>
+    
+    <div class="overlay" id="winOverlay" style="display:none;">
+        <h2>// SYSTEM_PWNED</h2>
+        <div class="score-big" id="finalScore">0</div>
+        <p>bugs exploited</p>
+        <p style="color:#666; font-size:0.6rem;">You broke the game. Congratulations?</p>
+        <button class="btn" onclick="startGame()">[HACK_AGAIN]</button>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'glitch') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(100 + Math.random() * 500, audioCtx.currentTime);
+                for (let i = 0; i < 5; i++) {
+                    osc.frequency.setValueAtTime(100 + Math.random() * 800, audioCtx.currentTime + i * 0.02);
+                }
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'find') {
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1600, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+            } else if (type === 'levelup') {
+                [400, 500, 600, 800, 1000].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.08);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.08 + 0.15);
+                    o.start(audioCtx.currentTime + i * 0.08);
+                    o.stop(audioCtx.currentTime + i * 0.08 + 0.15);
+                });
+            }
+        }
+        
+        let gameRunning = false;
+        let score = 0;
+        let level = 1;
+        let bugsFound = 0;
+        let totalBugs = 5;
+        let glitches = [];
+        
+        const gameArea = document.getElementById('gameArea');
+        const consoleEl = document.getElementById('console');
+        
+        const hints = [
+            "That button looks suspicious...",
+            "Error messages are bugs too...",
+            "Is that text supposed to be there?",
+            "Check the corners...",
+            "Something's clipping through...",
+            "The close button might be broken...",
+            "Out of bounds? More like opportunity!"
+        ];
+        
+        const glitchTypes = [
+            { type: 'element', desc: 'Flickering UI element' },
+            { type: 'popup', desc: 'Exploitable error dialog' },
+            { type: 'debug', desc: 'Exposed debug text' },
+            { type: 'oob', desc: 'Out of bounds hole' },
+            { type: 'button', desc: 'Broken button' }
+        ];
+        
+        function log(msg, type = 'normal') {
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            line.textContent = `> ${msg}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+        
+        function triggerScreenGlitch() {
+            const el = document.getElementById('screenGlitch');
+            el.classList.add('active');
+            setTimeout(() => el.classList.remove('active'), 300);
+        }
+        
+        function startGame() {
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('winOverlay').style.display = 'none';
+            
+            score = 0;
+            level = 1;
+            
+            consoleEl.innerHTML = '<div class="console-line">> Game started. Hunt for bugs!</div>';
+            
+            startLevel();
+        }
+        
+        function startLevel() {
+            document.getElementById('levelCompleteOverlay').style.display = 'none';
+            
+            bugsFound = 0;
+            totalBugs = 3 + level * 2;
+            if (totalBugs > 12) totalBugs = 12;
+            glitches = [];
+            
+            // Clear game area (keep level indicator)
+            gameArea.querySelectorAll('.fake-game, .error-popup, .debug-text, .oob-area').forEach(el => el.remove());
+            
+            updateDisplay();
+            generateLevel();
+            
+            document.getElementById('hint').textContent = hints[Math.floor(Math.random() * hints.length)];
+            log(`Level ${level} loaded. ${totalBugs} bugs to find.`);
+            
+            gameRunning = true;
+        }
+        
+        function generateLevel() {
+            const areaRect = gameArea.getBoundingClientRect();
+            
+            // Create fake game UI
+            const fakeGame = document.createElement('div');
+            fakeGame.className = 'fake-game';
+            fakeGame.innerHTML = `
+                <div class="fake-header">
+                    <span>GENERIC_GAME.exe</span>
+                    <span>Score: ${Math.floor(Math.random() * 10000)}</span>
+                </div>
+                <div class="fake-content" id="fakeContent"></div>
+            `;
+            gameArea.appendChild(fakeGame);
+            
+            const fakeContent = document.getElementById('fakeContent');
+            const icons = ['🎮', '💎', '⭐', '🔥', '💰', '🎯', '🏆', '⚡', '🎪', '🎲', '🃏', '🎰', '🎁', '🔮', '🌟', '💫'];
+            
+            // Fill with normal elements
+            for (let i = 0; i < 16; i++) {
+                const el = document.createElement('div');
+                el.className = 'fake-element';
+                el.textContent = icons[Math.floor(Math.random() * icons.length)];
+                el.addEventListener('click', () => {
+                    if (!el.classList.contains('glitch-target')) {
+                        playSound('error');
+                        log('Nothing wrong here...', 'warn');
+                    }
+                });
+                fakeContent.appendChild(el);
+            }
+            
+            // Create glitches
+            for (let i = 0; i < totalBugs; i++) {
+                createGlitch(i);
+            }
+        }
+        
+        function createGlitch(index) {
+            const areaRect = gameArea.getBoundingClientRect();
+            const type = glitchTypes[index % glitchTypes.length].type;
+            
+            if (type === 'element') {
+                // Make a random element glitchy
+                const elements = document.querySelectorAll('.fake-element:not(.glitch-target)');
+                if (elements.length > 0) {
+                    const el = elements[Math.floor(Math.random() * elements.length)];
+                    el.classList.add('glitch-target');
+                    el.addEventListener('click', () => foundGlitch(el, 'Glitching element'));
+                    glitches.push(el);
+                }
+            } else if (type === 'popup') {
+                const popup = document.createElement('div');
+                popup.className = 'error-popup glitch-target';
+                popup.innerHTML = `
+                    <div class="error-title">
+                        <span>Error</span>
+                        <div class="error-close">×</div>
+                    </div>
+                    <div class="error-body">
+                        <span class="error-icon">⚠️</span>
+                        <div>
+                            <div>UNDEFINED_EXCEPTION at 0x${Math.random().toString(16).substr(2,8)}</div>
+                            <button class="error-btn">OK</button>
+                        </div>
+                    </div>
+                `;
+                popup.style.left = (50 + Math.random() * (areaRect.width - 250)) + 'px';
+                popup.style.top = (80 + Math.random() * (areaRect.height - 200)) + 'px';
+                popup.addEventListener('click', () => foundGlitch(popup, 'Exploitable error dialog'));
+                gameArea.appendChild(popup);
+                glitches.push(popup);
+            } else if (type === 'debug') {
+                const debug = document.createElement('div');
+                debug.className = 'debug-text glitch-target';
+                const debugTexts = [
+                    'DEBUG: player_money=999999',
+                    'TODO: remove before release',
+                    'if(cheats){enable_godmode()}',
+                    'password="admin123"',
+                    'api_key=sk_live_xxxxx',
+                    'DEBUG_MODE=true'
+                ];
+                debug.textContent = debugTexts[Math.floor(Math.random() * debugTexts.length)];
+                debug.style.left = (20 + Math.random() * (areaRect.width - 150)) + 'px';
+                debug.style.top = (60 + Math.random() * (areaRect.height - 100)) + 'px';
+                debug.addEventListener('click', () => foundGlitch(debug, 'Exposed debug info'));
+                gameArea.appendChild(debug);
+                glitches.push(debug);
+            } else if (type === 'oob') {
+                const oob = document.createElement('div');
+                oob.className = 'oob-area glitch-target';
+                // Place in corners or edges
+                const positions = [
+                    { left: '0px', top: '40px' },
+                    { right: '0px', top: '40px' },
+                    { left: '0px', bottom: '60px' },
+                    { right: '0px', bottom: '60px' }
+                ];
+                const pos = positions[Math.floor(Math.random() * positions.length)];
+                Object.assign(oob.style, pos);
+                oob.addEventListener('click', () => foundGlitch(oob, 'Out of bounds exploit'));
+                gameArea.appendChild(oob);
+                glitches.push(oob);
+            } else if (type === 'button') {
+                // Add a suspicious button to fake header or content
+                const header = gameArea.querySelector('.fake-header');
+                if (header) {
+                    const btn = document.createElement('span');
+                    btn.style.cssText = 'color:#ff0;cursor:pointer;animation:glitchElement 0.5s infinite;';
+                    btn.textContent = '[DEV_MENU]';
+                    btn.classList.add('glitch-target');
+                    btn.addEventListener('click', () => foundGlitch(btn, 'Hidden dev button'));
+                    header.appendChild(btn);
+                    glitches.push(btn);
+                }
+            }
+        }
+        
+        function foundGlitch(el, desc) {
+            if (!gameRunning || el.classList.contains('glitch-found')) return;
+            audioCtx.resume();
+            
+            el.classList.remove('glitch-target');
+            el.classList.add('glitch-found');
+            
+            playSound('find');
+            triggerScreenGlitch();
+            
+            bugsFound++;
+            score += 100 * level;
+            
+            log(`BUG FOUND: ${desc} (+${100 * level} pts)`, 'success');
+            
+            updateDisplay();
+            
+            setTimeout(() => el.remove(), 500);
+            
+            if (bugsFound >= totalBugs) {
+                levelComplete();
+            }
+        }
+        
+        function updateDisplay() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('bugsFound').textContent = bugsFound;
+            document.getElementById('totalBugs').textContent = totalBugs;
+        }
+        
+        function levelComplete() {
+            gameRunning = false;
+            playSound('levelup');
+            
+            log(`Level ${level} complete!`, 'success');
+            
+            document.getElementById('levelScore').textContent = score;
+            document.getElementById('levelCompleteOverlay').style.display = 'block';
+        }
+        
+        function nextLevel() {
+            level++;
+            
+            if (level > 5) {
+                // Game complete
+                try {
+                    const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                    const scores = JSON.parse(localStorage.getItem('clawarcade_lb_glitch-hunter') || '[]');
+                    scores.push({ name: username, score: score, date: Date.now() });
+                    scores.sort((a, b) => b.score - a.score);
+                    localStorage.setItem('clawarcade_lb_glitch-hunter', JSON.stringify(scores.slice(0, 10)));
+                } catch(e) {}
+                
+                document.getElementById('levelCompleteOverlay').style.display = 'none';
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('winOverlay').style.display = 'block';
+            } else {
+                startLevel();
+            }
+        }
+        
+        // Random wrong clicks
+        gameArea.addEventListener('click', (e) => {
+            if (!gameRunning) return;
+            if (e.target === gameArea || e.target.classList.contains('fake-content')) {
+                playSound('error');
+                log('Click detected but no bug found.', 'warn');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Daily Routines - Sequence Exercise</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#f0b27a;margin-bottom:8px;text-shadow:0 0 20px rgba(240,178,122,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#252545;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #3a3a5a}
+.instruction{font-size:22px;color:#aab;margin:16px 0;line-height:1.5}
+.routine-title{font-size:26px;color:#f0b27a;margin-bottom:20px;font-weight:600}
+.items-container{display:flex;flex-direction:column;gap:12px;margin:20px 0}
+.routine-item{background:#1e1e3a;border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.2s ease;border:3px solid transparent;font-size:20px}
+.routine-item:hover,.routine-item:active{background:#2a2a4a}
+.routine-item.selected{border-color:#f0b27a;background:#3a3530}
+.routine-item.placed{background:#2a4a3a;border-color:#5ddb95;cursor:default}
+.routine-item.correct{animation:celebrate 0.5s ease}
+@keyframes celebrate{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+.item-icon{font-size:36px;min-width:50px;text-align:center}
+.item-text{flex:1;text-align:left;color:#fff}
+.item-number{background:#3a3a5a;color:#aab;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px}
+.item-number.filled{background:#5ddb95;color:#1a1a2e}
+.slots-container{display:flex;flex-direction:column;gap:8px;margin:20px 0}
+.slot{background:#1a1a2e;border:2px dashed #3a3a5a;border-radius:12px;padding:16px;min-height:70px;display:flex;align-items:center;gap:12px;transition:all 0.2s}
+.slot.highlight{border-color:#f0b27a;background:#252535}
+.slot.filled{border-style:solid;border-color:#5ddb95;background:#1e2e2a}
+.slot-number{color:#5ddb95;font-size:20px;font-weight:700;min-width:30px}
+.slot-content{font-size:18px;display:flex;align-items:center;gap:12px}
+.btn{background:#f0b27a;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(240,178,122,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn.secondary{background:transparent;border:2px solid #f0b27a;color:#f0b27a}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.feedback{font-size:22px;padding:20px;border-radius:16px;margin:20px 0;animation:fadeIn 0.3s ease}
+.feedback.positive{background:#2a4a3a;color:#5ddb95;border:2px solid #5ddb95}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.level-select{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:20px 0}
+.level-btn{background:#1e1e3a;border:2px solid #3a3a5a;border-radius:16px;padding:16px;min-width:140px;cursor:pointer;transition:all 0.2s}
+.level-btn:hover,.level-btn:active{border-color:#f0b27a}
+.level-btn .icon{font-size:40px;margin-bottom:8px}
+.level-btn .label{font-size:16px;color:#fff}
+#screen-start,#screen-play,#screen-complete{display:none;width:100%}
+#screen-start.active,#screen-play.active,#screen-complete.active{display:flex;flex-direction:column;align-items:center}
+.emoji-row{display:flex;justify-content:center;gap:8px;font-size:36px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>🌅 Daily Routines</h1>
+<p class="subtitle">Put activities in the right order</p>
+
+<div id="game">
+  <div id="screen-start" class="active">
+    <div class="card">
+      <p class="instruction">Choose a routine to practice:</p>
+      <div class="level-select">
+        <div class="level-btn" onclick="startRoutine('morning')">
+          <div class="icon">🌅</div>
+          <div class="label">Morning</div>
+        </div>
+        <div class="level-btn" onclick="startRoutine('mealtime')">
+          <div class="icon">🍽️</div>
+          <div class="label">Mealtime</div>
+        </div>
+        <div class="level-btn" onclick="startRoutine('bedtime')">
+          <div class="icon">🌙</div>
+          <div class="label">Bedtime</div>
+        </div>
+        <div class="level-btn" onclick="startRoutine('outing')">
+          <div class="icon">🚶</div>
+          <div class="label">Going Out</div>
+        </div>
+      </div>
+      <p style="color:#8888aa;font-size:16px;margin-top:12px">Tap numbers in order, or tap items to arrange them</p>
+    </div>
+  </div>
+
+  <div id="screen-play">
+    <p class="routine-title" id="routine-title"></p>
+    <div class="card">
+      <p class="instruction">What comes first? Tap in order:</p>
+      <div class="slots-container" id="slots"></div>
+      <hr style="border:none;border-top:1px solid #3a3a5a;margin:20px 0">
+      <div class="items-container" id="items"></div>
+    </div>
+    <button class="btn secondary" onclick="resetRoutine()">Start Over</button>
+  </div>
+
+  <div id="screen-complete">
+    <div class="card">
+      <div style="font-size:80px;margin-bottom:20px" id="complete-icon">🎉</div>
+      <p class="routine-title">Wonderful!</p>
+      <p class="instruction" id="complete-message"></p>
+      <div class="emoji-row" id="complete-emojis"></div>
+    </div>
+    <button class="btn" onclick="showStart()">Try Another Routine</button>
+  </div>
+</div>
+
+<script>
+const ROUTINES = {
+  morning: {
+    title: "🌅 Morning Routine",
+    icon: "🌅",
+    items: [
+      {icon: "😴", text: "Wake up"},
+      {icon: "🚿", text: "Take a shower"},
+      {icon: "🪥", text: "Brush teeth"},
+      {icon: "👔", text: "Get dressed"},
+      {icon: "🍳", text: "Eat breakfast"}
+    ]
+  },
+  mealtime: {
+    title: "🍽️ Mealtime Routine",
+    icon: "🍽️",
+    items: [
+      {icon: "🧼", text: "Wash hands"},
+      {icon: "🪑", text: "Sit at the table"},
+      {icon: "🍽️", text: "Get your plate"},
+      {icon: "🥄", text: "Eat your meal"},
+      {icon: "🧹", text: "Clear the table"}
+    ]
+  },
+  bedtime: {
+    title: "🌙 Bedtime Routine",
+    icon: "🌙",
+    items: [
+      {icon: "📺", text: "Turn off the TV"},
+      {icon: "🪥", text: "Brush teeth"},
+      {icon: "👕", text: "Put on pajamas"},
+      {icon: "📖", text: "Read or relax"},
+      {icon: "🛏️", text: "Get into bed"}
+    ]
+  },
+  outing: {
+    title: "🚶 Going Out Routine",
+    icon: "🚶",
+    items: [
+      {icon: "🔑", text: "Get your keys"},
+      {icon: "👛", text: "Get your wallet"},
+      {icon: "🧥", text: "Put on coat"},
+      {icon: "👟", text: "Put on shoes"},
+      {icon: "🚪", text: "Lock the door"}
+    ]
+  }
+};
+
+let currentRoutine = null;
+let placedItems = [];
+let selectedItem = null;
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showStart() {
+  showScreen('screen-start');
+}
+
+function startRoutine(key) {
+  currentRoutine = ROUTINES[key];
+  placedItems = [];
+  selectedItem = null;
+  
+  document.getElementById('routine-title').textContent = currentRoutine.title;
+  
+  // Render empty slots
+  const slotsContainer = document.getElementById('slots');
+  slotsContainer.innerHTML = currentRoutine.items.map((_, i) => `
+    <div class="slot" id="slot-${i}" onclick="placeInSlot(${i})">
+      <span class="slot-number">${i + 1}.</span>
+      <span class="slot-content"></span>
+    </div>
+  `).join('');
+  
+  // Render shuffled items
+  renderItems();
+  
+  showScreen('screen-play');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function renderItems() {
+  const itemsContainer = document.getElementById('items');
+  const remaining = currentRoutine.items.filter((item, i) => !placedItems.includes(i));
+  const shuffled = shuffle(remaining.map((item, idx) => ({
+    ...item,
+    originalIndex: currentRoutine.items.indexOf(item)
+  })));
+  
+  itemsContainer.innerHTML = shuffled.map(item => `
+    <div class="routine-item ${selectedItem === item.originalIndex ? 'selected' : ''}" 
+         onclick="selectItem(${item.originalIndex})">
+      <span class="item-icon">${item.icon}</span>
+      <span class="item-text">${item.text}</span>
+    </div>
+  `).join('');
+}
+
+function selectItem(index) {
+  if (placedItems.includes(index)) return;
+  
+  selectedItem = selectedItem === index ? null : index;
+  renderItems();
+  
+  // Highlight next available slot
+  document.querySelectorAll('.slot').forEach((slot, i) => {
+    slot.classList.toggle('highlight', selectedItem !== null && i === placedItems.length);
+  });
+  
+  playTone(440, 0.1);
+}
+
+function placeInSlot(slotIndex) {
+  // Only allow placing in the next slot
+  if (slotIndex !== placedItems.length) return;
+  
+  if (selectedItem === null) {
+    // If nothing selected, find the correct item and select it automatically
+    return;
+  }
+  
+  const slot = document.getElementById(`slot-${slotIndex}`);
+  const item = currentRoutine.items[selectedItem];
+  
+  // Check if correct
+  const isCorrect = selectedItem === slotIndex;
+  
+  if (isCorrect) {
+    placedItems.push(selectedItem);
+    slot.classList.add('filled');
+    slot.querySelector('.slot-content').innerHTML = `
+      <span style="font-size:28px">${item.icon}</span>
+      <span>${item.text}</span>
+    `;
+    slot.classList.remove('highlight');
+    
+    playTone(523, 0.15);
+    setTimeout(() => playTone(659, 0.15), 100);
+    
+    selectedItem = null;
+    renderItems();
+    
+    // Check if complete
+    if (placedItems.length === currentRoutine.items.length) {
+      setTimeout(showComplete, 500);
+    }
+  } else {
+    // Gentle feedback - show the correct position briefly
+    slot.style.background = '#3a3020';
+    slot.style.borderColor = '#d4a574';
+    setTimeout(() => {
+      slot.style.background = '';
+      slot.style.borderColor = '';
+    }, 500);
+    playTone(330, 0.1);
+  }
+}
+
+function resetRoutine() {
+  const key = Object.keys(ROUTINES).find(k => ROUTINES[k] === currentRoutine);
+  startRoutine(key);
+}
+
+function showComplete() {
+  const emojis = currentRoutine.items.map(i => i.icon).join(' ');
+  document.getElementById('complete-icon').textContent = currentRoutine.icon;
+  document.getElementById('complete-message').textContent = "You put everything in the right order!";
+  document.getElementById('complete-emojis').textContent = emojis;
+  
+  showScreen('screen-complete');
+  
+  // Celebration
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15), i * 100));
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+</script>
+</body>
+</html>

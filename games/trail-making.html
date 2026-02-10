@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trail Making Test - ClawMD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%); 
+            color: #e8e6e3; 
+            min-height: 100vh; 
+            padding: 1rem;
+        }
+        .container { max-width: 700px; margin: 0 auto; }
+        
+        .header { text-align: center; margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(139, 0, 0, 0.2); border-radius: 12px; border: 2px solid #C5A572; }
+        .header h1 { color: #C5A572; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .header p { color: #aaa; font-size: 1rem; }
+        
+        .disclaimer { 
+            background: rgba(255, 193, 7, 0.15); 
+            border: 2px solid #ffc107; 
+            border-radius: 10px; 
+            padding: 1rem; 
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .disclaimer strong { color: #ffc107; }
+        
+        .card { 
+            background: rgba(0, 33, 71, 0.4); 
+            border: 2px solid #C5A572; 
+            border-radius: 12px; 
+            padding: 1.5rem; 
+            margin-bottom: 1rem;
+        }
+        
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .tab {
+            padding: 1rem 2rem;
+            background: #1a2332;
+            border: 2px solid #C5A572;
+            color: #C5A572;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .tab:hover { background: rgba(197, 165, 114, 0.2); }
+        .tab.active { background: #C5A572; color: #1a1a2e; }
+        
+        .instructions {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .instructions h2 { color: #C5A572; margin-bottom: 1rem; }
+        .instructions p { font-size: 1.1rem; line-height: 1.6; }
+        .sequence-example {
+            background: #1a2332;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #00d4aa;
+        }
+        
+        .game-area {
+            background: #f5f5f5;
+            border-radius: 12px;
+            position: relative;
+            width: 100%;
+            height: 450px;
+            margin: 1rem 0;
+            touch-action: none;
+            overflow: hidden;
+        }
+        
+        .node {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+            z-index: 10;
+        }
+        .node:hover { transform: scale(1.1); }
+        .node.visited { background: #00d4aa; border-color: #00d4aa; color: white; }
+        .node.current { background: #ffc107; border-color: #ffc107; transform: scale(1.15); }
+        .node.error { background: #e74c3c; border-color: #e74c3c; color: white; animation: shake 0.5s; }
+        .node.number { background: #e8f5e9; }
+        .node.letter { background: #e3f2fd; }
+        
+        @keyframes shake { 25%, 75% { transform: translateX(-5px); } 50% { transform: translateX(5px); } }
+        
+        .trail-line {
+            position: absolute;
+            height: 3px;
+            background: #00d4aa;
+            transform-origin: left center;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #1a2332;
+            border-radius: 8px;
+        }
+        .hud-item { text-align: center; }
+        .hud-label { font-size: 0.85rem; color: #888; }
+        .hud-value { font-size: 1.5rem; font-weight: bold; color: #00d4aa; }
+        .hud-value.errors { color: #e74c3c; }
+        
+        .btn { 
+            background: linear-gradient(135deg, #8B0000 0%, #6B0000 100%); 
+            color: #C5A572; 
+            border: 2px solid #C5A572;
+            padding: 1rem 2rem; 
+            font-size: 1.1rem; 
+            font-weight: 600;
+            border-radius: 8px; 
+            cursor: pointer; 
+            min-height: 56px;
+            transition: all 0.3s;
+            margin: 0.5rem;
+        }
+        .btn:hover { background: linear-gradient(135deg, #A00000 0%, #8B0000 100%); }
+        .btn.secondary { background: #2a3441; }
+        
+        .score-display { 
+            text-align: center;
+            padding: 2rem; 
+            background: rgba(0, 212, 170, 0.1); 
+            border-radius: 12px; 
+            margin: 1.5rem 0;
+        }
+        .score-big { font-size: 3rem; color: #00d4aa; font-weight: bold; }
+        .score-label { font-size: 1.2rem; color: #C5A572; }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        .result-box {
+            background: #1a2332;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .result-box h4 { color: #C5A572; margin-bottom: 0.5rem; }
+        .result-box .value { font-size: 1.8rem; color: #00d4aa; font-weight: bold; }
+        
+        .norms-table {
+            background: #1a2332;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .norms-table h4 { color: #C5A572; margin-bottom: 0.75rem; }
+        .norms-table table { width: 100%; border-collapse: collapse; }
+        .norms-table td, .norms-table th { 
+            padding: 0.5rem; 
+            text-align: center; 
+            border-bottom: 1px solid #2a3441;
+        }
+        .norms-table th { color: #C5A572; }
+        .norms-highlight { background: rgba(0, 212, 170, 0.2); }
+        
+        .interpretation { 
+            padding: 1.5rem; 
+            border-radius: 10px; 
+            margin: 1rem 0;
+            line-height: 1.6;
+        }
+        .interp-good { background: rgba(0, 212, 170, 0.2); border: 2px solid #00d4aa; }
+        .interp-concern { background: rgba(255, 193, 7, 0.2); border: 2px solid #ffc107; }
+        .interp-alert { background: rgba(244, 67, 54, 0.2); border: 2px solid #f44336; }
+        
+        .history-section { margin-top: 2rem; }
+        .history-title { color: #C5A572; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
+        .history-list { background: #1a2332; border-radius: 8px; max-height: 200px; overflow-y: auto; }
+        .history-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #2a3441;
+            font-size: 0.9rem;
+        }
+        
+        .back-link { 
+            display: inline-block; 
+            color: #C5A572; 
+            text-decoration: none; 
+            margin-bottom: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../games.html" class="back-link">← Back to Games</a>
+        
+        <div class="header">
+            <h1>🔗 Trail Making Test</h1>
+            <p>Visual Attention & Task Switching Assessment</p>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>⚠️ Note:</strong> The Trail Making Test is a validated neuropsychological assessment. 
+            This version is for practice. Discuss results with your healthcare provider.
+        </div>
+        
+        <!-- Test Selection -->
+        <div class="card" id="selectionCard">
+            <div class="tabs">
+                <button class="tab active" onclick="selectTest('A')">Part A</button>
+                <button class="tab" onclick="selectTest('B')">Part B</button>
+            </div>
+            
+            <div id="partA-info">
+                <div class="instructions">
+                    <h2>Trail Making Test - Part A</h2>
+                    <p>Connect the circles in <strong>numerical order</strong> as quickly as you can.</p>
+                    <div class="sequence-example">1 → 2 → 3 → 4 → ... → 15</div>
+                    <p style="color: #888;">Tests visual scanning and motor speed</p>
+                </div>
+            </div>
+            
+            <div id="partB-info" class="hidden">
+                <div class="instructions">
+                    <h2>Trail Making Test - Part B</h2>
+                    <p>Connect the circles <strong>alternating between numbers and letters</strong>.</p>
+                    <div class="sequence-example">1 → A → 2 → B → 3 → C → ...</div>
+                    <p style="color: #888;">Tests cognitive flexibility and task switching</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center;">
+                <button class="btn" onclick="startTest()">Start Test</button>
+            </div>
+        </div>
+        
+        <!-- Game Area -->
+        <div class="card hidden" id="gameCard">
+            <div class="hud">
+                <div class="hud-item">
+                    <div class="hud-label">Time</div>
+                    <div class="hud-value" id="timer">0.0s</div>
+                </div>
+                <div class="hud-item">
+                    <div class="hud-label">Progress</div>
+                    <div class="hud-value" id="progress">0/15</div>
+                </div>
+                <div class="hud-item">
+                    <div class="hud-label">Errors</div>
+                    <div class="hud-value errors" id="errors">0</div>
+                </div>
+            </div>
+            
+            <div class="game-area" id="gameArea"></div>
+            
+            <p style="text-align: center; color: #888; margin-top: 0.5rem;">
+                Click/tap the circles in order: <span id="nextHint"></span>
+            </p>
+        </div>
+        
+        <!-- Results -->
+        <div class="card hidden" id="resultsCard">
+            <h2 style="color: #C5A572; text-align: center; margin-bottom: 1rem;">📊 Results</h2>
+            
+            <div class="score-display">
+                <div class="score-big" id="finalTime">0.0s</div>
+                <div class="score-label">Completion Time</div>
+            </div>
+            
+            <div class="results-grid">
+                <div class="result-box">
+                    <h4>Test Type</h4>
+                    <div class="value" id="testType">Part A</div>
+                </div>
+                <div class="result-box">
+                    <h4>Errors</h4>
+                    <div class="value" id="finalErrors">0</div>
+                </div>
+            </div>
+            
+            <div class="norms-table">
+                <h4>📋 Reference Times (approximate norms)</h4>
+                <table>
+                    <tr>
+                        <th>Rating</th>
+                        <th>Part A</th>
+                        <th>Part B</th>
+                    </tr>
+                    <tr>
+                        <td>Excellent</td>
+                        <td>&lt; 29s</td>
+                        <td>&lt; 75s</td>
+                    </tr>
+                    <tr>
+                        <td>Average</td>
+                        <td>29-38s</td>
+                        <td>75-120s</td>
+                    </tr>
+                    <tr>
+                        <td>Below Average</td>
+                        <td>&gt; 38s</td>
+                        <td>&gt; 120s</td>
+                    </tr>
+                </table>
+                <p style="font-size: 0.8rem; color: #888; margin-top: 0.5rem;">
+                    *Norms vary by age. Consult clinical references for age-adjusted scores.
+                </p>
+            </div>
+            
+            <div id="interpretation" class="interpretation"></div>
+            
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <button class="btn" onclick="tryAgain()">🔄 Try Again</button>
+                <button class="btn secondary" onclick="window.print()">🖨️ Print</button>
+            </div>
+        </div>
+        
+        <div class="history-section">
+            <h3 class="history-title">📈 Previous Attempts</h3>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTest = 'A';
+        let nodes = [];
+        let currentIndex = 0;
+        let errors = 0;
+        let startTime = 0;
+        let timerInterval = null;
+        let totalNodes = 15;
+        
+        function selectTest(test) {
+            currentTest = test;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('partA-info').classList.toggle('hidden', test !== 'A');
+            document.getElementById('partB-info').classList.toggle('hidden', test !== 'B');
+        }
+        
+        function generateNodes() {
+            const area = document.getElementById('gameArea');
+            const width = area.clientWidth - 60;
+            const height = area.clientHeight - 60;
+            
+            nodes = [];
+            const positions = [];
+            
+            // Generate sequence
+            if (currentTest === 'A') {
+                for (let i = 1; i <= totalNodes; i++) {
+                    nodes.push({ label: i.toString(), type: 'number' });
+                }
+            } else {
+                // Part B: alternate numbers and letters
+                const letters = 'ABCDEFG';
+                for (let i = 0; i < totalNodes; i++) {
+                    if (i % 2 === 0) {
+                        nodes.push({ label: (Math.floor(i/2) + 1).toString(), type: 'number' });
+                    } else {
+                        nodes.push({ label: letters[Math.floor(i/2)], type: 'letter' });
+                    }
+                }
+            }
+            
+            // Generate non-overlapping positions
+            for (let i = 0; i < totalNodes; i++) {
+                let x, y, valid;
+                let attempts = 0;
+                
+                do {
+                    x = Math.random() * width + 30;
+                    y = Math.random() * height + 30;
+                    valid = true;
+                    
+                    for (const pos of positions) {
+                        const dist = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+                        if (dist < 70) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                    attempts++;
+                } while (!valid && attempts < 100);
+                
+                positions.push({ x, y });
+                nodes[i].x = x;
+                nodes[i].y = y;
+            }
+            
+            return nodes;
+        }
+        
+        function renderNodes() {
+            const area = document.getElementById('gameArea');
+            area.innerHTML = '';
+            
+            nodes.forEach((node, i) => {
+                const el = document.createElement('div');
+                el.className = `node ${node.type}`;
+                el.style.left = (node.x - 25) + 'px';
+                el.style.top = (node.y - 25) + 'px';
+                el.textContent = node.label;
+                el.dataset.index = i;
+                el.onclick = () => clickNode(i);
+                area.appendChild(el);
+            });
+        }
+        
+        function startTest() {
+            document.getElementById('selectionCard').classList.add('hidden');
+            document.getElementById('gameCard').classList.remove('hidden');
+            
+            currentIndex = 0;
+            errors = 0;
+            
+            generateNodes();
+            renderNodes();
+            updateHUD();
+            updateHint();
+            
+            // Highlight first node
+            document.querySelector(`.node[data-index="0"]`).classList.add('current');
+            
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 100);
+        }
+        
+        function clickNode(index) {
+            const nodeEl = document.querySelector(`.node[data-index="${index}"]`);
+            
+            if (index === currentIndex) {
+                // Correct!
+                nodeEl.classList.remove('current');
+                nodeEl.classList.add('visited');
+                
+                // Draw line from previous
+                if (currentIndex > 0) {
+                    drawLine(currentIndex - 1, currentIndex);
+                }
+                
+                currentIndex++;
+                
+                if (currentIndex >= totalNodes) {
+                    // Complete!
+                    completeTest();
+                } else {
+                    // Highlight next
+                    document.querySelector(`.node[data-index="${currentIndex}"]`).classList.add('current');
+                    updateHUD();
+                    updateHint();
+                }
+            } else {
+                // Error
+                errors++;
+                nodeEl.classList.add('error');
+                setTimeout(() => nodeEl.classList.remove('error'), 500);
+                document.getElementById('errors').textContent = errors;
+            }
+        }
+        
+        function drawLine(fromIndex, toIndex) {
+            const from = nodes[fromIndex];
+            const to = nodes[toIndex];
+            
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            
+            const line = document.createElement('div');
+            line.className = 'trail-line';
+            line.style.left = from.x + 'px';
+            line.style.top = from.y + 'px';
+            line.style.width = length + 'px';
+            line.style.transform = `rotate(${angle}deg)`;
+            
+            document.getElementById('gameArea').appendChild(line);
+        }
+        
+        function updateTimer() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            document.getElementById('timer').textContent = elapsed.toFixed(1) + 's';
+        }
+        
+        function updateHUD() {
+            document.getElementById('progress').textContent = `${currentIndex}/${totalNodes}`;
+        }
+        
+        function updateHint() {
+            const hint = document.getElementById('nextHint');
+            if (currentIndex < totalNodes) {
+                hint.textContent = nodes[currentIndex].label;
+            }
+        }
+        
+        function completeTest() {
+            clearInterval(timerInterval);
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            
+            document.getElementById('gameCard').classList.add('hidden');
+            document.getElementById('resultsCard').classList.remove('hidden');
+            
+            document.getElementById('finalTime').textContent = elapsed.toFixed(1) + 's';
+            document.getElementById('testType').textContent = 'Part ' + currentTest;
+            document.getElementById('finalErrors').textContent = errors;
+            
+            // Interpretation
+            const interp = document.getElementById('interpretation');
+            let rating = '';
+            
+            if (currentTest === 'A') {
+                if (elapsed < 29) rating = 'excellent';
+                else if (elapsed < 38) rating = 'average';
+                else rating = 'below';
+            } else {
+                if (elapsed < 75) rating = 'excellent';
+                else if (elapsed < 120) rating = 'average';
+                else rating = 'below';
+            }
+            
+            if (rating === 'excellent') {
+                interp.className = 'interpretation interp-good';
+                interp.innerHTML = '✅ <strong>Excellent Performance!</strong><br>Your visual attention and processing speed are strong.';
+            } else if (rating === 'average') {
+                interp.className = 'interpretation interp-concern';
+                interp.innerHTML = '👍 <strong>Average Performance</strong><br>Your results fall within the normal range. Practice can help improve speed.';
+            } else {
+                interp.className = 'interpretation interp-alert';
+                interp.innerHTML = '⚠️ <strong>Below Average</strong><br>Consider discussing these results with a healthcare provider, especially if this differs from your usual performance.';
+            }
+            
+            if (errors > 0) {
+                interp.innerHTML += `<br><br>You made ${errors} error(s), which may have added to your time.`;
+            }
+            
+            // Save history
+            saveHistory(elapsed, errors, currentTest);
+            displayHistory();
+        }
+        
+        function saveHistory(time, errors, type) {
+            const history = JSON.parse(localStorage.getItem('trailMakingHistory') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                time: time,
+                errors: errors,
+                type: type
+            });
+            if (history.length > 20) history.shift();
+            localStorage.setItem('trailMakingHistory', JSON.stringify(history));
+        }
+        
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('trailMakingHistory') || '[]');
+            const list = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                list.innerHTML = '<div style="padding: 1rem; text-align: center; color: #888;">No previous attempts</div>';
+                return;
+            }
+            
+            list.innerHTML = history.slice(-10).reverse().map(h => {
+                const date = new Date(h.date).toLocaleDateString();
+                return `<div class="history-item">
+                    <span style="color: #888;">${date} - Part ${h.type}</span>
+                    <span style="color: #00d4aa; font-weight: bold;">${h.time.toFixed(1)}s (${h.errors} errors)</span>
+                </div>`;
+            }).join('');
+        }
+        
+        function tryAgain() {
+            document.getElementById('resultsCard').classList.add('hidden');
+            document.getElementById('selectionCard').classList.remove('hidden');
+        }
+        
+        // Initialize
+        displayHistory();
+    </script>
+</body>
+</html>

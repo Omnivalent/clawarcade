@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🚩 Rug Pull Detector - ClawArcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Orbitron',monospace;background:linear-gradient(135deg,#0a0015,#1a0030,#0d001a);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:1rem;touch-action:manipulation}
+        .back-btn{position:fixed;top:1rem;left:1rem;background:rgba(255,102,0,.2);border:2px solid #f60;color:#f60;padding:.5rem 1rem;border-radius:5px;font-family:inherit;text-decoration:none;z-index:100}
+        .container{text-align:center;max-width:500px;width:100%;margin-top:3rem}
+        h1{font-size:clamp(1.4rem,5vw,1.8rem);color:#f60;text-shadow:0 0 20px #f60;margin-bottom:.5rem}
+        .sub{color:#888;font-size:.85rem;margin-bottom:1rem}
+        .stats{display:flex;justify-content:space-around;margin:1rem 0}
+        .stat{text-align:center}
+        .stat-label{color:#888;font-size:.65rem}
+        .stat-value{font-size:1.2rem;color:#0ff}
+        .timer{width:100%;height:8px;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;margin:1rem 0}
+        .timer-fill{height:100%;background:linear-gradient(90deg,#f00,#ff0,#0f0);transition:width .1s linear}
+        .card{background:rgba(0,0,0,.5);border:2px solid #f0f;border-radius:12px;padding:1.2rem;margin:1rem 0;transition:all .3s}
+        .card.correct{animation:correctPulse .5s}
+        .card.wrong{animation:wrongPulse .5s}
+        @keyframes correctPulse{0%,100%{border-color:#f0f}50%{border-color:#0f0;box-shadow:0 0 30px rgba(0,255,0,.5)}}
+        @keyframes wrongPulse{0%,100%{border-color:#f0f}50%{border-color:#f00;box-shadow:0 0 30px rgba(255,0,0,.5)}}
+        .token{font-size:1.3rem;color:#0ff;margin-bottom:.5rem}
+        .info{font-size:.8rem;color:#ccc;text-align:left;margin:.4rem 0}
+        .info span{color:#f0f}
+        .red{color:#f00!important}
+        .green{color:#0f0!important}
+        .btns{display:flex;gap:1rem;justify-content:center;margin-top:1rem}
+        .btn{padding:.9rem 1.5rem;font-size:1.1rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;border:2px solid;transition:all .2s;flex:1}
+        .btn:active{transform:scale(.95)}
+        .safe{background:#030;border-color:#0f0;color:#0f0}
+        .safe:hover{background:#050;box-shadow:0 0 20px rgba(0,255,0,.5)}
+        .rug{background:#300;border-color:#f00;color:#f00}
+        .rug:hover{background:#500;box-shadow:0 0 20px rgba(255,0,0,.5)}
+        .result{font-size:1.3rem;margin:1rem 0;min-height:1.5rem}
+        .correct{color:#0f0}
+        .wrong{color:#f00}
+        .over{display:none}
+        .over.show{display:block}
+        .restart{background:linear-gradient(135deg,#f60,#f0f);border:none;color:#000;padding:1rem 2rem;font-size:1.1rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1rem}
+        .start-screen{text-align:center;margin-top:2rem}
+        .start-btn{background:linear-gradient(135deg,#f60,#900);border:2px solid #f60;color:#fff;padding:1.2rem 2.5rem;font-size:1.2rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1.5rem}
+        .tutorial{font-size:.55rem;color:#f60;margin-top:10px;padding:10px;background:rgba(255,102,0,.1);border-radius:8px}
+        .difficulty{font-size:.7rem;color:#f0f;margin-top:.5rem}
+        .particle{position:fixed;pointer-events:none;font-size:2rem;animation:particleFly 1s ease-out forwards;z-index:200}
+        @keyframes particleFly{0%{transform:scale(1) translateY(0);opacity:1}100%{transform:scale(0) translateY(-100px);opacity:0}}
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← BACK</a>
+    
+    <div class="container">
+        <div id="start" class="start-screen">
+            <h1>🚩 RUG PULL DETECTOR 🚩</h1>
+            <p style="color:#888;margin:1rem 0">Tokens flash on screen.<br>Spot the scam before you get rugged!</p>
+            <p style="color:#666;font-size:.85rem">Look for red flags:<br>Unlocked liquidity, anon team, honeypot code...</p>
+            <div class="tutorial" id="tutorial">
+                💡 TIP: Time gets shorter each round!<br>
+                Red text = suspicious, Green text = good sign
+            </div>
+            <button class="start-btn" id="startBtn">START DETECTING</button>
+        </div>
+        
+        <div id="game" style="display:none">
+            <h1>🚩 RUG PULL DETECTOR 🚩</h1>
+            <p class="sub">Spot the scam!</p>
+            <div class="stats">
+                <div class="stat"><div class="stat-label">SCORE</div><div class="stat-value" id="score">0</div></div>
+                <div class="stat"><div class="stat-label">STREAK</div><div class="stat-value" id="streak">0 🔥</div></div>
+                <div class="stat"><div class="stat-label">ROUND</div><div class="stat-value" id="round">1/10</div></div>
+            </div>
+            <div class="difficulty" id="difficulty">LEVEL 1 - EASY</div>
+            <div class="timer"><div class="timer-fill" id="timer"></div></div>
+            <div class="card" id="card">
+                <div class="token" id="token">$LOADING...</div>
+                <div class="info">📊 Liquidity: <span id="liq">???</span></div>
+                <div class="info">👥 Team: <span id="team">???</span></div>
+                <div class="info">📜 Contract: <span id="contract">???</span></div>
+                <div class="info">🔒 LP Lock: <span id="lock">???</span></div>
+                <div class="info">📈 Top Holder: <span id="holder">???</span></div>
+                <div class="info">⏰ Age: <span id="age">???</span></div>
+            </div>
+            <div class="result" id="result"></div>
+            <div class="btns" id="btns">
+                <button class="btn safe" id="safeBtn">✅ SAFE</button>
+                <button class="btn rug" id="rugBtn">🚩 RUG</button>
+            </div>
+        </div>
+        
+        <div id="over" class="over">
+            <h1>GAME OVER</h1>
+            <div style="font-size:1.8rem;color:#0ff;margin:1rem 0">Score: <span id="finalScore">0</span></div>
+            <div id="acc"></div>
+            <button class="restart" id="restartBtn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+    (function(){
+        const $=id=>document.getElementById(id);
+        let audioCtx=null;
+        
+        function initAudio(){
+            if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+            if(audioCtx.state==='suspended')audioCtx.resume();
+        }
+        
+        const names=['$SAFEMOON2','$ELONDOGE','$BABYSHIB','$MOONROCKET','$TRUSTTOKEN','$GEMHUNTER','$YIELDMAX','$DEFIKING','$APECOIN2','$FLOKIINU2','$RUGCOIN','$SCAMAPE','$HONEYPOT','$EXITLIQ'];
+        
+        const safe={
+            liq:['$500K locked','$1.2M locked','$2M+ TVL','Audited reserves'],
+            team:['Doxxed team','Known devs','VC backed','Public company'],
+            contract:['Verified & audited','No mint function','Renounced','Standard ERC-20'],
+            lock:['2 year lock','Burned LP','Team.finance','Unicrypt 1yr'],
+            holder:['3.2% (exchange)','5% (team vested)','2.1% (foundation)','4% (staking)'],
+            age:['8 months','2 years','14 months','6 months+']
+        };
+        
+        const rug={
+            liq:['$2K (unlocked)','$500 lol','No info','Dev can remove'],
+            team:['Anonymous','Fake LinkedIn','"Trust me bro"','TG admin only'],
+            contract:['Unverified','Hidden mint()','Honeypot','Copied fork'],
+            lock:['Unlocked','"Will lock soon"','Fake lock','24hr lock 😂'],
+            holder:['Dev holds 40%','89% in 1 wallet','Team: 60%','Whale: 45%'],
+            age:['2 hours','15 minutes','Just launched!','1 day']
+        };
+        
+        let score=0,streak=0,round=0,maxRounds=10,current=null,timer=null,timeLeft=100,correct=0,baseTime=5000,level=1;
+        
+        function sound(f,d){
+            if(!audioCtx)return;
+            try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.08,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}
+        }
+        
+        function spawnParticle(emoji,x,y){
+            const p=document.createElement('div');
+            p.className='particle';
+            p.textContent=emoji;
+            p.style.left=x+'px';
+            p.style.top=y+'px';
+            document.body.appendChild(p);
+            setTimeout(()=>p.remove(),1000);
+        }
+        
+        function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+        
+        function startGame(){
+            initAudio();
+            localStorage.setItem('clawarcade_rug_played','true');
+            
+            score=0;streak=0;round=0;correct=0;baseTime=5000;level=1;
+            $('start').style.display='none';
+            $('game').style.display='block';
+            $('over').classList.remove('show');
+            nextRound();
+        }
+        
+        function nextRound(){
+            round++;
+            if(round>maxRounds)return endGame();
+            
+            // Progressive difficulty
+            level=Math.ceil(round/3);
+            const timeForRound=Math.max(2000,baseTime-round*250);
+            $('difficulty').textContent=`LEVEL ${level} - ${level===1?'EASY':level===2?'MEDIUM':'HARD'}`;
+            
+            $('round').textContent=round+'/'+maxRounds;
+            $('result').textContent='';$('result').className='result';
+            $('btns').style.display='flex';
+            $('card').classList.remove('correct','wrong');
+            
+            const isRug=Math.random()<.5;
+            const traits=isRug?rug:safe;
+            
+            current={isRug,
+                liq:pick(traits.liq),team:pick(traits.team),contract:pick(traits.contract),
+                lock:pick(traits.lock),holder:pick(traits.holder),age:pick(traits.age)
+            };
+            
+            // Add more noise in later rounds
+            const noiseChance=0.2+level*0.1;
+            if(Math.random()<noiseChance){
+                const opp=isRug?safe:rug;
+                const keys=['liq','team','contract','lock','holder','age'];
+                const k=pick(keys);current[k]=pick(opp[k]);
+            }
+            if(level>=3&&Math.random()<0.3){
+                const opp=isRug?safe:rug;
+                const keys=['liq','team','contract','lock','holder','age'];
+                const k=pick(keys);current[k]=pick(opp[k]);
+            }
+            
+            $('token').textContent=pick(names);
+            ['liq','team','contract','lock','holder','age'].forEach(k=>{
+                const el=$(k),v=current[k].toLowerCase();
+                el.textContent=current[k];
+                if(/locked|doxxed|verified|audited|year|month/.test(v))el.className='green';
+                else if(/unlocked|anon|honeypot|40%|89%|60%|45%|minute|hour|lol|😂/.test(v))el.className='red';
+                else el.className='';
+            });
+            
+            timeLeft=100;$('timer').style.width='100%';
+            if(timer)clearInterval(timer);
+            timer=setInterval(()=>{
+                timeLeft-=100/(timeForRound/100);
+                $('timer').style.width=Math.max(0,timeLeft)+'%';
+                if(timeLeft<=0){clearInterval(timer);guess(null)}
+            },100);
+        }
+        
+        function guess(isRug){
+            clearInterval(timer);
+            $('btns').style.display='none';
+            const r=$('result');
+            const win=isRug===current.isRug;
+            
+            if(win){
+                correct++;streak++;
+                const pts=100+Math.floor(timeLeft/10)+streak*10+level*20;
+                score+=pts;
+                r.className='result correct';
+                r.textContent='✅ CORRECT! +'+pts;
+                $('card').classList.add('correct');
+                sound(523,.1);
+                spawnParticle('✅',window.innerWidth/2,window.innerHeight/2);
+            }else{
+                streak=0;
+                r.className='result wrong';
+                r.textContent='❌ WRONG! Was '+(current.isRug?'RUG':'SAFE');
+                $('card').classList.add('wrong');
+                sound(200,.3);
+                spawnParticle('❌',window.innerWidth/2,window.innerHeight/2);
+            }
+            
+            $('score').textContent=score;
+            $('streak').textContent=streak+' 🔥';
+            setTimeout(nextRound,1200);
+        }
+        
+        function endGame(){
+            $('game').style.display='none';
+            $('over').classList.add('show');
+            $('finalScore').textContent=score;
+            $('acc').textContent='Accuracy: '+Math.round(correct/maxRounds*100)+'% ('+correct+'/'+maxRounds+')';
+            
+            try{
+                const username=localStorage.getItem('clawmd_username')||'Anonymous';
+                const scores=JSON.parse(localStorage.getItem('clawarcade_lb_rug-pull-detector')||'[]');
+                scores.push({name:username,score,accuracy:Math.round(correct/maxRounds*100),date:Date.now()});
+                scores.sort((a,b)=>b.score-a.score);
+                localStorage.setItem('clawarcade_lb_rug-pull-detector',JSON.stringify(scores.slice(0,10)));
+            }catch(e){}
+        }
+        
+        // Hide tutorial after first play
+        if(localStorage.getItem('clawarcade_rug_played')){
+            $('tutorial').style.display='none';
+        }
+        
+        $('startBtn').onclick=$('startBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+        $('safeBtn').onclick=$('safeBtn').ontouchstart=function(e){e.preventDefault();guess(false)};
+        $('rugBtn').onclick=$('rugBtn').ontouchstart=function(e){e.preventDefault();guess(true)};
+        $('restartBtn').onclick=$('restartBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+    })();
+    </script>
+</body>
+</html>

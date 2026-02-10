@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Breathing Space</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;overflow:hidden;touch-action:manipulation;user-select:none}
+h1{font-size:1.3rem;color:#00d4aa;margin-bottom:6px}
+#canvas-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:280px;height:280px}
+canvas{position:absolute}
+#phase{font-size:1.6rem;color:#00d4aa;position:absolute;font-weight:700;text-shadow:0 0 20px rgba(0,212,170,.4)}
+#timer{font-size:3rem;color:#fff;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:200}
+#cycles{font-size:.9rem;color:#8888aa;margin-top:12px}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;padding:14px 32px;border-radius:25px;font-size:1rem;font-weight:700;cursor:pointer;min-height:44px;margin-top:16px}
+.btn:active{transform:scale(.95)}
+#controls{display:flex;gap:10px;margin-top:10px}
+.pat{background:#16213e;color:#00d4aa;border:2px solid #00d4aa;padding:8px 16px;border-radius:20px;font-size:.85rem;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.pat.active{background:#00d4aa;color:#1a1a2e}
+#instruction{color:#8888aa;font-size:.85rem;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>Breathing Space</h1>
+<div id="controls">
+  <div class="pat active" data-p="box" onclick="setPattern('box',this)">Box 4-4-4-4</div>
+  <div class="pat" data-p="relax" onclick="setPattern('relax',this)">4-7-8 Relax</div>
+  <div class="pat" data-p="calm" onclick="setPattern('calm',this)">5-5 Calm</div>
+</div>
+<div id="canvas-wrap">
+  <canvas id="c" width="280" height="280"></canvas>
+  <div id="phase">Ready</div>
+</div>
+<div id="cycles">Cycles: <span id="cyc">0</span></div>
+<div id="instruction">Tap Start and follow the circle</div>
+<button class="btn" id="startBtn" onclick="toggle()">Start</button>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),phaseEl=document.getElementById('phase'),cycEl=document.getElementById('cyc'),startBtn=document.getElementById('startBtn'),instrEl=document.getElementById('instruction');
+const patterns={box:{phases:[['Inhale',4],['Hold',4],['Exhale',4],['Hold',4]],color:['#00d4aa','#0088aa','#006688','#0088aa']},relax:{phases:[['Inhale',4],['Hold',7],['Exhale',8]],color:['#00d4aa','#7b68ee','#4a90d9']},calm:{phases:[['Inhale',5],['Exhale',5]],color:['#00d4aa','#20b2aa']}};
+let pat='box',running=false,startTime=0,cycles=0,animId;
+
+function setPattern(p,el){pat=p;document.querySelectorAll('.pat').forEach(e=>e.classList.remove('active'));el.classList.add('active');if(running){running=false;cancelAnimationFrame(animId);startBtn.textContent='Start';phaseEl.textContent='Ready'}}
+
+function toggle(){
+  if(running){running=false;cancelAnimationFrame(animId);startBtn.textContent='Start';phaseEl.textContent='Paused';return}
+  running=true;startBtn.textContent='Pause';cycles=0;cycEl.textContent=0;startTime=performance.now();instrEl.textContent='';animate()
+}
+
+function getTotalDuration(){return patterns[pat].phases.reduce((s,p)=>s+p[1],0)}
+function animate(){
+  if(!running)return;
+  const now=performance.now(),elapsed=(now-startTime)/1000;
+  const total=getTotalDuration(),cyclePos=elapsed%total;
+  const newCycles=Math.floor(elapsed/total);
+  if(newCycles!==cycles){cycles=newCycles;cycEl.textContent=cycles}
+  
+  let acc=0,phaseIdx=0,phaseProgress=0;
+  const ph=patterns[pat].phases;
+  for(let i=0;i<ph.length;i++){
+    if(cyclePos<acc+ph[i][1]){phaseIdx=i;phaseProgress=(cyclePos-acc)/ph[i][1];break}
+    acc+=ph[i][1];
+  }
+  
+  phaseEl.textContent=ph[phaseIdx][0];
+  const cx=140,cy=140;
+  
+  // Calculate radius based on phase
+  let radius;
+  const name=ph[phaseIdx][0];
+  const prevPhase=(phaseIdx-1+ph.length)%ph.length;
+  const prevName=ph[prevPhase][0];
+  const minR=40,maxR=110;
+  
+  if(name==='Inhale') radius=minR+(maxR-minR)*easeInOut(phaseProgress);
+  else if(name==='Exhale') radius=maxR-(maxR-minR)*easeInOut(phaseProgress);
+  else{// Hold
+    radius=prevName==='Inhale'?maxR:minR;
+  }
+  
+  ctx.clearRect(0,0,280,280);
+  // Outer glow
+  const grad=ctx.createRadialGradient(cx,cy,radius*0.8,cx,cy,radius*1.3);
+  const col=patterns[pat].color[phaseIdx];
+  grad.addColorStop(0,col+'66');grad.addColorStop(1,'transparent');
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(cx,cy,radius*1.3,0,Math.PI*2);ctx.fill();
+  // Main circle
+  ctx.fillStyle=col+'99';ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.stroke();
+  // Progress ring
+  const totalProgress=elapsed%total/total;
+  ctx.strokeStyle='#ffffff44';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,125,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='#00d4aa';ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,125,-Math.PI/2,-Math.PI/2+totalProgress*Math.PI*2);ctx.stroke();
+  
+  animId=requestAnimationFrame(animate);
+}
+function easeInOut(t){return t<.5?2*t*t:(4-2*t)*t-1}
+</script>
+</body>
+</html>

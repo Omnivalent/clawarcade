@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Memory Album - Reminiscence</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#c9b1ff;margin-bottom:8px;text-shadow:0 0 20px rgba(201,177,255,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#252545;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #3a3a5a}
+.instruction{font-size:20px;color:#aab;margin:16px 0;line-height:1.5}
+.photo-frame{background:#1a1a3a;border-radius:16px;padding:20px;margin:20px 0;border:4px solid #4a4a6a;box-shadow:inset 0 2px 10px rgba(0,0,0,0.3)}
+.photo-emoji{font-size:100px;line-height:1.2;margin:20px 0}
+.photo-caption{font-size:18px;color:#c9b1ff;font-style:italic;margin-top:16px}
+.question{font-size:24px;color:#fff;margin:24px 0;line-height:1.4;font-weight:500}
+.options{display:flex;flex-direction:column;gap:12px;margin:20px 0}
+.option-btn{background:#1e1e3a;border:2px solid #4a4a6a;border-radius:16px;padding:18px 24px;font-size:20px;color:#e8e8f0;cursor:pointer;transition:all 0.2s;text-align:left}
+.option-btn:hover,.option-btn:active{background:#2a2a4a;border-color:#c9b1ff}
+.option-btn.selected{border-color:#c9b1ff;background:#3a3050}
+.response-area{margin:20px 0}
+.response-display{background:#1e1e3a;border-radius:16px;padding:20px;margin-top:16px;border:2px solid #4a4a6a}
+.response-display p{font-size:18px;color:#c9b1ff;line-height:1.6;font-style:italic}
+.btn{background:#c9b1ff;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(201,177,255,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn.secondary{background:transparent;border:2px solid #c9b1ff;color:#c9b1ff}
+.theme-select{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:20px 0}
+.theme-btn{background:#1e1e3a;border:2px solid #3a3a5a;border-radius:16px;padding:16px 20px;cursor:pointer;transition:all 0.2s;min-width:100px}
+.theme-btn:hover,.theme-btn:active{border-color:#c9b1ff}
+.theme-btn .icon{font-size:40px;margin-bottom:8px}
+.theme-btn .label{font-size:14px;color:#aab}
+.nav-dots{display:flex;gap:8px;justify-content:center;margin:16px 0}
+.nav-dot{width:12px;height:12px;border-radius:50%;background:#3a3a5a;cursor:pointer;transition:all 0.3s}
+.nav-dot.active{background:#c9b1ff}
+.warmth{background:#2a2535;border-radius:16px;padding:20px;margin:20px 0;border:2px solid #5a4a6a}
+.warmth p{font-size:18px;color:#d4c4f4;line-height:1.6}
+#screen-start,#screen-view,#screen-reflect{display:none;width:100%}
+#screen-start.active,#screen-view.active,#screen-reflect.active{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<h1>📸 Memory Album</h1>
+<p class="subtitle">Gentle memories and reflection</p>
+
+<div id="game">
+  <div id="screen-start" class="active">
+    <div class="card">
+      <p class="instruction">What would you like to explore today?</p>
+      <div class="theme-select">
+        <div class="theme-btn" onclick="startTheme('seasons')">
+          <div class="icon">🌸</div>
+          <div class="label">Seasons</div>
+        </div>
+        <div class="theme-btn" onclick="startTheme('home')">
+          <div class="icon">🏠</div>
+          <div class="label">Home</div>
+        </div>
+        <div class="theme-btn" onclick="startTheme('nature')">
+          <div class="icon">🌲</div>
+          <div class="label">Nature</div>
+        </div>
+        <div class="theme-btn" onclick="startTheme('celebrations')">
+          <div class="icon">🎂</div>
+          <div class="label">Celebrations</div>
+        </div>
+        <div class="theme-btn" onclick="startTheme('comfort')">
+          <div class="icon">☕</div>
+          <div class="label">Comfort</div>
+        </div>
+        <div class="theme-btn" onclick="startTheme('childhood')">
+          <div class="icon">🎠</div>
+          <div class="label">Childhood</div>
+        </div>
+      </div>
+      <p style="color:#8888aa;font-size:16px;margin-top:16px">Every answer is a good answer 💜</p>
+    </div>
+  </div>
+
+  <div id="screen-view">
+    <div class="nav-dots" id="nav-dots"></div>
+    <div class="card">
+      <div class="photo-frame">
+        <div class="photo-emoji" id="photo"></div>
+        <div class="photo-caption" id="caption"></div>
+      </div>
+      <div class="question" id="question"></div>
+      <div class="options" id="options"></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:10px">
+      <button class="btn secondary" onclick="prevPhoto()">← Back</button>
+      <button class="btn" onclick="nextPhoto()">Next →</button>
+    </div>
+  </div>
+
+  <div id="screen-reflect">
+    <div class="card">
+      <div style="font-size:60px;margin-bottom:16px">💜</div>
+      <p style="font-size:24px;color:#c9b1ff;margin-bottom:16px">Thank You for Sharing</p>
+      <p class="instruction">Taking time to remember is a wonderful gift to yourself.</p>
+      <div class="warmth">
+        <p id="closing-thought"></p>
+      </div>
+    </div>
+    <button class="btn" onclick="showStart()">Explore Another Theme</button>
+  </div>
+</div>
+
+<script>
+const THEMES = {
+  seasons: {
+    title: "Through the Seasons",
+    photos: [
+      {
+        emoji: "🌸🌷🌼",
+        caption: "Spring flowers blooming",
+        question: "What does spring remind you of?",
+        options: ["New beginnings", "Planting gardens", "Fresh air", "All of these"]
+      },
+      {
+        emoji: "☀️🏖️🍦",
+        caption: "Warm summer days",
+        question: "What's a favorite summer memory?",
+        options: ["Beach trips", "Ice cream", "Long evenings", "Family gatherings"]
+      },
+      {
+        emoji: "🍂🎃🍁",
+        caption: "Autumn colors",
+        question: "What do you love about fall?",
+        options: ["Colorful leaves", "Cozy sweaters", "Harvest time", "Crisp air"]
+      },
+      {
+        emoji: "❄️☃️🎄",
+        caption: "Winter wonder",
+        question: "What makes winter special?",
+        options: ["Holidays", "Snow", "Warm drinks", "Time with family"]
+      }
+    ],
+    closing: "Each season brings its own beautiful memories. Thank you for this journey through the year with me."
+  },
+  home: {
+    title: "Home Sweet Home",
+    photos: [
+      {
+        emoji: "🏠🌳🚗",
+        caption: "Coming home",
+        question: "What makes a house feel like home?",
+        options: ["Familiar smells", "Loved ones", "Comfortable spaces", "All of these"]
+      },
+      {
+        emoji: "🛋️📺🪴",
+        caption: "The living room",
+        question: "What did you enjoy doing in the living room?",
+        options: ["Watching TV", "Reading", "Talking with family", "Relaxing"]
+      },
+      {
+        emoji: "🍳🥘👨‍🍳",
+        caption: "In the kitchen",
+        question: "What's a food that reminds you of home?",
+        options: ["Fresh bread", "Sunday dinner", "Mom's cooking", "Holiday meals"]
+      },
+      {
+        emoji: "🛏️💤🌙",
+        caption: "Time to rest",
+        question: "What helps you feel peaceful at bedtime?",
+        options: ["Soft pillows", "Quiet moments", "Reading", "Warm blankets"]
+      }
+    ],
+    closing: "Home is where our hearts find peace. Thank you for sharing these comforting memories."
+  },
+  nature: {
+    title: "Nature's Beauty",
+    photos: [
+      {
+        emoji: "🌲🌳🌿",
+        caption: "A peaceful forest",
+        question: "What do you enjoy about trees?",
+        options: ["Their shade", "Climbing them", "The sound of leaves", "Their beauty"]
+      },
+      {
+        emoji: "🌊🐚🏖️",
+        caption: "By the water",
+        question: "What's calming about water?",
+        options: ["The sound", "The colors", "The fresh air", "All of these"]
+      },
+      {
+        emoji: "🦋🐝🌺",
+        caption: "Garden visitors",
+        question: "What creatures do you like to see in gardens?",
+        options: ["Butterflies", "Birds", "Bees", "All of them"]
+      },
+      {
+        emoji: "🌅⛰️🌄",
+        caption: "A beautiful view",
+        question: "Have you seen a view that took your breath away?",
+        options: ["Mountains", "Sunsets", "The ocean", "Yes, many times"]
+      }
+    ],
+    closing: "Nature has so many gifts to offer us. Thank you for appreciating its beauty today."
+  },
+  celebrations: {
+    title: "Times to Celebrate",
+    photos: [
+      {
+        emoji: "🎂🎈🎁",
+        caption: "Birthday celebration",
+        question: "What makes birthdays special?",
+        options: ["Cake", "Loved ones", "Presents", "Feeling appreciated"]
+      },
+      {
+        emoji: "🎄🎅🎁",
+        caption: "Holiday time",
+        question: "What's your favorite holiday tradition?",
+        options: ["Decorating", "Special meals", "Being together", "Gift giving"]
+      },
+      {
+        emoji: "👰🤵💒",
+        caption: "Wedding celebration",
+        question: "What do you remember about weddings?",
+        options: ["Beautiful dresses", "Dancing", "Happy tears", "Delicious cake"]
+      },
+      {
+        emoji: "🎓📜🎉",
+        caption: "Achievements",
+        question: "What accomplishment are you proud of?",
+        options: ["Graduating", "Learning something new", "Helping others", "Many things"]
+      }
+    ],
+    closing: "Life is full of moments worth celebrating. Thank you for sharing these joyful memories."
+  },
+  comfort: {
+    title: "Comfort & Coziness",
+    photos: [
+      {
+        emoji: "☕📖🪑",
+        caption: "A quiet moment",
+        question: "What helps you relax?",
+        options: ["A warm drink", "A good book", "Peace and quiet", "All of these"]
+      },
+      {
+        emoji: "🧶🪑🔥",
+        caption: "Cozy evening",
+        question: "What makes an evening cozy?",
+        options: ["Soft blankets", "Warm fire", "Good company", "All of these"]
+      },
+      {
+        emoji: "🥧🍵👵",
+        caption: "Comfort food",
+        question: "What food brings you comfort?",
+        options: ["Pie", "Soup", "Tea", "A home-cooked meal"]
+      },
+      {
+        emoji: "🐱🛋️💤",
+        caption: "Peaceful rest",
+        question: "What helps you feel peaceful?",
+        options: ["Pets", "Soft music", "Deep breaths", "Happy thoughts"]
+      }
+    ],
+    closing: "Finding comfort in simple things is one of life's greatest gifts. Thank you for this peaceful moment together."
+  },
+  childhood: {
+    title: "Childhood Memories",
+    photos: [
+      {
+        emoji: "🎠🎡🎢",
+        caption: "Fun times",
+        question: "What was fun when you were young?",
+        options: ["Fairs and carnivals", "Playing outside", "Games with friends", "All of these"]
+      },
+      {
+        emoji: "📚✏️🏫",
+        caption: "School days",
+        question: "What do you remember about school?",
+        options: ["Friends", "Teachers", "Learning new things", "Recess"]
+      },
+      {
+        emoji: "🧸🎮🎨",
+        caption: "Toys and play",
+        question: "What did you like to play with?",
+        options: ["Dolls or action figures", "Board games", "Art supplies", "Outdoor toys"]
+      },
+      {
+        emoji: "👨‍👩‍👧‍👦💕🏠",
+        caption: "Family time",
+        question: "What family time do you remember fondly?",
+        options: ["Meal times", "Holidays", "Outings", "Everyday moments"]
+      }
+    ],
+    closing: "Childhood memories are treasures we carry with us always. Thank you for revisiting these special times."
+  }
+};
+
+let currentTheme = null;
+let currentPhoto = 0;
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showStart() {
+  showScreen('screen-start');
+}
+
+function startTheme(theme) {
+  currentTheme = THEMES[theme];
+  currentPhoto = 0;
+  showPhoto();
+  showScreen('screen-view');
+}
+
+function showPhoto() {
+  const photo = currentTheme.photos[currentPhoto];
+  
+  document.getElementById('photo').textContent = photo.emoji;
+  document.getElementById('caption').textContent = photo.caption;
+  document.getElementById('question').textContent = photo.question;
+  
+  document.getElementById('options').innerHTML = photo.options.map(opt => `
+    <div class="option-btn" onclick="selectOption(this)">${opt}</div>
+  `).join('');
+  
+  // Update nav dots
+  document.getElementById('nav-dots').innerHTML = currentTheme.photos.map((_, i) => `
+    <div class="nav-dot ${i === currentPhoto ? 'active' : ''}" onclick="goToPhoto(${i})"></div>
+  `).join('');
+}
+
+function selectOption(el) {
+  document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('selected'));
+  el.classList.add('selected');
+  playTone(523, 0.1);
+}
+
+function prevPhoto() {
+  if (currentPhoto > 0) {
+    currentPhoto--;
+    showPhoto();
+    playTone(392, 0.1);
+  }
+}
+
+function nextPhoto() {
+  if (currentPhoto < currentTheme.photos.length - 1) {
+    currentPhoto++;
+    showPhoto();
+    playTone(523, 0.1);
+  } else {
+    showReflection();
+  }
+}
+
+function goToPhoto(index) {
+  currentPhoto = index;
+  showPhoto();
+  playTone(440, 0.1);
+}
+
+function showReflection() {
+  document.getElementById('closing-thought').textContent = currentTheme.closing;
+  showScreen('screen-reflect');
+  
+  // Gentle celebration
+  [392, 440, 523].forEach((f, i) => setTimeout(() => playTone(f, 0.2), i * 200));
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+</script>
+</body>
+</html>

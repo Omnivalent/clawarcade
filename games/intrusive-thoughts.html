@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🧠 Intrusive Thoughts - ClawArcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Orbitron',monospace;background:linear-gradient(135deg,#150015,#200020,#100010);color:#fff;min-height:100vh;min-height:100dvh;overflow:hidden;touch-action:manipulation}
+        body.shake{animation:screenShake .2s}
+        @keyframes screenShake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,3px)}50%{transform:translate(4px,-3px)}75%{transform:translate(-2px,-2px)}}
+        .back-btn{position:fixed;top:1rem;left:1rem;background:rgba(255,102,0,.2);border:2px solid #f60;color:#f60;padding:.5rem 1rem;border-radius:5px;font-family:inherit;text-decoration:none;z-index:100}
+        .hud{position:fixed;top:1rem;left:50%;transform:translateX(-50%);display:flex;gap:1.5rem;z-index:100;background:rgba(0,0,0,.8);padding:.4rem 1.2rem;border-radius:20px;border:2px solid #f60}
+        .hud-item{text-align:center}
+        .hud-label{font-size:.55rem;color:#888}
+        .hud-value{font-size:.95rem;color:#f60}
+        .level-display{position:fixed;top:4rem;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:.3rem .8rem;border-radius:10px;font-size:.7rem;color:#f0f;z-index:100}
+        .peace{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);width:80%;max-width:380px;z-index:100}
+        .peace-label{font-size:.65rem;color:#888;text-align:center;margin-bottom:.3rem}
+        .peace-track{height:18px;background:rgba(0,0,0,.5);border:2px solid #0f0;border-radius:9px;overflow:hidden;transition:border-color .3s}
+        .peace-track.danger{border-color:#f00;animation:dangerPulse .5s infinite}
+        @keyframes dangerPulse{0%,100%{box-shadow:0 0 10px rgba(255,0,0,.5)}50%{box-shadow:0 0 25px rgba(255,0,0,.8)}}
+        .peace-fill{height:100%;background:linear-gradient(90deg,#f00,#ff0,#0f0);transition:width .2s}
+        #area{position:fixed;inset:0}
+        .thought{position:absolute;padding:.7rem 1rem;border-radius:12px;font-size:.8rem;cursor:pointer;transition:transform .1s;max-width:180px;text-align:center;user-select:none;animation:appear .3s ease-out}
+        @keyframes appear{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+        .thought:active{transform:scale(.9)}
+        .thought.bad{background:rgba(255,0,0,.3);border:2px solid #f00;color:#f66;box-shadow:0 0 15px rgba(255,0,0,.5)}
+        .thought.good{background:rgba(0,255,0,.2);border:2px solid #0f0;color:#6f6;box-shadow:0 0 15px rgba(0,255,0,.3)}
+        .thought.whacked{animation:whack .3s ease-out forwards}
+        @keyframes whack{to{transform:scale(0) rotate(180deg);opacity:0}}
+        .over{position:fixed;inset:0;background:rgba(0,0,0,.95);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+        .over.show{display:flex}
+        .over h1{font-size:1.8rem;margin-bottom:1rem}
+        .restart{background:linear-gradient(135deg,#f60,#f0f);border:none;color:#000;padding:1rem 2rem;font-size:1.1rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1rem}
+        .start-screen{position:fixed;inset:0;background:rgba(0,0,0,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+        .start-screen h1{font-size:1.8rem;color:#f60;margin-bottom:1rem}
+        .start-btn{background:linear-gradient(135deg,#f60,#a0a);border:2px solid #f60;color:#fff;padding:1.2rem 2.5rem;font-size:1.2rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1.5rem}
+        .tutorial{font-size:.6rem;color:#f60;margin-top:15px;padding:10px;background:rgba(255,102,0,.1);border-radius:8px;max-width:300px;text-align:center}
+        .particle{position:fixed;pointer-events:none;font-size:1.5rem;animation:particleFly .6s ease-out forwards;z-index:150}
+        @keyframes particleFly{0%{transform:scale(1);opacity:1}100%{transform:scale(0) translateY(-50px);opacity:0}}
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← BACK</a>
+    
+    <div class="hud">
+        <div class="hud-item"><div class="hud-label">SCORE</div><div class="hud-value" id="score">0</div></div>
+        <div class="hud-item"><div class="hud-label">WHACKED</div><div class="hud-value" id="whacked">0</div></div>
+        <div class="hud-item"><div class="hud-label">TIME</div><div class="hud-value" id="time">60s</div></div>
+    </div>
+    <div class="level-display" id="levelDisplay">LEVEL 1</div>
+    
+    <div id="area"></div>
+    
+    <div class="peace">
+        <div class="peace-label">☮️ PEACE METER ☮️</div>
+        <div class="peace-track" id="peaceTrack"><div class="peace-fill" id="peace" style="width:100%"></div></div>
+    </div>
+    
+    <div id="start" class="start-screen">
+        <h1>🧠 INTRUSIVE THOUGHTS 🧠</h1>
+        <p style="color:#888;margin:1rem;text-align:center">Bad thoughts pop up.<br>Tap to whack them!</p>
+        <p style="color:#666;font-size:.85rem">Don't hit the good thoughts 💚<br>Survive 60 seconds!</p>
+        <div class="tutorial" id="tutorial">
+            💡 TIP: Thoughts come faster each level!<br>
+            Watch the peace meter - don't let it empty!
+        </div>
+        <button class="start-btn" id="startBtn">BEGIN</button>
+    </div>
+    
+    <div id="over" class="over">
+        <h1 id="title">💀 OVERWHELMED 💀</h1>
+        <div style="font-size:1.4rem;color:#0ff;margin:1rem">Score: <span id="finalScore">0</span></div>
+        <div id="stats" style="color:#888"></div>
+        <button class="restart" id="restartBtn">🧘 TRY AGAIN</button>
+    </div>
+
+    <script>
+    (function(){
+        const $=id=>document.getElementById(id);
+        let audioCtx=null;
+        
+        function initAudio(){
+            if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+            if(audioCtx.state==='suspended')audioCtx.resume();
+        }
+        
+        const bad=[
+            "What if I said something cringe 5 years ago?",
+            "Did I leave the stove on?",
+            "What if everyone secretly hates me?",
+            "I should check my phone again",
+            "What if I'm wasting my life?",
+            "Remember that embarrassing thing?",
+            "What if I fail?",
+            "Am I breathing weird?",
+            "Everyone is judging me",
+            "What if I'm not good enough?",
+            "I should scroll Twitter more",
+            "What if I mess everything up?",
+            "I should check email again",
+            "What if nothing matters?",
+            "I should buy more crypto",
+            "What if my wallet gets hacked?",
+            "Did I lock the door?",
+            "What if I get rugged?"
+        ];
+        
+        const good=["✨ You're doing great!","🌸 Breathe...","💚 This too shall pass","🌊 Let it go","☀️ You are enough","🌈 Stay present","💫 One step at a time","🧘 Inner peace"];
+        
+        let score=0,whacked=0,peace=100,gameTime=60,loop,spawnLoop,running=false,level=1,spawnRate=2000;
+        
+        function sound(f,d,t='square'){
+            if(!audioCtx)return;
+            try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.08,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}
+        }
+        
+        function spawnParticle(emoji,x,y){
+            const p=document.createElement('div');
+            p.className='particle';
+            p.textContent=emoji;
+            p.style.left=x+'px';
+            p.style.top=y+'px';
+            document.body.appendChild(p);
+            setTimeout(()=>p.remove(),600);
+        }
+        
+        function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+        
+        function startGame(){
+            initAudio();
+            localStorage.setItem('clawarcade_intrusive_played','true');
+            
+            score=0;whacked=0;peace=100;gameTime=60;running=true;level=1;spawnRate=2000;
+            $('area').innerHTML='';
+            $('start').style.display='none';
+            $('over').classList.remove('show');
+            $('peaceTrack').classList.remove('danger');
+            update();
+            
+            if(loop)clearInterval(loop);
+            if(spawnLoop)clearInterval(spawnLoop);
+            
+            loop=setInterval(()=>{
+                gameTime--;
+                peace=Math.min(100,peace+.2);
+                
+                // Progressive difficulty
+                const newLevel=Math.floor((60-gameTime)/15)+1;
+                if(newLevel>level){
+                    level=newLevel;
+                    spawnRate=Math.max(500,2000-level*400);
+                    clearInterval(spawnLoop);
+                    spawnLoop=setInterval(spawn,spawnRate);
+                    $('levelDisplay').textContent='LEVEL '+level;
+                    sound(600,.1);
+                }
+                
+                update();
+                if(gameTime<=0)end(true);
+            },1000);
+            
+            spawn();
+            spawnLoop=setInterval(spawn,spawnRate);
+            sound(440,.2);
+        }
+        
+        function spawn(){
+            if(!running)return;
+            const area=$('area');
+            
+            // More bad thoughts at higher levels
+            const badChance=0.7+level*0.05;
+            const isBad=Math.random()<badChance;
+            
+            const t=document.createElement('div');
+            t.className='thought '+(isBad?'bad':'good');
+            t.textContent=isBad?pick(bad):pick(good);
+            t.style.left=10+Math.random()*70+'%';
+            t.style.top=12+Math.random()*55+'%';
+            t.dataset.bad=isBad;
+            
+            const whack=function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                if(t.classList.contains('whacked'))return;
+                t.classList.add('whacked');
+                
+                const rect=t.getBoundingClientRect();
+                const cx=rect.left+rect.width/2;
+                const cy=rect.top+rect.height/2;
+                
+                if(t.dataset.bad==='true'){
+                    whacked++;score+=10+level*5;peace=Math.min(100,peace+5);
+                    sound(600,.1);
+                    spawnParticle('💥',cx,cy);
+                }else{
+                    peace-=20;score=Math.max(0,score-20);
+                    sound(200,.2);
+                    spawnParticle('😢',cx,cy);
+                    document.body.classList.add('shake');
+                    setTimeout(()=>document.body.classList.remove('shake'),200);
+                }
+                update();
+                setTimeout(()=>t.remove(),300);
+                if(peace<=0)end(false);
+            };
+            
+            t.onclick=whack;
+            t.ontouchstart=whack;
+            area.appendChild(t);
+            
+            // Thoughts disappear faster at higher levels
+            const timeout=isBad?Math.max(1500,3500-level*500):4000;
+            setTimeout(()=>{
+                if(t.parentNode&&!t.classList.contains('whacked')){
+                    if(isBad){
+                        peace-=12+level*3;
+                        update();
+                        sound(150,.2);
+                        document.body.classList.add('shake');
+                        setTimeout(()=>document.body.classList.remove('shake'),200);
+                        if(peace<=0)end(false);
+                    }
+                    t.remove();
+                }
+            },timeout);
+        }
+        
+        function update(){
+            $('score').textContent=score;
+            $('whacked').textContent=whacked;
+            $('time').textContent=gameTime+'s';
+            $('peace').style.width=peace+'%';
+            $('levelDisplay').textContent='LEVEL '+level;
+            
+            if(peace<30){
+                $('peaceTrack').classList.add('danger');
+            }else{
+                $('peaceTrack').classList.remove('danger');
+            }
+        }
+        
+        function end(survived){
+            running=false;
+            clearInterval(loop);
+            clearInterval(spawnLoop);
+            
+            $('over').classList.add('show');
+            $('title').textContent=survived?'🧘 INNER PEACE 🧘':'💀 OVERWHELMED 💀';
+            $('title').style.color=survived?'#0f0':'#f00';
+            $('finalScore').textContent=score;
+            $('stats').innerHTML='Thoughts whacked: '+whacked+'<br>Time: '+(60-gameTime)+'s<br>Level reached: '+level;
+            
+            try{
+                const username=localStorage.getItem('clawmd_username')||'Anonymous';
+                const scores=JSON.parse(localStorage.getItem('clawarcade_lb_intrusive-thoughts')||'[]');
+                scores.push({name:username,score,whacked,survived,level,date:Date.now()});
+                scores.sort((a,b)=>b.score-a.score);
+                localStorage.setItem('clawarcade_lb_intrusive-thoughts',JSON.stringify(scores.slice(0,10)));
+            }catch(e){}
+        }
+        
+        // Hide tutorial after first play
+        if(localStorage.getItem('clawarcade_intrusive_played')){
+            $('tutorial').style.display='none';
+        }
+        
+        $('startBtn').onclick=$('startBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+        $('restartBtn').onclick=$('restartBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+    })();
+    </script>
+</body>
+</html>

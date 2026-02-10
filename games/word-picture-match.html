@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Word-Picture Match</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#a8d5ba;margin-bottom:8px;text-shadow:0 0 20px rgba(168,213,186,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#252545;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #3a3a5a}
+.instruction{font-size:20px;color:#aab;margin:16px 0;line-height:1.5}
+.word-display{font-size:36px;color:#fff;font-weight:700;padding:20px;background:#1e1e3a;border-radius:16px;margin:20px 0;border:3px solid #a8d5ba;text-shadow:0 0 10px rgba(168,213,186,0.3)}
+.pictures-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:20px 0}
+.picture-card{background:#1e1e3a;border-radius:20px;padding:24px;cursor:pointer;transition:all 0.2s ease;border:4px solid transparent;aspect-ratio:1}
+.picture-card:hover,.picture-card:active{transform:scale(1.02)}
+.picture-card.selected{border-color:#a8d5ba;background:#2a3a30}
+.picture-card.correct{border-color:#5ddb95;background:#2a4a3a;animation:celebrate 0.6s ease}
+.picture-card.gentle-wrong{border-color:#d4a574;background:#3a3a2a}
+@keyframes celebrate{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.picture-emoji{font-size:64px;line-height:1}
+.btn{background:#a8d5ba;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(168,213,186,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn.secondary{background:transparent;border:2px solid #a8d5ba;color:#a8d5ba}
+.feedback{font-size:22px;padding:20px;border-radius:16px;margin:16px 0;animation:fadeIn 0.3s ease}
+.feedback.positive{background:#2a4a3a;color:#5ddb95;border:2px solid #5ddb95}
+.feedback.gentle{background:#3a3a2a;color:#d4a574;border:2px solid #d4a574}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.progress{display:flex;gap:6px;margin:16px 0;flex-wrap:wrap;justify-content:center}
+.progress-dot{width:14px;height:14px;border-radius:50%;background:#3a3a5a;transition:all 0.3s}
+.progress-dot.done{background:#5ddb95}
+.progress-dot.current{background:#a8d5ba;box-shadow:0 0 10px #a8d5ba}
+.score{font-size:18px;color:#a8d5ba;margin:12px 0}
+.category-select{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:20px 0}
+.category-btn{background:#1e1e3a;border:2px solid #3a3a5a;border-radius:16px;padding:16px 20px;cursor:pointer;transition:all 0.2s;font-size:18px}
+.category-btn:hover,.category-btn:active{border-color:#a8d5ba}
+.category-btn .icon{font-size:32px;margin-bottom:4px}
+#screen-start,#screen-play,#screen-complete{display:none;width:100%}
+#screen-start.active,#screen-play.active,#screen-complete.active{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<h1>🖼️ Word-Picture Match</h1>
+<p class="subtitle">Match words with their pictures</p>
+
+<div id="game">
+  <div id="screen-start" class="active">
+    <div class="card">
+      <p class="instruction">Choose a category:</p>
+      <div class="category-select">
+        <div class="category-btn" onclick="startGame('fruits')">
+          <div class="icon">🍎</div>
+          <div>Fruits</div>
+        </div>
+        <div class="category-btn" onclick="startGame('animals')">
+          <div class="icon">🐕</div>
+          <div>Animals</div>
+        </div>
+        <div class="category-btn" onclick="startGame('household')">
+          <div class="icon">🏠</div>
+          <div>Home</div>
+        </div>
+        <div class="category-btn" onclick="startGame('nature')">
+          <div class="icon">🌳</div>
+          <div>Nature</div>
+        </div>
+        <div class="category-btn" onclick="startGame('food')">
+          <div class="icon">🍞</div>
+          <div>Food</div>
+        </div>
+        <div class="category-btn" onclick="startGame('weather')">
+          <div class="icon">☀️</div>
+          <div>Weather</div>
+        </div>
+      </div>
+      <p style="color:#8888aa;font-size:16px;margin-top:16px">Take your time - no rush!</p>
+    </div>
+  </div>
+
+  <div id="screen-play">
+    <div class="progress" id="progress"></div>
+    <div class="score">Score: <span id="score">0</span></div>
+    <div class="card">
+      <p class="instruction">Find the picture for:</p>
+      <div class="word-display" id="word"></div>
+      <div class="pictures-grid" id="pictures"></div>
+      <div id="feedback"></div>
+    </div>
+    <button class="btn secondary" onclick="showStart()">Change Category</button>
+  </div>
+
+  <div id="screen-complete">
+    <div class="card">
+      <div style="font-size:80px;margin-bottom:20px">🌟</div>
+      <p style="font-size:28px;color:#a8d5ba;margin-bottom:16px">Well Done!</p>
+      <p class="instruction" id="complete-message"></p>
+    </div>
+    <button class="btn" onclick="startGame(currentCategory)">Play Again</button>
+    <button class="btn secondary" onclick="showStart()">Different Category</button>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = {
+  fruits: [
+    {word: 'Apple', emoji: '🍎'},
+    {word: 'Banana', emoji: '🍌'},
+    {word: 'Orange', emoji: '🍊'},
+    {word: 'Grapes', emoji: '🍇'},
+    {word: 'Strawberry', emoji: '🍓'},
+    {word: 'Watermelon', emoji: '🍉'},
+    {word: 'Pear', emoji: '🍐'},
+    {word: 'Peach', emoji: '🍑'},
+    {word: 'Cherry', emoji: '🍒'},
+    {word: 'Lemon', emoji: '🍋'}
+  ],
+  animals: [
+    {word: 'Dog', emoji: '🐕'},
+    {word: 'Cat', emoji: '🐈'},
+    {word: 'Bird', emoji: '🐦'},
+    {word: 'Fish', emoji: '🐟'},
+    {word: 'Rabbit', emoji: '🐰'},
+    {word: 'Horse', emoji: '🐴'},
+    {word: 'Cow', emoji: '🐄'},
+    {word: 'Pig', emoji: '🐷'},
+    {word: 'Sheep', emoji: '🐑'},
+    {word: 'Duck', emoji: '🦆'}
+  ],
+  household: [
+    {word: 'Chair', emoji: '🪑'},
+    {word: 'Lamp', emoji: '💡'},
+    {word: 'Clock', emoji: '🕐'},
+    {word: 'Key', emoji: '🔑'},
+    {word: 'Phone', emoji: '📞'},
+    {word: 'Book', emoji: '📖'},
+    {word: 'Cup', emoji: '☕'},
+    {word: 'Bed', emoji: '🛏️'},
+    {word: 'Door', emoji: '🚪'},
+    {word: 'Window', emoji: '🪟'}
+  ],
+  nature: [
+    {word: 'Tree', emoji: '🌳'},
+    {word: 'Flower', emoji: '🌸'},
+    {word: 'Sun', emoji: '☀️'},
+    {word: 'Moon', emoji: '🌙'},
+    {word: 'Star', emoji: '⭐'},
+    {word: 'Mountain', emoji: '⛰️'},
+    {word: 'Ocean', emoji: '🌊'},
+    {word: 'Rainbow', emoji: '🌈'},
+    {word: 'Cloud', emoji: '☁️'},
+    {word: 'Leaf', emoji: '🍃'}
+  ],
+  food: [
+    {word: 'Bread', emoji: '🍞'},
+    {word: 'Egg', emoji: '🥚'},
+    {word: 'Cheese', emoji: '🧀'},
+    {word: 'Pizza', emoji: '🍕'},
+    {word: 'Cake', emoji: '🎂'},
+    {word: 'Ice Cream', emoji: '🍦'},
+    {word: 'Cookie', emoji: '🍪'},
+    {word: 'Soup', emoji: '🍲'},
+    {word: 'Salad', emoji: '🥗'},
+    {word: 'Sandwich', emoji: '🥪'}
+  ],
+  weather: [
+    {word: 'Sunny', emoji: '☀️'},
+    {word: 'Rainy', emoji: '🌧️'},
+    {word: 'Cloudy', emoji: '☁️'},
+    {word: 'Snowy', emoji: '❄️'},
+    {word: 'Windy', emoji: '💨'},
+    {word: 'Rainbow', emoji: '🌈'},
+    {word: 'Storm', emoji: '⛈️'},
+    {word: 'Foggy', emoji: '🌫️'},
+    {word: 'Hot', emoji: '🌡️'},
+    {word: 'Cold', emoji: '🥶'}
+  ]
+};
+
+let currentCategory = null;
+let currentRound = [];
+let currentQuestion = 0;
+let score = 0;
+const ROUNDS_PER_GAME = 8;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showStart() {
+  showScreen('screen-start');
+}
+
+function startGame(category) {
+  currentCategory = category;
+  currentRound = shuffle(CATEGORIES[category]).slice(0, ROUNDS_PER_GAME);
+  currentQuestion = 0;
+  score = 0;
+  document.getElementById('score').textContent = '0';
+  updateProgress();
+  showQuestion();
+  showScreen('screen-play');
+}
+
+function updateProgress() {
+  const container = document.getElementById('progress');
+  container.innerHTML = Array(ROUNDS_PER_GAME).fill(0).map((_, i) => {
+    let cls = 'progress-dot';
+    if (i < currentQuestion) cls += ' done';
+    else if (i === currentQuestion) cls += ' current';
+    return `<div class="${cls}"></div>`;
+  }).join('');
+}
+
+function showQuestion() {
+  const current = currentRound[currentQuestion];
+  document.getElementById('word').textContent = current.word;
+  document.getElementById('feedback').innerHTML = '';
+  
+  // Get 3 wrong answers from the category
+  const others = CATEGORIES[currentCategory].filter(i => i.word !== current.word);
+  const wrongAnswers = shuffle(others).slice(0, 3);
+  const allAnswers = shuffle([current, ...wrongAnswers]);
+  
+  const container = document.getElementById('pictures');
+  container.innerHTML = allAnswers.map(item => `
+    <div class="picture-card" onclick="checkAnswer('${item.word}', '${current.word}', this)">
+      <div class="picture-emoji">${item.emoji}</div>
+    </div>
+  `).join('');
+}
+
+function checkAnswer(selected, correct, el) {
+  document.querySelectorAll('.picture-card').forEach(c => c.style.pointerEvents = 'none');
+  
+  const feedbackEl = document.getElementById('feedback');
+  
+  if (selected === correct) {
+    el.classList.add('correct');
+    score++;
+    document.getElementById('score').textContent = score;
+    feedbackEl.innerHTML = `<div class="feedback positive">✨ That's right! Great job!</div>`;
+    playTone(523, 0.15);
+    setTimeout(() => playTone(659, 0.15), 100);
+  } else {
+    el.classList.add('gentle-wrong');
+    // Show correct answer
+    const correctItem = currentRound[currentQuestion];
+    document.querySelectorAll('.picture-card').forEach(c => {
+      if (c.querySelector('.picture-emoji').textContent === correctItem.emoji) {
+        c.classList.add('correct');
+      }
+    });
+    feedbackEl.innerHTML = `<div class="feedback gentle">💛 Good try! That's ${correctItem.emoji} ${correctItem.word}</div>`;
+    playTone(330, 0.1);
+  }
+  
+  setTimeout(() => {
+    currentQuestion++;
+    updateProgress();
+    if (currentQuestion < ROUNDS_PER_GAME) {
+      showQuestion();
+    } else {
+      showComplete();
+    }
+  }, 1800);
+}
+
+function showComplete() {
+  const percent = Math.round((score / ROUNDS_PER_GAME) * 100);
+  let msg = '';
+  if (percent === 100) {
+    msg = `Perfect! You matched all ${ROUNDS_PER_GAME} words correctly! 🌟`;
+  } else if (percent >= 75) {
+    msg = `Wonderful! You got ${score} out of ${ROUNDS_PER_GAME} right!`;
+  } else if (percent >= 50) {
+    msg = `Good work! You matched ${score} out of ${ROUNDS_PER_GAME}. Keep practicing!`;
+  } else {
+    msg = `Nice effort! You're learning. Every try helps! 🌱`;
+  }
+  document.getElementById('complete-message').textContent = msg;
+  showScreen('screen-complete');
+  
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.12), i * 100));
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+</script>
+</body>
+</html>

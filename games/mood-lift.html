@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mood Lift - Feel Better Activities</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#1a1a2e 0%,#2a1a2e 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#ff9a9e;margin-bottom:8px;text-shadow:0 0 20px rgba(255,154,158,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#252535;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #3a3a4a}
+.mood-check{display:flex;justify-content:center;gap:12px;margin:20px 0}
+.mood-btn{font-size:40px;padding:16px;background:#1e1e2e;border:3px solid transparent;border-radius:16px;cursor:pointer;transition:all 0.2s}
+.mood-btn:hover,.mood-btn:active{transform:scale(1.1)}
+.mood-btn.selected{border-color:#ff9a9e;background:#2a2535}
+.activity-card{background:#1e1e2e;border-radius:20px;padding:24px;margin:16px 0;border:3px solid #3a3a4a;cursor:pointer;transition:all 0.3s}
+.activity-card:hover,.activity-card:active{border-color:#ff9a9e;transform:translateY(-2px)}
+.activity-card.active{border-color:#ff9a9e;background:#2a2535}
+.activity-icon{font-size:56px;margin-bottom:12px}
+.activity-title{font-size:22px;color:#fff;margin-bottom:8px;font-weight:600}
+.activity-desc{font-size:16px;color:#aab;line-height:1.4}
+.activity-time{font-size:14px;color:#ff9a9e;margin-top:12px}
+.doing-activity{margin:20px 0}
+.timer-display{font-size:48px;color:#ff9a9e;font-weight:300;margin:20px 0}
+.progress-ring{width:200px;height:200px;margin:20px auto}
+.encouragement{font-size:20px;color:#aab;margin:16px 0;min-height:60px;line-height:1.4}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:16px 0}
+.stat-card{background:#1e1e2e;border-radius:12px;padding:16px;border:1px solid #3a3a4a}
+.stat-number{font-size:28px;color:#ff9a9e;font-weight:700}
+.stat-label{font-size:12px;color:#8888aa;margin-top:4px}
+.category-tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap;justify-content:center}
+.category-tab{background:#1e1e2e;border:2px solid #3a3a4a;border-radius:20px;padding:10px 16px;font-size:14px;color:#aab;cursor:pointer;transition:all 0.2s}
+.category-tab:hover,.category-tab.active{border-color:#ff9a9e;color:#ff9a9e}
+.btn{background:#ff9a9e;color:#1a1a2e;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(255,154,158,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn.secondary{background:transparent;border:2px solid #ff9a9e;color:#ff9a9e}
+.celebration{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,26,46,0.95);z-index:100;animation:fadeIn 0.3s ease}
+.celebration.hidden{display:none}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.celebration-content{text-align:center;padding:40px}
+.celebration-emoji{font-size:80px;animation:bounce 0.5s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+#screen-home,#screen-activity,#screen-doing,#screen-history{display:none;width:100%}
+#screen-home.active,#screen-activity.active,#screen-doing.active,#screen-history.active{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<h1>💫 Mood Lift</h1>
+<p class="subtitle">Small actions, big feelings</p>
+
+<div id="game">
+  <div id="screen-home" class="active">
+    <div class="card">
+      <p style="font-size:20px;color:#aab;margin-bottom:16px">How are you feeling right now?</p>
+      <div class="mood-check">
+        <div class="mood-btn" onclick="selectMood(1, this)" title="Struggling">😔</div>
+        <div class="mood-btn" onclick="selectMood(2, this)" title="Low">😕</div>
+        <div class="mood-btn" onclick="selectMood(3, this)" title="Okay">😐</div>
+        <div class="mood-btn" onclick="selectMood(4, this)" title="Good">🙂</div>
+        <div class="mood-btn" onclick="selectMood(5, this)" title="Great">😊</div>
+      </div>
+      <p style="color:#5a5a6a;font-size:14px">All feelings are valid 💜</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="activities-done">0</div>
+        <div class="stat-label">Activities Done</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="mood-lifts">0</div>
+        <div class="stat-label">Mood Lifts</div>
+      </div>
+    </div>
+    <button class="btn" onclick="showActivities()">Find an Activity</button>
+    <button class="btn secondary" onclick="showHistory()">My History</button>
+  </div>
+
+  <div id="screen-activity">
+    <div class="card">
+      <p style="font-size:18px;color:#aab;margin-bottom:12px">Pick something that feels doable:</p>
+      <div class="category-tabs">
+        <div class="category-tab active" onclick="filterCategory('all', this)">All</div>
+        <div class="category-tab" onclick="filterCategory('quick', this)">Quick</div>
+        <div class="category-tab" onclick="filterCategory('move', this)">Movement</div>
+        <div class="category-tab" onclick="filterCategory('calm', this)">Calming</div>
+        <div class="category-tab" onclick="filterCategory('connect', this)">Connect</div>
+      </div>
+      <div id="activities-list"></div>
+    </div>
+    <button class="btn secondary" onclick="showHome()">Back</button>
+  </div>
+
+  <div id="screen-doing">
+    <div class="card">
+      <div class="activity-icon" id="doing-icon"></div>
+      <div class="activity-title" id="doing-title"></div>
+      <div class="timer-display" id="timer">0:00</div>
+      <div class="encouragement" id="doing-encouragement"></div>
+    </div>
+    <button class="btn" onclick="completeActivity()">✓ I Did It!</button>
+    <button class="btn secondary" onclick="cancelActivity()">Not Right Now</button>
+  </div>
+
+  <div id="screen-history">
+    <div class="card">
+      <p style="font-size:22px;color:#ff9a9e;margin-bottom:16px">Your Journey</p>
+      <div id="history-content"></div>
+    </div>
+    <button class="btn" onclick="showHome()">Back</button>
+  </div>
+</div>
+
+<div class="celebration hidden" id="celebration">
+  <div class="celebration-content">
+    <div class="celebration-emoji" id="celebration-emoji">🎉</div>
+    <p style="font-size:28px;color:#ff9a9e;margin:20px 0" id="celebration-title">You Did It!</p>
+    <p style="font-size:18px;color:#aab;margin-bottom:30px" id="celebration-message"></p>
+    <button class="btn" onclick="closeCelebration()">Continue</button>
+  </div>
+</div>
+
+<script>
+const ACTIVITIES = [
+  // Quick (1-2 min)
+  {id: 1, icon: '🌬️', title: 'Take 5 Deep Breaths', desc: 'Breathe in slowly, hold, breathe out', time: '1 min', category: 'quick', minutes: 1},
+  {id: 2, icon: '💧', title: 'Drink Water', desc: 'Hydrate your body with a full glass', time: '1 min', category: 'quick', minutes: 1},
+  {id: 3, icon: '🙆', title: 'Stretch Up High', desc: 'Reach for the sky and stretch', time: '1 min', category: 'quick', minutes: 1},
+  {id: 4, icon: '😊', title: 'Smile for 30 Seconds', desc: 'Even a fake smile releases good chemicals', time: '30 sec', category: 'quick', minutes: 1},
+  
+  // Movement (5-15 min)
+  {id: 5, icon: '🚶', title: 'Take a Short Walk', desc: 'Just 5 minutes, inside or outside', time: '5 min', category: 'move', minutes: 5},
+  {id: 6, icon: '🕺', title: 'Dance to One Song', desc: 'Move your body to music you love', time: '3-4 min', category: 'move', minutes: 4},
+  {id: 7, icon: '🧘', title: 'Gentle Stretching', desc: 'Stretch each muscle group slowly', time: '5 min', category: 'move', minutes: 5},
+  {id: 8, icon: '🏃', title: 'March in Place', desc: '2 minutes of easy movement', time: '2 min', category: 'move', minutes: 2},
+  
+  // Calming (5-10 min)
+  {id: 9, icon: '☕', title: 'Make a Warm Drink', desc: 'Tea, coffee, or warm water with lemon', time: '5 min', category: 'calm', minutes: 5},
+  {id: 10, icon: '🌳', title: 'Look at Nature', desc: 'Find a window or go outside briefly', time: '5 min', category: 'calm', minutes: 5},
+  {id: 11, icon: '🎵', title: 'Listen to Calming Music', desc: 'Put on something peaceful', time: '5 min', category: 'calm', minutes: 5},
+  {id: 12, icon: '✍️', title: 'Write 3 Good Things', desc: 'Note 3 positive things from today', time: '3 min', category: 'calm', minutes: 3},
+  
+  // Connect (5-15 min)
+  {id: 13, icon: '💬', title: 'Text Someone You Like', desc: 'Send a simple hello or thinking of you', time: '2 min', category: 'connect', minutes: 2},
+  {id: 14, icon: '🤗', title: 'Give/Get a Hug', desc: 'Hug someone, a pet, or yourself', time: '1 min', category: 'connect', minutes: 1},
+  {id: 15, icon: '📞', title: 'Call Someone', desc: 'A quick chat with someone you care about', time: '5-10 min', category: 'connect', minutes: 10},
+  {id: 16, icon: '💭', title: 'Think of Someone Who Loves You', desc: 'Picture their face, feel their care', time: '2 min', category: 'connect', minutes: 2}
+];
+
+const ENCOURAGEMENTS = [
+  "You're doing something good for yourself 💜",
+  "Every small action matters",
+  "You've got this",
+  "Be gentle with yourself",
+  "This is self-care in action",
+  "You're stronger than you know",
+  "One step at a time",
+  "You chose to try. That's huge."
+];
+
+const CELEBRATIONS = [
+  {emoji: '🎉', title: 'You Did It!', msg: 'You chose to do something positive for yourself.'},
+  {emoji: '⭐', title: 'Amazing!', msg: 'That took effort, and you did it anyway.'},
+  {emoji: '💪', title: 'So Proud!', msg: 'You showed up for yourself today.'},
+  {emoji: '🌟', title: 'Wonderful!', msg: 'Small actions add up to big changes.'},
+  {emoji: '💜', title: 'Beautiful!', msg: 'You just practiced self-compassion.'}
+];
+
+let currentMood = null;
+let currentActivity = null;
+let timerInterval = null;
+let timerSeconds = 0;
+let history = [];
+let stats = { activitiesDone: 0, moodLifts: 0 };
+
+function loadData() {
+  try {
+    const data = JSON.parse(localStorage.getItem('moodLift') || '{}');
+    history = data.history || [];
+    stats = data.stats || { activitiesDone: 0, moodLifts: 0 };
+    updateStats();
+  } catch(e) {}
+}
+
+function saveData() {
+  try {
+    localStorage.setItem('moodLift', JSON.stringify({ history, stats }));
+  } catch(e) {}
+}
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showHome() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  showScreen('screen-home');
+}
+
+function updateStats() {
+  document.getElementById('activities-done').textContent = stats.activitiesDone;
+  document.getElementById('mood-lifts').textContent = stats.moodLifts;
+}
+
+function selectMood(level, el) {
+  currentMood = level;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  playTone(400 + level * 50, 0.1);
+}
+
+function showActivities() {
+  renderActivities('all');
+  showScreen('screen-activity');
+}
+
+function filterCategory(cat, el) {
+  document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderActivities(cat);
+}
+
+function renderActivities(category) {
+  const filtered = category === 'all' ? ACTIVITIES : ACTIVITIES.filter(a => a.category === category);
+  const list = document.getElementById('activities-list');
+  list.innerHTML = filtered.map(a => `
+    <div class="activity-card" onclick="startActivity(${a.id})">
+      <div class="activity-icon">${a.icon}</div>
+      <div class="activity-title">${a.title}</div>
+      <div class="activity-desc">${a.desc}</div>
+      <div class="activity-time">⏱️ ${a.time}</div>
+    </div>
+  `).join('');
+}
+
+function startActivity(id) {
+  currentActivity = ACTIVITIES.find(a => a.id === id);
+  if (!currentActivity) return;
+  
+  document.getElementById('doing-icon').textContent = currentActivity.icon;
+  document.getElementById('doing-title').textContent = currentActivity.title;
+  
+  timerSeconds = 0;
+  updateTimer();
+  
+  const enc = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+  document.getElementById('doing-encouragement').textContent = enc;
+  
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    updateTimer();
+    
+    // Update encouragement occasionally
+    if (timerSeconds % 30 === 0) {
+      const newEnc = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+      document.getElementById('doing-encouragement').textContent = newEnc;
+    }
+  }, 1000);
+  
+  showScreen('screen-doing');
+  playTone(523, 0.15);
+}
+
+function updateTimer() {
+  const mins = Math.floor(timerSeconds / 60);
+  const secs = timerSeconds % 60;
+  document.getElementById('timer').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function cancelActivity() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  showActivities();
+}
+
+function completeActivity() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  
+  // Record completion
+  stats.activitiesDone++;
+  
+  // Ask about mood lift
+  const moodImproved = currentMood && currentMood < 4;
+  if (moodImproved) {
+    stats.moodLifts++;
+  }
+  
+  history.push({
+    activityId: currentActivity.id,
+    activityTitle: currentActivity.title,
+    icon: currentActivity.icon,
+    duration: timerSeconds,
+    date: Date.now(),
+    initialMood: currentMood
+  });
+  
+  saveData();
+  updateStats();
+  
+  // Show celebration
+  const celeb = CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)];
+  document.getElementById('celebration-emoji').textContent = celeb.emoji;
+  document.getElementById('celebration-title').textContent = celeb.title;
+  document.getElementById('celebration-message').textContent = celeb.msg;
+  document.getElementById('celebration').classList.remove('hidden');
+  
+  // Celebration sounds
+  playTone(523, 0.15);
+  setTimeout(() => playTone(659, 0.15), 100);
+  setTimeout(() => playTone(784, 0.15), 200);
+  setTimeout(() => playTone(1047, 0.2), 300);
+}
+
+function closeCelebration() {
+  document.getElementById('celebration').classList.add('hidden');
+  currentMood = null;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  showHome();
+}
+
+function showHistory() {
+  const content = document.getElementById('history-content');
+  
+  if (history.length === 0) {
+    content.innerHTML = '<p style="color:#5a5a6a;padding:20px;">No activities yet. Your journey begins today! 💜</p>';
+  } else {
+    const recent = [...history].reverse().slice(0, 20);
+    content.innerHTML = recent.map(h => {
+      const date = new Date(h.date);
+      const dateStr = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      const mins = Math.floor(h.duration / 60);
+      const secs = h.duration % 60;
+      return `
+        <div style="background:#1e1e2e;border-radius:12px;padding:16px;margin:8px 0;text-align:left;border:1px solid #3a3a4a;display:flex;align-items:center;gap:12px">
+          <span style="font-size:32px">${h.icon}</span>
+          <div style="flex:1">
+            <div style="font-size:16px;color:#fff">${h.activityTitle}</div>
+            <div style="font-size:12px;color:#5a5a6a">${dateStr} • ${mins}:${secs.toString().padStart(2,'0')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  showScreen('screen-history');
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+// Init
+loadData();
+</script>
+</body>
+</html>

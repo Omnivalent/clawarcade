@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Priority Sorting</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:12px;-webkit-user-select:none;user-select:none}
+h1{color:#00d4aa;font-size:1.4em;margin:8px 0}
+.sub{color:#888;font-size:.85em;margin-bottom:8px}
+#game{width:100%;max-width:500px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;border:1px solid #0f3460}
+.hud{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;color:#00d4aa}
+.timer{font-size:1.4em;font-weight:700;color:#00d4aa;font-variant-numeric:tabular-nums}
+.matrix{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.quadrant{background:#0a0a1a;border-radius:10px;padding:10px;min-height:100px;border:2px solid #0f3460;transition:border-color .2s}
+.quadrant.over{border-color:#00d4aa;background:#00d4aa08}
+.q-label{font-size:.75em;font-weight:700;text-align:center;margin-bottom:6px;padding:3px 8px;border-radius:4px;display:block}
+.q1 .q-label{color:#e74c3c;background:#e74c3c22}.q2 .q-label{color:#f39c12;background:#f39c1222}
+.q3 .q-label{color:#3498db;background:#3498db22}.q4 .q-label{color:#888;background:#88888822}
+.task{background:#16213e;border:1px solid #0f3460;border-radius:8px;padding:10px;margin:4px 0;font-size:.85em;cursor:grab;touch-action:none;transition:transform .1s,opacity .1s;line-height:1.3}
+.task:active{transform:scale(1.03);opacity:.9}
+.task.dragging{opacity:.5}
+.task.correct{border-color:#00b894;background:#00b89422}
+.task.wrong{border-color:#e74c3c;background:#e74c3c22}
+.pool{background:#0f3460;border-radius:10px;padding:10px;margin:8px 0;min-height:60px}
+.pool-label{font-size:.8em;color:#888;margin-bottom:6px;text-align:center}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;border-radius:10px;padding:14px 20px;font-size:1em;font-weight:700;cursor:pointer;width:100%;margin:6px 0;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.4}
+.center{text-align:center}
+.fade{animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.big{font-size:2em;margin:12px 0}
+.context{background:#0a0a1a;border-left:4px solid #00d4aa;padding:10px;margin:8px 0;border-radius:0 8px 8px 0;font-size:.85em;color:#aaa;line-height:1.4}
+</style>
+</head>
+<body>
+<h1>📋 Priority Sorting</h1>
+<p class="sub">Drag tasks into the Eisenhower Matrix</p>
+<div id="game"></div>
+<script>
+const scenarios=[
+{context:"You're an AI assistant. It's Monday morning. Your human just woke up.",
+tasks:[
+{text:"🔴 Server is down — users are reporting errors",q:1},
+{text:"📅 Prepare slides for tomorrow's board meeting",q:2},
+{text:"📧 Reply to a networking email from last week",q:3},
+{text:"🔔 Clear 47 non-urgent Slack notifications",q:4},
+{text:"🐛 Fix a critical security vulnerability found overnight",q:1},
+{text:"📝 Write documentation for the new API",q:3}
+]},
+{context:"You're managing a product launch happening in 3 days.",
+tasks:[
+{text:"🚨 Payment processing is broken on the checkout page",q:1},
+{text:"📱 Finalize the press release for launch day",q:2},
+{text:"🎨 A/B test two slightly different button colors",q:4},
+{text:"📊 Set up analytics tracking for launch metrics",q:2},
+{text:"☕ Schedule team celebration lunch for post-launch",q:4},
+{text:"🔒 Complete security audit before going live",q:1}
+]},
+{context:"You're an AI managing a smart home. The family is about to leave for vacation.",
+tasks:[
+{text:"🚨 Smoke detector is beeping — possible battery issue",q:1},
+{text:"🔒 Set up automated lights to simulate occupancy",q:2},
+{text:"🌡️ Optimize thermostat schedule for empty house",q:3},
+{text:"📺 Update the smart TV firmware",q:4},
+{text:"💧 Alert: unusual water usage detected (possible leak)",q:1},
+{text:"📦 Reschedule package deliveries to a neighbor",q:2}
+]}
+];
+
+let currentScenario=0,timer=0,timerInterval,score=0,totalPossible=0;
+const G=document.getElementById('game');
+
+function startScreen(){
+G.innerHTML=`<div class="card center fade">
+<div class="big">📋</div>
+<p style="margin:8px 0">Sort tasks into the <strong>Eisenhower Matrix</strong>:</p>
+<div class="matrix" style="font-size:.85em;margin:12px 0">
+<div style="background:#e74c3c22;padding:8px;border-radius:8px;text-align:center"><strong>Q1:</strong> Urgent + Important<br><small>Do First</small></div>
+<div style="background:#f39c1222;padding:8px;border-radius:8px;text-align:center"><strong>Q2:</strong> Important, Not Urgent<br><small>Schedule</small></div>
+<div style="background:#3498db22;padding:8px;border-radius:8px;text-align:center"><strong>Q3:</strong> Urgent, Not Important<br><small>Delegate</small></div>
+<div style="background:#88888822;padding:8px;border-radius:8px;text-align:center"><strong>Q4:</strong> Neither<br><small>Eliminate</small></div>
+</div>
+<p style="color:#00d4aa;font-size:.9em">${scenarios.length} scenarios • Timed</p>
+<button class="btn" onclick="startScenario()">Start</button>
+</div>`;
+}
+
+let draggedEl=null,dragData=null;
+
+function startScenario(){
+if(currentScenario>=scenarios.length){endGame();return}
+const s=scenarios[currentScenario];
+timer=60;
+renderScenario(s);
+clearInterval(timerInterval);
+timerInterval=setInterval(()=>{
+timer--;
+const el=document.getElementById('tm');
+if(el)el.textContent=timer+'s';
+if(timer<=0){clearInterval(timerInterval);checkAnswers()}
+},1000);
+}
+
+function renderScenario(s){
+let tasksHtml=s.tasks.map((t,i)=>`<div class="task" draggable="true" data-idx="${i}" id="task${i}">${t.text}</div>`).join('');
+G.innerHTML=`<div class="hud"><span>Scenario ${currentScenario+1}/${scenarios.length}</span><span class="timer" id="tm">${timer}s</span><span>Score: ${score}</span></div>
+<div class="context">${s.context}</div>
+<div class="pool" id="pool"><div class="pool-label">⬇️ Drag tasks to the matrix below</div>${tasksHtml}</div>
+<div class="matrix">
+<div class="quadrant q1" id="q1" data-q="1"><span class="q-label">🔥 DO FIRST</span></div>
+<div class="quadrant q2" id="q2" data-q="2"><span class="q-label">📅 SCHEDULE</span></div>
+<div class="quadrant q3" id="q3" data-q="3"><span class="q-label">👋 DELEGATE</span></div>
+<div class="quadrant q4" id="q4" data-q="4"><span class="q-label">🗑️ ELIMINATE</span></div>
+</div>
+<button class="btn" onclick="checkAnswers()" id="checkBtn">✓ Check Answers</button>
+<div class="fade"></div>`;
+setupDragDrop();
+}
+
+function setupDragDrop(){
+const tasks=document.querySelectorAll('.task');
+const zones=[...document.querySelectorAll('.quadrant'),document.getElementById('pool')];
+
+// Touch drag
+let touchEl=null,touchClone=null,offsetX=0,offsetY=0;
+
+tasks.forEach(t=>{
+t.addEventListener('dragstart',e=>{
+draggedEl=t;
+t.classList.add('dragging');
+e.dataTransfer.effectAllowed='move';
+});
+t.addEventListener('dragend',()=>{
+t.classList.remove('dragging');
+draggedEl=null;
+zones.forEach(z=>z.classList.remove('over'));
+});
+
+// Touch
+t.addEventListener('touchstart',e=>{
+touchEl=t;
+const rect=t.getBoundingClientRect();
+offsetX=e.touches[0].clientX-rect.left;
+offsetY=e.touches[0].clientY-rect.top;
+touchClone=t.cloneNode(true);
+touchClone.style.cssText=`position:fixed;z-index:999;pointer-events:none;width:${rect.width}px;opacity:.85;`;
+document.body.appendChild(touchClone);
+t.style.opacity='.3';
+},{passive:true});
+
+t.addEventListener('touchmove',e=>{
+e.preventDefault();
+if(!touchClone)return;
+touchClone.style.left=(e.touches[0].clientX-offsetX)+'px';
+touchClone.style.top=(e.touches[0].clientY-offsetY)+'px';
+zones.forEach(z=>{
+const r=z.getBoundingClientRect();
+const x=e.touches[0].clientX,y=e.touches[0].clientY;
+z.classList.toggle('over',x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom);
+});
+},{passive:false});
+
+t.addEventListener('touchend',e=>{
+if(touchClone){touchClone.remove();touchClone=null}
+if(!touchEl)return;
+touchEl.style.opacity='1';
+const dropZone=zones.find(z=>z.classList.contains('over'));
+if(dropZone)dropZone.appendChild(touchEl);
+zones.forEach(z=>z.classList.remove('over'));
+touchEl=null;
+},{passive:true});
+});
+
+zones.forEach(z=>{
+z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('over')});
+z.addEventListener('dragleave',()=>z.classList.remove('over'));
+z.addEventListener('drop',e=>{
+e.preventDefault();z.classList.remove('over');
+if(draggedEl)z.appendChild(draggedEl);
+});
+});
+}
+
+function checkAnswers(){
+clearInterval(timerInterval);
+const s=scenarios[currentScenario];
+let correct=0;
+s.tasks.forEach((t,i)=>{
+const el=document.getElementById('task'+i);
+const parent=el.parentElement;
+const inQ=parent.dataset.q?parseInt(parent.dataset.q):0;
+if(inQ===t.q){correct++;el.classList.add('correct')}
+else{el.classList.add('wrong');el.innerHTML+=` → Q${t.q}`}
+});
+score+=correct;
+totalPossible+=s.tasks.length;
+document.getElementById('checkBtn').style.display='none';
+const resultsDiv=document.createElement('div');
+resultsDiv.innerHTML=`<div class="card center fade" style="margin-top:8px">
+<p style="color:#00d4aa;font-weight:700">${correct}/${s.tasks.length} correct${timer>0?' • '+timer+'s left':' • Time\'s up!'}</p>
+<button class="btn" onclick="currentScenario++;startScenario()" style="margin-top:8px">${currentScenario<scenarios.length-1?'Next Scenario →':'See Results'}</button>
+</div>`;
+G.appendChild(resultsDiv);
+}
+
+function endGame(){
+const pct=Math.round(score/totalPossible*100);
+let grade=pct>=90?'🏆 Priority Master':pct>=70?'📋 Efficient Organizer':pct>=50?'📝 Decent Prioritizer':'🫠 Needs Focus';
+G.innerHTML=`<div class="card center fade">
+<div class="big">${pct>=70?'⚡':'📋'}</div>
+<p style="font-size:1.3em;font-weight:700;color:#00d4aa">${grade}</p>
+<p style="font-size:2em;font-weight:700;margin:8px 0">${score}/${totalPossible}</p>
+<p style="color:#888">${pct}% correctly prioritized</p>
+<button class="btn" onclick="location.reload()" style="margin-top:16px">Play Again</button>
+</div>`;
+}
+
+startScreen();
+</script>
+</body>
+</html>

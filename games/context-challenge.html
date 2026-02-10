@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Context Challenge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:12px;overflow:hidden}
+h1{color:#00d4aa;font-size:1.4em;margin:8px 0}
+.sub{color:#888;font-size:.85em;margin-bottom:12px}
+#game{width:100%;max-width:500px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column}
+.card{background:#16213e;border-radius:12px;padding:16px;margin:8px 0;border:1px solid #0f3460}
+.fact{padding:8px 12px;margin:4px 0;background:#0f3460;border-radius:8px;font-size:.95em;line-height:1.4}
+.btn{background:#00d4aa;color:#1a1a2e;border:none;border-radius:10px;padding:14px 20px;font-size:1em;font-weight:700;cursor:pointer;width:100%;margin:6px 0;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.96);background:#00b894}
+.btn.opt{background:#16213e;color:#e0e0e0;border:2px solid #0f3460;text-align:left}
+.btn.opt:active,.btn.opt.selected{border-color:#00d4aa;background:#0f3460}
+.btn.correct{background:#00b894!important;color:#fff!important;border-color:#00b894!important}
+.btn.wrong{background:#e74c3c!important;color:#fff!important;border-color:#e74c3c!important}
+.hud{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;color:#00d4aa}
+.progress{height:4px;background:#0f3460;border-radius:2px;margin:4px 0}
+.progress-fill{height:100%;background:#00d4aa;border-radius:2px;transition:width .3s}
+.timer{font-size:1.8em;text-align:center;color:#00d4aa;font-weight:700;font-variant-numeric:tabular-nums}
+.center{text-align:center}
+.fade-in{animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#result{display:none}
+.big{font-size:2em;margin:12px 0}
+</style>
+</head>
+<body>
+<h1>🧠 Context Challenge</h1>
+<p class="sub">Remember the facts, answer the questions</p>
+<div id="game"></div>
+
+<script>
+const levels=[
+{facts:["The capital of Eldoria is Crystalvale.","Eldoria's currency is the Lumen.","The population of Eldoria is 2.3 million.","Eldoria was founded in 1847."],questions:[
+{q:"What is Eldoria's capital?",opts:["Crystalvale","Luminara","Goldcrest","Starport"],a:0},
+{q:"When was Eldoria founded?",opts:["1823","1847","1901","1776"],a:1},
+{q:"What is the currency called?",opts:["Crown","Stellan","Lumen","Auric"],a:2}
+]},
+{facts:["Dr. Voss invented the Pulse Engine in 2031.","The Pulse Engine runs on liquid helium-3.","It can generate 4.7 terawatts of power.","The first prototype exploded, injuring 3 technicians.","Dr. Voss's assistant was named Kira Chen."],questions:[
+{q:"What fuel does the Pulse Engine use?",opts:["Deuterium","Liquid helium-3","Plasma","Antimatter"],a:1},
+{q:"How much power can it generate?",opts:["4.7 terawatts","3.2 gigawatts","4.7 gigawatts","7.4 terawatts"],a:0},
+{q:"Who was Dr. Voss's assistant?",opts:["Lena Park","Kira Chen","Max Torres","Yuki Sato"],a:1},
+{q:"What happened to the first prototype?",opts:["It was stolen","It worked perfectly","It exploded","It was never built"],a:2}
+]},
+{facts:["Planet Nexara orbits a binary star system.","Its atmosphere is 62% nitrogen, 31% oxygen, 7% argon.","The dominant species, the Veloxi, communicate through bioluminescence.","Nexara has 4 moons: Tira, Sola, Meka, and Durn.","The largest moon, Durn, has a diameter of 3,200 km.","Nexara's orbital period is 412 Earth days.","The Veloxi built their first city, Shimmerhold, 12,000 years ago."],questions:[
+{q:"What percentage of Nexara's atmosphere is argon?",opts:["3%","7%","11%","15%"],a:1},
+{q:"How do the Veloxi communicate?",opts:["Telepathy","Sound waves","Bioluminescence","Chemical signals"],a:2},
+{q:"Which moon is the largest?",opts:["Tira","Sola","Meka","Durn"],a:3},
+{q:"What is Durn's diameter?",opts:["2,800 km","3,200 km","4,100 km","1,900 km"],a:1},
+{q:"How long is Nexara's orbital period?",opts:["365 days","412 days","520 days","298 days"],a:1}
+]},
+{facts:["The Meridian Protocol was signed by 7 nations on March 15, 2045.","It banned autonomous weapons with >50kg payload.","The treaty's chief architect was Ambassador Lena Zhao.","Nation of Arctavia refused to sign, citing sovereignty concerns.","The protocol included a 10-year phase-out period.","Violations carry penalties up to 500 million credits.","The oversight body is called the Meridian Council.","The Council meets quarterly in Geneva.","Article 7 of the protocol allows emergency exceptions during declared wars."],questions:[
+{q:"How many nations signed the Meridian Protocol?",opts:["5","6","7","8"],a:2},
+{q:"What was the weight threshold for banned weapons?",opts:[">25kg",">50kg",">75kg",">100kg"],a:1},
+{q:"Which nation refused to sign?",opts:["Valterra","Arctavia","Novagrad","Solheim"],a:1},
+{q:"What is the maximum penalty for violations?",opts:["100M credits","250M credits","500M credits","1B credits"],a:2},
+{q:"How often does the Council meet?",opts:["Monthly","Quarterly","Annually","Biannually"],a:1},
+{q:"Which article allows emergency exceptions?",opts:["Article 3","Article 5","Article 7","Article 9"],a:2}
+]}
+];
+
+let currentLevel=0,score=0,totalQ=0,timer=0,timerInterval=null,phase='start';
+const G=document.getElementById('game');
+
+function render(html){G.innerHTML=html;G.querySelector('.fade-in')&&void 0}
+
+function startScreen(){
+render(`<div class="card center fade-in">
+<div class="big">🧠</div>
+<p style="margin:12px 0">You'll see a set of facts. Memorize them.<br>Then answer questions from memory.</p>
+<p style="color:#00d4aa;margin:8px 0">${levels.length} rounds • Increasing difficulty</p>
+<button class="btn" onclick="startLevel()">Start Game</button>
+</div>`);
+}
+
+function startLevel(){
+phase='memorize';
+const lv=levels[currentLevel];
+const readTime=lv.facts.length*4;
+timer=readTime;
+let factsHtml=lv.facts.map(f=>`<div class="fact">${f}</div>`).join('');
+render(`<div class="hud"><span>Round ${currentLevel+1}/${levels.length}</span><span>Score: ${score}</span></div>
+<div class="progress"><div class="progress-fill" id="pbar" style="width:100%"></div></div>
+<div class="timer" id="tm">${timer}</div>
+<div class="card fade-in"><p style="color:#00d4aa;margin-bottom:8px;font-weight:700">📖 Memorize these facts:</p>${factsHtml}</div>
+<button class="btn" onclick="startQuestions()" style="margin-top:8px">I'm Ready →</button>`);
+clearInterval(timerInterval);
+timerInterval=setInterval(()=>{
+timer--;
+const el=document.getElementById('tm');
+const pb=document.getElementById('pbar');
+if(el)el.textContent=timer;
+if(pb)pb.style.width=(timer/readTime*100)+'%';
+if(timer<=0){clearInterval(timerInterval);startQuestions()}
+},1000);
+}
+
+let qIdx=0;
+function startQuestions(){
+clearInterval(timerInterval);
+phase='questions';qIdx=0;
+showQuestion();
+}
+
+function showQuestion(){
+const lv=levels[currentLevel];
+if(qIdx>=lv.questions.length){nextLevel();return}
+const q=lv.questions[qIdx];
+totalQ++;
+let optsHtml=q.opts.map((o,i)=>`<button class="btn opt" onclick="answer(${i},${q.a})" id="o${i}">${o}</button>`).join('');
+render(`<div class="hud"><span>Round ${currentLevel+1} • Q${qIdx+1}/${lv.questions.length}</span><span>Score: ${score}</span></div>
+<div class="card fade-in"><p style="font-weight:700;margin-bottom:12px">${q.q}</p>${optsHtml}</div>`);
+}
+
+function answer(picked,correct){
+document.querySelectorAll('.btn.opt').forEach(b=>b.onclick=null);
+document.getElementById('o'+correct).classList.add('correct');
+if(picked===correct){score++}
+else{document.getElementById('o'+picked).classList.add('wrong')}
+setTimeout(()=>{qIdx++;showQuestion()},900);
+}
+
+function nextLevel(){
+currentLevel++;
+if(currentLevel>=levels.length){endGame();return}
+render(`<div class="card center fade-in">
+<p style="color:#00d4aa;font-size:1.2em;font-weight:700">Round ${currentLevel} Complete!</p>
+<p style="margin:8px 0">Score: ${score}/${totalQ}</p>
+<p style="color:#888">Next round has more facts to remember...</p>
+<button class="btn" onclick="startLevel()">Next Round →</button>
+</div>`);
+}
+
+function endGame(){
+const pct=Math.round(score/totalQ*100);
+let grade=pct>=90?'🏆 Perfect Memory':pct>=70?'🧠 Sharp Mind':pct>=50?'💭 Decent Recall':'🫠 Needs Practice';
+render(`<div class="card center fade-in" id="result">
+<div class="big">${pct>=70?'🎉':'🤔'}</div>
+<p style="font-size:1.3em;font-weight:700;color:#00d4aa">${grade}</p>
+<p style="font-size:2em;font-weight:700;margin:8px 0">${score}/${totalQ}</p>
+<p style="color:#888">${pct}% accuracy</p>
+<button class="btn" onclick="location.reload()" style="margin-top:16px">Play Again</button>
+</div>`);
+}
+
+startScreen();
+</script>
+</body>
+</html>

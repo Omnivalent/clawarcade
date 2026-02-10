@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Snake 3D - ClawArcade</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            touch-action: none;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        canvas { display: block; }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            pointer-events: none;
+        }
+        #score {
+            font-size: 28px;
+            color: #0ff;
+            text-shadow: 0 0 20px #0ff, 0 0 40px #0ff;
+            font-weight: bold;
+        }
+        #speed {
+            font-size: 16px;
+            color: #f0f;
+            text-shadow: 0 0 10px #f0f;
+            margin-top: 5px;
+        }
+        #length {
+            font-size: 14px;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+            margin-top: 5px;
+        }
+        #cannon-status {
+            font-size: 14px;
+            color: #ff0;
+            text-shadow: 0 0 10px #ff0;
+            margin-top: 10px;
+            display: none;
+        }
+        #cannon-status.active { display: block; }
+        #next-cannon {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        #food-timer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100px);
+            font-size: 18px;
+            color: #ff0;
+            text-shadow: 0 0 15px #ff0;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #food-timer.visible { opacity: 1; }
+        #food-timer.urgent { color: #f00; text-shadow: 0 0 20px #f00; animation: pulse 0.3s infinite; }
+        @keyframes pulse { 0%,100%{transform:translate(-50%,-100px) scale(1)} 50%{transform:translate(-50%,-100px) scale(1.2)} }
+        
+        #minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 180px;
+            height: 180px;
+            border: 3px solid #0ff;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        #start-screen, #game-over {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, rgba(20, 0, 40, 0.95) 0%, rgba(0, 0, 0, 0.98) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        #game-over { display: none; }
+        
+        h1 {
+            font-size: 56px;
+            color: #0ff;
+            text-shadow: 0 0 40px #0ff, 0 0 80px #0ff, 0 0 120px #08f;
+            margin-bottom: 10px;
+            letter-spacing: 8px;
+        }
+        .subtitle {
+            color: #f0f;
+            font-size: 20px;
+            text-shadow: 0 0 20px #f0f;
+            margin-bottom: 40px;
+            letter-spacing: 4px;
+        }
+        .controls {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 2;
+        }
+        .controls strong {
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+        }
+        .controls .new {
+            color: #ff0;
+            text-shadow: 0 0 10px #ff0;
+        }
+        .btn {
+            background: linear-gradient(135deg, rgba(0,255,255,0.2), rgba(255,0,255,0.2));
+            border: 2px solid #0ff;
+            color: #0ff;
+            padding: 18px 50px;
+            font-size: 22px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            text-shadow: 0 0 15px #0ff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.1);
+            transition: all 0.3s;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(0,255,255,0.4), rgba(255,0,255,0.4));
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.6), inset 0 0 30px rgba(0, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+        
+        #final-score {
+            font-size: 42px;
+            color: #0ff;
+            text-shadow: 0 0 30px #0ff;
+            margin: 20px 0;
+        }
+        #crash-reason {
+            color: #f66;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        #mobile-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            display: none;
+            z-index: 100;
+            gap: 15px;
+        }
+        @media (max-width: 768px) {
+            #mobile-controls { display: flex; }
+            #minimap { width: 120px; height: 120px; bottom: 10px; right: 10px; }
+            h1 { font-size: 36px; }
+        }
+        .ctrl-btn {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, rgba(0,255,255,0.3), rgba(0,255,255,0.1));
+            border: 3px solid #0ff;
+            color: #0ff;
+            font-size: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,255,255,0.3);
+            transition: all 0.2s;
+        }
+        .ctrl-btn:active {
+            background: rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 40px rgba(0,255,255,0.6);
+            transform: scale(0.95);
+        }
+        #ctrl-shoot {
+            background: linear-gradient(135deg, rgba(255,255,0,0.3), rgba(255,100,0,0.2));
+            border-color: #ff0;
+            color: #ff0;
+            box-shadow: 0 0 20px rgba(255,255,0,0.3);
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px; height: 40px;
+            pointer-events: none;
+            z-index: 50;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 255, 0.6);
+            box-shadow: 0 0 10px #0ff;
+        }
+        #crosshair::before {
+            width: 2px; height: 40px;
+            left: 19px; top: 0;
+        }
+        #crosshair::after {
+            width: 40px; height: 2px;
+            left: 0; top: 19px;
+        }
+        #crosshair.has-cannon::before, #crosshair.has-cannon::after {
+            background: rgba(255, 255, 0, 0.8);
+            box-shadow: 0 0 15px #ff0;
+        }
+        
+        #direction-hint {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #666;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+        }
+        @media (max-width: 768px) {
+            #direction-hint { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <div id="score">0</div>
+            <div id="speed">SPEED 1.0x</div>
+            <div id="length">LENGTH 3</div>
+            <div id="cannon-status">🔫 CANNON READY [SPACE]</div>
+            <div id="next-cannon">Next cannon: 60s</div>
+        </div>
+        <div id="food-timer">⏱️ 8</div>
+        <div id="crosshair"></div>
+        <canvas id="minimap"></canvas>
+        
+        <div id="mobile-controls">
+            <button class="ctrl-btn" id="ctrl-left">↰</button>
+            <button class="ctrl-btn" id="ctrl-shoot">🔫</button>
+            <button class="ctrl-btn" id="ctrl-right">↱</button>
+        </div>
+        
+        <div id="direction-hint">← A / LEFT &nbsp;|&nbsp; SPACE = SHOOT &nbsp;|&nbsp; D / RIGHT →</div>
+        
+        <div id="start-screen">
+            <h1>🐍 SNAKE 3D</h1>
+            <div class="subtitle">FIRST-PERSON SERPENT</div>
+            <div class="controls">
+                <strong>A / ←</strong> Turn LEFT &nbsp;&nbsp; <strong>D / →</strong> Turn RIGHT<br>
+                <span class="new">🔫 CANNON</span> spawns every 60 seconds<br>
+                <span class="new">🐭 SHOOT MICE</span> for bonus points!<br>
+                <span class="new">⏱️ FOOD</span> disappears after 8 seconds<br><br>
+                <em>Watch the minimap for your tail!</em>
+            </div>
+            <button class="btn" id="start-btn">ENTER THE GRID</button>
+        </div>
+        
+        <div id="game-over">
+            <h1>GAME OVER</h1>
+            <div id="final-score">0</div>
+            <div id="crash-reason"></div>
+            <button class="btn" id="restart-btn">TRY AGAIN</button>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (function() {
+        'use strict';
+        
+        // Game constants
+        const GRID_SIZE = 50;
+        const CELL_SIZE = 2;
+        const ARENA_SIZE = GRID_SIZE * CELL_SIZE;
+        const HALF_ARENA = ARENA_SIZE / 2;
+        const INITIAL_SPEED = 250;
+        const MIN_SPEED = 90;
+        const SPEED_INCREASE = 3;
+        const FOOD_LIFETIME = 8000; // 8 seconds
+        const CANNON_INTERVAL = 60000; // 60 seconds
+        const MOUSE_SPAWN_INTERVAL = 3000;
+        const BULLET_SPEED = 2;
+        
+        const DIRECTIONS = [
+            { x: 0, z: -1 },  // North
+            { x: 1, z: 0 },   // East
+            { x: 0, z: 1 },   // South
+            { x: -1, z: 0 }   // West
+        ];
+        
+        // Game state
+        let scene, camera, renderer, composer;
+        let snake = [];
+        let dirIndex = 1;
+        let food = null, foodMesh = null, foodSpawnTime = 0;
+        let score = 0;
+        let speed = INITIAL_SPEED;
+        let gameLoop = null;
+        let isPlaying = false;
+        let tailMeshes = [];
+        let crashReason = '';
+        let hasCannon = false;
+        let cannonMesh = null;
+        let cannonSpawnTime = 0;
+        let lastCannonSpawn = 0;
+        let mice = [];
+        let bullets = [];
+        let particles = [];
+        let gameStartTime = 0;
+        
+        // Visual elements
+        let floorGrid, ambientLight, mainLight;
+        let glowMaterials = [];
+        
+        // Audio
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        function playSound(freq, duration, type = 'square', volume = 0.1) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+                gain.gain.exponentialDecayTo && gain.gain.exponentialDecayTo(0.01, audioCtx.currentTime + duration);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+        
+        function playShootSound() {
+            playSound(800, 0.05, 'sawtooth', 0.15);
+            setTimeout(() => playSound(600, 0.05, 'sawtooth', 0.1), 30);
+        }
+        
+        function playHitSound() {
+            playSound(1200, 0.1, 'sine', 0.12);
+            playSound(1500, 0.08, 'sine', 0.1);
+        }
+        
+        function init() {
+            // Scene with dark background
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050510);
+            scene.fog = new THREE.FogExp2(0x050510, 0.012);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 500);
+            
+            // Renderer with better settings
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x050510);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('game-container').insertBefore(renderer.domElement, document.getElementById('ui'));
+            
+            // Lighting
+            ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.4);
+            scene.add(ambientLight);
+            
+            mainLight = new THREE.PointLight(0x00ffff, 1.5, 150);
+            mainLight.position.set(0, 40, 0);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            
+            // Secondary lights for atmosphere
+            const magentaLight = new THREE.PointLight(0xff00ff, 0.8, 100);
+            magentaLight.position.set(HALF_ARENA, 20, HALF_ARENA);
+            scene.add(magentaLight);
+            
+            const yellowLight = new THREE.PointLight(0xffff00, 0.5, 80);
+            yellowLight.position.set(-HALF_ARENA, 15, -HALF_ARENA);
+            scene.add(yellowLight);
+            
+            // Create enhanced arena
+            createArena();
+            
+            // Events
+            window.addEventListener('resize', onResize);
+            document.addEventListener('keydown', onKeyDown);
+            
+            // Mobile controls
+            document.getElementById('ctrl-left').addEventListener('touchstart', (e) => { e.preventDefault(); turnLeft(); });
+            document.getElementById('ctrl-right').addEventListener('touchstart', (e) => { e.preventDefault(); turnRight(); });
+            document.getElementById('ctrl-shoot').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
+            
+            // Buttons
+            document.getElementById('start-btn').addEventListener('click', startGame);
+            document.getElementById('restart-btn').addEventListener('click', startGame);
+            
+            // Start render loop
+            animate();
+        }
+        
+        function createArena() {
+            // Reflective floor
+            const floorGeo = new THREE.PlaneGeometry(ARENA_SIZE, ARENA_SIZE);
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x0a0a15,
+                metalness: 0.8,
+                roughness: 0.3,
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // Neon grid lines on floor
+            const gridMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 });
+            for (let i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
+                // X lines
+                const xGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(i * CELL_SIZE, 0.02, -HALF_ARENA),
+                    new THREE.Vector3(i * CELL_SIZE, 0.02, HALF_ARENA)
+                ]);
+                scene.add(new THREE.Line(xGeo, gridMat));
+                
+                // Z lines
+                const zGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-HALF_ARENA, 0.02, i * CELL_SIZE),
+                    new THREE.Vector3(HALF_ARENA, 0.02, i * CELL_SIZE)
+                ]);
+                scene.add(new THREE.Line(zGeo, gridMat));
+            }
+            
+            // Glowing walls
+            const wallHeight = 20;
+            const wallMat = new THREE.MeshBasicMaterial({
+                color: 0xff00ff,
+                transparent: true,
+                opacity: 0.15,
+                side: THREE.DoubleSide
+            });
+            
+            const wallGeo = new THREE.PlaneGeometry(ARENA_SIZE, wallHeight);
+            
+            [[0, -HALF_ARENA, 0], [0, HALF_ARENA, Math.PI], [HALF_ARENA, 0, -Math.PI/2], [-HALF_ARENA, 0, Math.PI/2]].forEach(([x, z, rot]) => {
+                const wall = new THREE.Mesh(wallGeo, wallMat);
+                wall.position.set(x || 0, wallHeight/2, z || 0);
+                wall.rotation.y = rot;
+                scene.add(wall);
+            });
+            
+            // Glowing edge lines
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 3 });
+            const corners = [
+                [-HALF_ARENA, -HALF_ARENA], [HALF_ARENA, -HALF_ARENA],
+                [HALF_ARENA, HALF_ARENA], [-HALF_ARENA, HALF_ARENA]
+            ];
+            
+            // Floor edges
+            for (let i = 0; i < 4; i++) {
+                const [x1, z1] = corners[i];
+                const [x2, z2] = corners[(i + 1) % 4];
+                const geo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(x1, 0.1, z1),
+                    new THREE.Vector3(x2, 0.1, z2)
+                ]);
+                scene.add(new THREE.Line(geo, edgeMat));
+            }
+            
+            // Corner pillars with glow
+            corners.forEach(([x, z]) => {
+                const pillarGeo = new THREE.CylinderGeometry(0.8, 0.8, wallHeight, 16);
+                const pillarMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+                pillar.position.set(x, wallHeight/2, z);
+                scene.add(pillar);
+                
+                // Pillar light
+                const light = new THREE.PointLight(0xff00ff, 0.5, 30);
+                light.position.set(x, 5, z);
+                scene.add(light);
+            });
+            
+            // Floating particles for atmosphere
+            for (let i = 0; i < 100; i++) {
+                const particleGeo = new THREE.SphereGeometry(0.1, 8, 8);
+                const particleMat = new THREE.MeshBasicMaterial({
+                    color: Math.random() > 0.5 ? 0x00ffff : 0xff00ff,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                const particle = new THREE.Mesh(particleGeo, particleMat);
+                particle.position.set(
+                    (Math.random() - 0.5) * ARENA_SIZE * 0.9,
+                    Math.random() * 15 + 2,
+                    (Math.random() - 0.5) * ARENA_SIZE * 0.9
+                );
+                particle.userData = {
+                    speed: Math.random() * 0.02 + 0.01,
+                    offset: Math.random() * Math.PI * 2
+                };
+                scene.add(particle);
+                particles.push(particle);
+            }
+        }
+        
+        function startGame() {
+            initAudio();
+            
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            
+            // Reset state
+            score = 0;
+            speed = INITIAL_SPEED;
+            dirIndex = 1;
+            hasCannon = false;
+            gameStartTime = Date.now();
+            lastCannonSpawn = Date.now();
+            
+            // Clear old objects
+            tailMeshes.forEach(mesh => scene.remove(mesh));
+            tailMeshes = [];
+            mice.forEach(m => scene.remove(m.mesh));
+            mice = [];
+            bullets.forEach(b => scene.remove(b.mesh));
+            bullets = [];
+            if (cannonMesh) { scene.remove(cannonMesh); cannonMesh = null; }
+            
+            // Initialize snake
+            snake = [
+                { x: 0, z: 0 },
+                { x: -1, z: 0 },
+                { x: -2, z: 0 }
+            ];
+            
+            createTailMeshes();
+            spawnFood();
+            
+            updateUI();
+            updateCamera();
+            
+            isPlaying = true;
+            
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(gameStep, speed);
+        }
+        
+        function createTailMeshes() {
+            for (let i = 1; i < snake.length; i++) {
+                addTailSegment(i);
+            }
+            updateTailPositions();
+        }
+        
+        function addTailSegment(index) {
+            const geo = new THREE.SphereGeometry(0.85, 24, 24);
+            const hue = 0.33 + (index * 0.01);
+            const mat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(hue % 1, 1, 0.5),
+                emissive: new THREE.Color().setHSL(hue % 1, 1, 0.2),
+                metalness: 0.3,
+                roughness: 0.4
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            tailMeshes.push(mesh);
+            scene.add(mesh);
+        }
+        
+        function updateTailPositions() {
+            for (let i = 0; i < tailMeshes.length; i++) {
+                const segment = snake[i + 1];
+                if (segment) {
+                    tailMeshes[i].position.set(
+                        segment.x * CELL_SIZE,
+                        1,
+                        segment.z * CELL_SIZE
+                    );
+                }
+            }
+        }
+        
+        function spawnFood() {
+            if (foodMesh) scene.remove(foodMesh);
+            
+            let valid = false, attempts = 0;
+            while (!valid && attempts < 1000) {
+                food = {
+                    x: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2,
+                    z: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2
+                };
+                valid = !snake.some(s => s.x === food.x && s.z === food.z);
+                attempts++;
+            }
+            
+            foodSpawnTime = Date.now();
+            
+            // Create glowing food orb
+            const foodGroup = new THREE.Group();
+            
+            // Core
+            const coreGeo = new THREE.IcosahedronGeometry(1, 1);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            foodGroup.add(core);
+            
+            // Outer glow
+            const glowGeo = new THREE.SphereGeometry(1.8, 16, 16);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.25
+            });
+            foodGroup.add(new THREE.Mesh(glowGeo, glowMat));
+            
+            // Rings
+            const ringGeo = new THREE.TorusGeometry(1.5, 0.08, 8, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.6 });
+            const ring1 = new THREE.Mesh(ringGeo, ringMat);
+            const ring2 = new THREE.Mesh(ringGeo, ringMat);
+            ring2.rotation.x = Math.PI / 2;
+            foodGroup.add(ring1, ring2);
+            
+            foodGroup.position.set(food.x * CELL_SIZE, 2, food.z * CELL_SIZE);
+            foodMesh = foodGroup;
+            scene.add(foodMesh);
+            
+            // Light at food
+            const foodLight = new THREE.PointLight(0xffff00, 1, 20);
+            foodLight.position.set(0, 0, 0);
+            foodMesh.add(foodLight);
+        }
+        
+        function spawnCannon() {
+            if (cannonMesh) scene.remove(cannonMesh);
+            
+            let valid = false, attempts = 0, pos;
+            while (!valid && attempts < 1000) {
+                pos = {
+                    x: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2,
+                    z: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2
+                };
+                valid = !snake.some(s => s.x === pos.x && s.z === pos.z) && 
+                        !(food && food.x === pos.x && food.z === pos.z);
+                attempts++;
+            }
+            
+            const cannonGroup = new THREE.Group();
+            
+            // Base
+            const baseGeo = new THREE.CylinderGeometry(1.2, 1.5, 0.5, 16);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.2 });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            cannonGroup.add(base);
+            
+            // Barrel
+            const barrelGeo = new THREE.CylinderGeometry(0.3, 0.4, 2, 16);
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x553300, metalness: 0.9, roughness: 0.1 });
+            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.y = 0.5;
+            barrel.position.z = 0.5;
+            cannonGroup.add(barrel);
+            
+            // Glow
+            const glowGeo = new THREE.SphereGeometry(2, 16, 16);
+            const glowMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.2 });
+            cannonGroup.add(new THREE.Mesh(glowGeo, glowMat));
+            
+            cannonGroup.position.set(pos.x * CELL_SIZE, 1, pos.z * CELL_SIZE);
+            cannonGroup.userData = { gridX: pos.x, gridZ: pos.z };
+            cannonMesh = cannonGroup;
+            scene.add(cannonMesh);
+            
+            const cannonLight = new THREE.PointLight(0xffaa00, 1, 15);
+            cannonMesh.add(cannonLight);
+            
+            cannonSpawnTime = Date.now();
+        }
+        
+        function spawnMouse() {
+            // Spawn mouse at random edge
+            const edge = Math.floor(Math.random() * 4);
+            let x, z, vx, vz;
+            
+            switch(edge) {
+                case 0: x = -HALF_ARENA + 5; z = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = 0.3; vz = 0; break;
+                case 1: x = HALF_ARENA - 5; z = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = -0.3; vz = 0; break;
+                case 2: z = -HALF_ARENA + 5; x = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = 0; vz = 0.3; break;
+                case 3: z = HALF_ARENA - 5; x = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = 0; vz = -0.3; break;
+            }
+            
+            const mouseGroup = new THREE.Group();
+            
+            // Body
+            const bodyGeo = new THREE.SphereGeometry(0.6, 16, 16);
+            bodyGeo.scale(1, 0.7, 1.3);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            mouseGroup.add(body);
+            
+            // Head
+            const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
+            const head = new THREE.Mesh(headGeo, bodyMat);
+            head.position.z = 0.6;
+            mouseGroup.add(head);
+            
+            // Ears
+            const earGeo = new THREE.CircleGeometry(0.2, 16);
+            const earMat = new THREE.MeshBasicMaterial({ color: 0xffaaaa, side: THREE.DoubleSide });
+            const ear1 = new THREE.Mesh(earGeo, earMat);
+            ear1.position.set(-0.2, 0.25, 0.7);
+            ear1.rotation.y = -0.3;
+            const ear2 = new THREE.Mesh(earGeo, earMat);
+            ear2.position.set(0.2, 0.25, 0.7);
+            ear2.rotation.y = 0.3;
+            mouseGroup.add(ear1, ear2);
+            
+            // Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye1.position.set(-0.15, 0.1, 0.85);
+            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye2.position.set(0.15, 0.1, 0.85);
+            mouseGroup.add(eye1, eye2);
+            
+            // Tail
+            const tailCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0, 0, -0.6),
+                new THREE.Vector3(0, 0.2, -1),
+                new THREE.Vector3(0.2, 0.3, -1.3),
+                new THREE.Vector3(0, 0.2, -1.6)
+            ]);
+            const tailGeo = new THREE.TubeGeometry(tailCurve, 20, 0.05, 8, false);
+            const tail = new THREE.Mesh(tailGeo, new THREE.MeshBasicMaterial({ color: 0xffaaaa }));
+            mouseGroup.add(tail);
+            
+            mouseGroup.position.set(x, 0.6, z);
+            mouseGroup.rotation.y = Math.atan2(vx, vz);
+            
+            scene.add(mouseGroup);
+            mice.push({ mesh: mouseGroup, vx, vz, x, z });
+        }
+        
+        function shoot() {
+            if (!hasCannon || !isPlaying) return;
+            
+            playShootSound();
+            
+            const dir = DIRECTIONS[dirIndex];
+            const head = snake[0];
+            
+            const bulletGeo = new THREE.SphereGeometry(0.3, 8, 8);
+            const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+            bullet.position.set(
+                head.x * CELL_SIZE + dir.x * 2,
+                2,
+                head.z * CELL_SIZE + dir.z * 2
+            );
+            
+            // Trail
+            const trailGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 8);
+            const trailMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 });
+            const trail = new THREE.Mesh(trailGeo, trailMat);
+            trail.rotation.x = Math.PI / 2;
+            trail.position.z = -0.5;
+            bullet.add(trail);
+            
+            scene.add(bullet);
+            bullets.push({ mesh: bullet, vx: dir.x * BULLET_SPEED, vz: dir.z * BULLET_SPEED });
+        }
+        
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.mesh.position.x += b.vx;
+                b.mesh.position.z += b.vz;
+                
+                // Check bounds
+                if (Math.abs(b.mesh.position.x) > HALF_ARENA || Math.abs(b.mesh.position.z) > HALF_ARENA) {
+                    scene.remove(b.mesh);
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Check mouse collision
+                for (let j = mice.length - 1; j >= 0; j--) {
+                    const m = mice[j];
+                    const dx = b.mesh.position.x - m.mesh.position.x;
+                    const dz = b.mesh.position.z - m.mesh.position.z;
+                    if (Math.sqrt(dx*dx + dz*dz) < 1.5) {
+                        // Hit!
+                        playHitSound();
+                        score += 25;
+                        updateUI();
+                        
+                        // Explosion particles
+                        createExplosion(m.mesh.position.x, m.mesh.position.z);
+                        
+                        scene.remove(m.mesh);
+                        mice.splice(j, 1);
+                        scene.remove(b.mesh);
+                        bullets.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        function createExplosion(x, z) {
+            for (let i = 0; i < 15; i++) {
+                const geo = new THREE.SphereGeometry(0.15, 8, 8);
+                const mat = new THREE.MeshBasicMaterial({ 
+                    color: Math.random() > 0.5 ? 0xffff00 : 0xff8800,
+                    transparent: true,
+                    opacity: 1
+                });
+                const p = new THREE.Mesh(geo, mat);
+                p.position.set(x, 1, z);
+                p.userData = {
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: Math.random() * 0.3 + 0.1,
+                    vz: (Math.random() - 0.5) * 0.5,
+                    life: 1
+                };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+        
+        function updateMice() {
+            mice.forEach(m => {
+                m.x += m.vx;
+                m.z += m.vz;
+                m.mesh.position.x = m.x;
+                m.mesh.position.z = m.z;
+                
+                // Wiggle animation
+                m.mesh.rotation.y = Math.atan2(m.vx, m.vz) + Math.sin(Date.now() * 0.01) * 0.2;
+                m.mesh.position.y = 0.6 + Math.abs(Math.sin(Date.now() * 0.015)) * 0.1;
+                
+                // Bounce off walls
+                if (Math.abs(m.x) > HALF_ARENA - 3) m.vx *= -1;
+                if (Math.abs(m.z) > HALF_ARENA - 3) m.vz *= -1;
+            });
+        }
+        
+        function gameStep() {
+            if (!isPlaying) return;
+            
+            const now = Date.now();
+            const direction = DIRECTIONS[dirIndex];
+            
+            // Check food timeout
+            if (now - foodSpawnTime > FOOD_LIFETIME) {
+                spawnFood(); // Respawn if timed out
+            }
+            
+            // Spawn cannon every 60s
+            if (now - lastCannonSpawn > CANNON_INTERVAL && !cannonMesh && !hasCannon) {
+                spawnCannon();
+                lastCannonSpawn = now;
+            }
+            
+            // Spawn mice periodically when player has cannon
+            if (hasCannon && mice.length < 5 && Math.random() < 0.02) {
+                spawnMouse();
+            }
+            
+            const head = snake[0];
+            const newHead = {
+                x: head.x + direction.x,
+                z: head.z + direction.z
+            };
+            
+            // Wall collision
+            if (Math.abs(newHead.x) >= GRID_SIZE / 2 || Math.abs(newHead.z) >= GRID_SIZE / 2) {
+                crashReason = 'Hit the wall!';
+                gameOver();
+                return;
+            }
+            
+            // Self collision
+            for (let i = 0; i < snake.length; i++) {
+                if (snake[i].x === newHead.x && snake[i].z === newHead.z) {
+                    crashReason = 'Ate yourself!';
+                    gameOver();
+                    return;
+                }
+            }
+            
+            snake.unshift(newHead);
+            
+            // Check food
+            if (food && newHead.x === food.x && newHead.z === food.z) {
+                score += 10;
+                playSound(880, 0.1);
+                setTimeout(() => playSound(1100, 0.1), 50);
+                
+                speed = Math.max(MIN_SPEED, speed - SPEED_INCREASE);
+                clearInterval(gameLoop);
+                gameLoop = setInterval(gameStep, speed);
+                
+                addTailSegment(tailMeshes.length + 1);
+                spawnFood();
+                updateUI();
+            } else {
+                snake.pop();
+            }
+            
+            // Check cannon pickup
+            if (cannonMesh) {
+                const cx = cannonMesh.userData.gridX;
+                const cz = cannonMesh.userData.gridZ;
+                if (newHead.x === cx && newHead.z === cz) {
+                    hasCannon = true;
+                    scene.remove(cannonMesh);
+                    cannonMesh = null;
+                    playSound(440, 0.15, 'sine');
+                    playSound(660, 0.15, 'sine');
+                    document.getElementById('cannon-status').classList.add('active');
+                    document.getElementById('crosshair').classList.add('has-cannon');
+                    
+                    // Spawn initial mice
+                    for (let i = 0; i < 3; i++) {
+                        setTimeout(() => spawnMouse(), i * 500);
+                    }
+                }
+            }
+            
+            updateTailPositions();
+            updateCamera();
+        }
+        
+        function updateCamera() {
+            const head = snake[0];
+            const dir = DIRECTIONS[dirIndex];
+            
+            camera.position.set(
+                head.x * CELL_SIZE - dir.x * 1,
+                3,
+                head.z * CELL_SIZE - dir.z * 1
+            );
+            
+            camera.lookAt(
+                head.x * CELL_SIZE + dir.x * 30,
+                2,
+                head.z * CELL_SIZE + dir.z * 30
+            );
+        }
+        
+        function turnLeft() {
+            dirIndex = (dirIndex + 3) % 4;
+            playSound(330, 0.05);
+        }
+        
+        function turnRight() {
+            dirIndex = (dirIndex + 1) % 4;
+            playSound(440, 0.05);
+        }
+        
+        function onKeyDown(e) {
+            if (!isPlaying) {
+                if (e.key === ' ' || e.key === 'Enter') startGame();
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowLeft': case 'a': case 'A': turnLeft(); break;
+                case 'ArrowRight': case 'd': case 'D': turnRight(); break;
+                case ' ': shoot(); e.preventDefault(); break;
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            const speedMult = (INITIAL_SPEED / speed).toFixed(1);
+            document.getElementById('speed').textContent = `SPEED ${speedMult}x`;
+            document.getElementById('length').textContent = `LENGTH ${snake.length}`;
+            
+            const elapsed = Math.floor((Date.now() - lastCannonSpawn) / 1000);
+            const nextCannon = Math.max(0, 60 - elapsed);
+            document.getElementById('next-cannon').textContent = hasCannon ? '🔫 ARMED!' : `Next cannon: ${nextCannon}s`;
+        }
+        
+        function updateFoodTimer() {
+            if (!isPlaying || !food) return;
+            
+            const remaining = Math.max(0, Math.ceil((FOOD_LIFETIME - (Date.now() - foodSpawnTime)) / 1000));
+            const timerEl = document.getElementById('food-timer');
+            timerEl.textContent = `⏱️ ${remaining}`;
+            timerEl.classList.toggle('visible', remaining <= 5);
+            timerEl.classList.toggle('urgent', remaining <= 3);
+        }
+        
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(gameLoop);
+            
+            playSound(150, 0.3);
+            setTimeout(() => playSound(100, 0.4), 100);
+            
+            document.getElementById('final-score').textContent = `SCORE: ${score}`;
+            document.getElementById('crash-reason').textContent = crashReason;
+            document.getElementById('game-over').style.display = 'flex';
+            document.getElementById('cannon-status').classList.remove('active');
+            document.getElementById('crosshair').classList.remove('has-cannon');
+            document.getElementById('food-timer').classList.remove('visible');
+            
+            saveScore(score);
+        }
+        
+        function saveScore(newScore) {
+            const key = 'clawarcade_lb_snake-3d';
+            let scores = JSON.parse(localStorage.getItem(key) || '[]');
+            scores.push({ score: newScore, length: snake.length, date: new Date().toISOString() });
+            scores.sort((a, b) => b.score - a.score);
+            scores = scores.slice(0, 10);
+            localStorage.setItem(key, JSON.stringify(scores));
+        }
+        
+        function drawMinimap() {
+            const canvas = document.getElementById('minimap');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const size = canvas.offsetWidth * dpr;
+            canvas.width = canvas.height = size;
+            const cellSize = size / GRID_SIZE;
+            
+            // Background
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.95)';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Grid
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= GRID_SIZE; i += 5) {
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, size);
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(size, i * cellSize);
+                ctx.stroke();
+            }
+            
+            // Border
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, size - 2, size - 2);
+            
+            // Food with timer ring
+            if (food) {
+                const fx = (food.x + GRID_SIZE/2) * cellSize + cellSize/2;
+                const fz = (food.z + GRID_SIZE/2) * cellSize + cellSize/2;
+                
+                // Timer ring
+                const progress = (Date.now() - foodSpawnTime) / FOOD_LIFETIME;
+                ctx.beginPath();
+                ctx.arc(fx, fz, cellSize * 1.5, -Math.PI/2, -Math.PI/2 + (1 - progress) * Math.PI * 2);
+                ctx.strokeStyle = progress > 0.6 ? '#f00' : '#ff0';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Food dot
+                ctx.fillStyle = '#ff0';
+                ctx.beginPath();
+                ctx.arc(fx, fz, cellSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Cannon
+            if (cannonMesh) {
+                const cx = (cannonMesh.userData.gridX + GRID_SIZE/2) * cellSize + cellSize/2;
+                const cz = (cannonMesh.userData.gridZ + GRID_SIZE/2) * cellSize + cellSize/2;
+                ctx.fillStyle = '#fa0';
+                ctx.fillRect(cx - cellSize, cz - cellSize, cellSize * 2, cellSize * 2);
+            }
+            
+            // Mice
+            ctx.fillStyle = '#888';
+            mice.forEach(m => {
+                const mx = (m.x / CELL_SIZE + GRID_SIZE/2) * cellSize;
+                const mz = (m.z / CELL_SIZE + GRID_SIZE/2) * cellSize;
+                ctx.beginPath();
+                ctx.arc(mx, mz, cellSize * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Snake body
+            for (let i = snake.length - 1; i >= 1; i--) {
+                const seg = snake[i];
+                const sx = (seg.x + GRID_SIZE/2) * cellSize;
+                const sz = (seg.z + GRID_SIZE/2) * cellSize;
+                const hue = 120 + i * 2;
+                ctx.fillStyle = `hsl(${hue}, 100%, ${50 - i}%)`;
+                ctx.fillRect(sx, sz, cellSize, cellSize);
+            }
+            
+            // Snake head
+            const head = snake[0];
+            const hx = (head.x + GRID_SIZE/2) * cellSize + cellSize/2;
+            const hz = (head.z + GRID_SIZE/2) * cellSize + cellSize/2;
+            ctx.fillStyle = '#0ff';
+            ctx.beginPath();
+            ctx.arc(hx, hz, cellSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Direction
+            const dir = DIRECTIONS[dirIndex];
+            ctx.strokeStyle = hasCannon ? '#ff0' : '#0ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(hx, hz);
+            ctx.lineTo(hx + dir.x * cellSize * 4, hz + dir.z * cellSize * 4);
+            ctx.stroke();
+        }
+        
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const time = Date.now() * 0.001;
+            
+            // Animate food
+            if (foodMesh) {
+                foodMesh.rotation.y = time * 2;
+                foodMesh.children.forEach((c, i) => {
+                    if (i > 0 && i < 3) c.rotation.x = time * (i + 1);
+                });
+                foodMesh.position.y = 2 + Math.sin(time * 3) * 0.3;
+            }
+            
+            // Animate cannon
+            if (cannonMesh) {
+                cannonMesh.rotation.y = time;
+                cannonMesh.position.y = 1 + Math.sin(time * 2) * 0.2;
+            }
+            
+            // Animate floating particles
+            particles.forEach(p => {
+                if (p.userData.life !== undefined) {
+                    // Explosion particle
+                    p.position.x += p.userData.vx;
+                    p.position.y += p.userData.vy;
+                    p.position.z += p.userData.vz;
+                    p.userData.vy -= 0.015;
+                    p.userData.life -= 0.03;
+                    p.material.opacity = p.userData.life;
+                    if (p.userData.life <= 0) {
+                        scene.remove(p);
+                        particles.splice(particles.indexOf(p), 1);
+                    }
+                } else {
+                    // Ambient particle
+                    p.position.y += Math.sin(time + p.userData.offset) * 0.01;
+                    p.material.opacity = 0.3 + Math.sin(time * 2 + p.userData.offset) * 0.2;
+                }
+            });
+            
+            // Update game elements
+            if (isPlaying) {
+                updateBullets();
+                updateMice();
+                updateFoodTimer();
+                updateUI();
+                drawMinimap();
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        init();
+    })();
+    </script>
+</body>
+</html>

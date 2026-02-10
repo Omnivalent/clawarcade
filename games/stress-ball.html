@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Stress Ball</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;overflow:hidden;touch-action:manipulation;user-select:none}
+h1{font-size:1.3rem;color:#00d4aa;margin-bottom:4px}
+#info{color:#8888aa;font-size:.85rem;margin-bottom:10px}
+canvas{border-radius:50%}
+#stats{margin-top:12px;font-size:.9rem;color:#8888aa}
+#stats span{color:#00d4aa}
+#feeling{margin-top:8px;font-size:1.1rem;min-height:1.4em}
+</style>
+</head>
+<body>
+<h1>Stress Ball</h1>
+<div id="info">Press and hold to squeeze</div>
+<canvas id="c" width="280" height="280"></canvas>
+<div id="stats">Squeezes: <span id="count">0</span> | Streak: <span id="streak">0</span></div>
+<div id="feeling"></div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),countEl=document.getElementById('count'),streakEl=document.getElementById('streak'),feelEl=document.getElementById('feeling');
+const W=280,H=280,cx=W/2,cy=H/2;
+let pressing=false,pressure=0,targetPressure=0,squeezes=0,streak=0,lastSqueezeTime=0;
+let particles=[],hue=170,baseRadius=90;
+
+canvas.addEventListener('touchstart',e=>{e.preventDefault();pressing=true},{passive:false});
+canvas.addEventListener('touchend',e=>{e.preventDefault();release()},{passive:false});
+canvas.addEventListener('mousedown',()=>{pressing=true});
+canvas.addEventListener('mouseup',release);
+canvas.addEventListener('mouseleave',release);
+
+function release(){
+  if(pressing&&pressure>0.3){
+    squeezes++;countEl.textContent=squeezes;
+    const now=Date.now();
+    if(now-lastSqueezeTime<2000)streak++;else streak=1;
+    streakEl.textContent=streak;lastSqueezeTime=now;
+    // Burst particles
+    for(let i=0;i<12;i++)particles.push({x:cx,y:cy,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8,r:4+Math.random()*4,life:1,hue:hue});
+    // Haptic
+    if(navigator.vibrate)navigator.vibrate(30);
+    updateFeeling();
+  }
+  pressing=false;targetPressure=0;
+}
+function updateFeeling(){
+  const msgs=['😌 Release...','💆 Let it go','🧘 Breathe out','✨ Feel lighter','🌊 Flowing','💫 Keep going'];
+  feelEl.textContent=msgs[squeezes%msgs.length];
+  feelEl.style.color=`hsl(${hue},70%,65%)`;
+}
+
+function animate(){
+  // Update pressure
+  targetPressure=pressing?Math.min(targetPressure+0.02,1):0;
+  pressure+=(targetPressure-pressure)*0.1;
+  
+  // Hue shifts with pressure
+  hue=170+pressure*60;
+  
+  const r=baseRadius-pressure*25;
+  const squashX=1+pressure*0.25;
+  const squashY=1-pressure*0.2;
+  
+  ctx.clearRect(0,0,W,H);
+  
+  // Outer glow
+  const glow=ctx.createRadialGradient(cx,cy,r*0.5,cx,cy,r*1.8);
+  glow.addColorStop(0,`hsla(${hue},70%,50%,${0.15+pressure*0.2})`);
+  glow.addColorStop(1,'transparent');
+  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,r*1.8,0,Math.PI*2);ctx.fill();
+  
+  // Ball shadow
+  ctx.fillStyle='#0a0a1a';ctx.beginPath();
+  ctx.ellipse(cx,cy+r*squashY+10,r*squashX*0.7,8,0,0,Math.PI*2);ctx.fill();
+  
+  // Main ball
+  ctx.save();ctx.translate(cx,cy);ctx.scale(squashX,squashY);
+  const grad=ctx.createRadialGradient(-15,-15,5,0,0,r);
+  grad.addColorStop(0,`hsl(${hue},70%,65%)`);
+  grad.addColorStop(0.7,`hsl(${hue},60%,45%)`);
+  grad.addColorStop(1,`hsl(${hue},50%,30%)`);
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+  
+  // Highlight
+  ctx.fillStyle=`hsla(${hue},80%,85%,${0.4-pressure*0.2})`;
+  ctx.beginPath();ctx.ellipse(-20,-25,r*0.25,r*0.15,-0.5,0,Math.PI*2);ctx.fill();
+  
+  // Squeeze lines
+  if(pressure>0.3){
+    ctx.strokeStyle=`hsla(${hue},60%,40%,${pressure*0.5})`;ctx.lineWidth=1.5;
+    for(let i=0;i<3;i++){
+      const y=-r*0.3+i*r*0.3;
+      ctx.beginPath();ctx.moveTo(-r*0.3,y);
+      ctx.quadraticCurveTo(0,y+pressure*10,r*0.3,y);ctx.stroke();
+    }
+  }
+  ctx.restore();
+  
+  // Particles
+  particles=particles.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life-=0.025;p.r*=0.98;
+    if(p.life<=0)return false;
+    ctx.fillStyle=`hsla(${p.hue},70%,60%,${p.life})`;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    return true;
+  });
+  
+  // Pressure meter
+  if(pressure>0.05){
+    ctx.fillStyle='#16213e';ctx.fillRect(W-24,20,12,H-40);
+    ctx.fillStyle=`hsl(${hue},70%,50%)`;
+    const mh=(H-40)*pressure;
+    ctx.fillRect(W-24,H-20-mh,12,mh);
+  }
+  
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>

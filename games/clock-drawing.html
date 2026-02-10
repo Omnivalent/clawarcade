@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clock Drawing Test - ClawMD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%); 
+            color: #e8e6e3; 
+            min-height: 100vh; 
+            padding: 1rem;
+        }
+        .container { max-width: 700px; margin: 0 auto; }
+        
+        .header { text-align: center; margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(139, 0, 0, 0.2); border-radius: 12px; border: 2px solid #C5A572; }
+        .header h1 { color: #C5A572; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .header p { color: #aaa; font-size: 1rem; }
+        
+        .disclaimer { 
+            background: rgba(255, 193, 7, 0.15); 
+            border: 2px solid #ffc107; 
+            border-radius: 10px; 
+            padding: 1rem; 
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .disclaimer strong { color: #ffc107; }
+        
+        .card { 
+            background: rgba(0, 33, 71, 0.4); 
+            border: 2px solid #C5A572; 
+            border-radius: 12px; 
+            padding: 1.5rem; 
+            margin-bottom: 1rem;
+        }
+        
+        .instructions {
+            background: #1a2332;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .instructions h2 { color: #C5A572; margin-bottom: 1rem; font-size: 1.3rem; }
+        .instructions p { font-size: 1.1rem; line-height: 1.6; }
+        .time-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #00d4aa;
+            margin: 1rem 0;
+        }
+        
+        .canvas-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem auto;
+            max-width: 420px;
+        }
+        #clockCanvas {
+            display: block;
+            margin: 0 auto;
+            border: 4px solid #333;
+            border-radius: 50%;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        
+        .tools {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid #C5A572;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            min-height: 48px;
+            transition: all 0.2s;
+        }
+        .tool-btn.primary { background: #1a2332; color: #C5A572; }
+        .tool-btn.primary:hover { background: rgba(197, 165, 114, 0.2); }
+        .tool-btn.danger { background: #8B0000; color: #C5A572; }
+        .tool-btn.active { background: #C5A572; color: #1a1a2e; }
+        
+        .brush-sizes {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+        .brush-size {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1a2332;
+            border: 2px solid #C5A572;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .brush-size.active { border-color: #00d4aa; }
+        .brush-size span {
+            background: #333;
+            border-radius: 50%;
+        }
+        
+        .btn { 
+            background: linear-gradient(135deg, #8B0000 0%, #6B0000 100%); 
+            color: #C5A572; 
+            border: 2px solid #C5A572;
+            padding: 1rem 2rem; 
+            font-size: 1.1rem; 
+            font-weight: 600;
+            border-radius: 8px; 
+            cursor: pointer; 
+            min-height: 56px;
+            transition: all 0.3s;
+            margin: 0.5rem;
+        }
+        .btn:hover { background: linear-gradient(135deg, #A00000 0%, #8B0000 100%); }
+        .btn.secondary { background: #2a3441; }
+        
+        .timer-display {
+            font-size: 1.3rem;
+            color: #C5A572;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        
+        .scoring-guide {
+            background: #1a2332;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+        .scoring-guide h3 { color: #C5A572; margin-bottom: 0.75rem; }
+        .scoring-guide ul { margin-left: 1.5rem; line-height: 1.8; }
+        
+        .saved-drawing {
+            background: #1a2332;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+        .saved-drawing img {
+            max-width: 100%;
+            border-radius: 50%;
+            border: 3px solid #C5A572;
+        }
+        
+        .history-section { margin-top: 2rem; }
+        .history-title { color: #C5A572; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+        .history-item {
+            background: #1a2332;
+            border-radius: 8px;
+            padding: 0.5rem;
+            text-align: center;
+        }
+        .history-item img {
+            width: 100%;
+            border-radius: 50%;
+            border: 2px solid #C5A572;
+        }
+        .history-item .date {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 0.5rem;
+        }
+        
+        .back-link { 
+            display: inline-block; 
+            color: #C5A572; 
+            text-decoration: none; 
+            margin-bottom: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+        
+        @media print {
+            .tools, .btn, .back-link, .header, .disclaimer { display: none; }
+            .card { border: 1px solid #ccc; }
+            body { background: white; color: black; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../games.html" class="back-link">← Back to Games</a>
+        
+        <div class="header">
+            <h1>🕐 Clock Drawing Test</h1>
+            <p>Visuospatial & Executive Function Assessment</p>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>⚠️ Important:</strong> The Clock Drawing Test is a validated clinical screening tool. 
+            This drawing will be saved but <strong>requires human review for scoring</strong>. 
+            Share with your healthcare provider for proper evaluation.
+        </div>
+        
+        <!-- Instructions -->
+        <div class="card" id="instructionsCard">
+            <div class="instructions">
+                <h2>📝 Instructions</h2>
+                <p>Draw a clock face with <strong>all the numbers</strong> (1-12).</p>
+                <p>Then draw the hands to show the time:</p>
+                <div class="time-display" id="targetTime">10:10</div>
+                <p style="color: #888; font-size: 0.9rem;">A circle outline is provided to help you start.</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <button class="btn" onclick="startDrawing()">Start Drawing</button>
+                <button class="btn secondary" onclick="randomizeTime()">🎲 Random Time</button>
+            </div>
+        </div>
+        
+        <!-- Drawing Area -->
+        <div class="card hidden" id="drawingCard">
+            <div class="instructions" style="padding: 1rem;">
+                <p>Draw a clock showing: <span class="time-display" style="font-size: 1.5rem; display: inline;" id="currentTarget">10:10</span></p>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="clockCanvas" width="380" height="380"></canvas>
+            </div>
+            
+            <div class="brush-sizes">
+                <div class="brush-size" onclick="setBrush(2)" data-size="2">
+                    <span style="width: 4px; height: 4px;"></span>
+                </div>
+                <div class="brush-size active" onclick="setBrush(4)" data-size="4">
+                    <span style="width: 8px; height: 8px;"></span>
+                </div>
+                <div class="brush-size" onclick="setBrush(8)" data-size="8">
+                    <span style="width: 14px; height: 14px;"></span>
+                </div>
+            </div>
+            
+            <div class="tools">
+                <button class="tool-btn primary" onclick="undo()">↩️ Undo</button>
+                <button class="tool-btn primary" onclick="resetCanvas()">🔄 Reset</button>
+                <button class="tool-btn danger" onclick="clearAll()">🗑️ Clear All</button>
+            </div>
+            
+            <div class="timer-display" id="drawTimer">Time: 0:00</div>
+            
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <button class="btn" onclick="saveDrawing()">✅ Save & Complete</button>
+            </div>
+        </div>
+        
+        <!-- Results -->
+        <div class="card hidden" id="resultsCard">
+            <h2 style="color: #C5A572; text-align: center; margin-bottom: 1rem;">🎨 Drawing Complete!</h2>
+            
+            <div class="saved-drawing">
+                <img id="savedImage" src="" alt="Your clock drawing">
+            </div>
+            
+            <p style="text-align: center; margin: 1rem 0;">
+                Target time: <strong id="resultTarget">10:10</strong><br>
+                Completion time: <strong id="resultTime">0:00</strong>
+            </p>
+            
+            <div class="scoring-guide">
+                <h3>📋 Scoring Guide (for review)</h3>
+                <p style="margin-bottom: 0.5rem;">The Clock Drawing Test is typically scored on:</p>
+                <ul>
+                    <li><strong>Circle:</strong> Is the clock face closed and roughly circular?</li>
+                    <li><strong>Numbers:</strong> Are all 12 numbers present and in correct positions?</li>
+                    <li><strong>Spacing:</strong> Are the numbers evenly spaced around the circle?</li>
+                    <li><strong>Hands:</strong> Are there two hands of different lengths?</li>
+                    <li><strong>Time:</strong> Do the hands correctly show the target time?</li>
+                </ul>
+                <p style="margin-top: 1rem; color: #ffc107;">
+                    ⚠️ This test requires human scoring. Please share with your healthcare provider.
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <button class="btn" onclick="downloadImage()">📥 Download Image</button>
+                <button class="btn secondary" onclick="tryAgain()">🔄 Try Again</button>
+                <button class="btn secondary" onclick="window.print()">🖨️ Print</button>
+            </div>
+        </div>
+        
+        <!-- History -->
+        <div class="history-section">
+            <h3 class="history-title">📜 Previous Drawings</h3>
+            <div class="history-grid" id="historyGrid"></div>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('clockCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+        let brushSize = 4;
+        let history = [];
+        let startTime = 0;
+        let timerInterval = null;
+        let targetTime = '10:10';
+        
+        // Common test times
+        const testTimes = ['10:10', '11:10', '2:45', '3:00', '8:20', '9:15'];
+        
+        function initCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw circle outline
+            ctx.beginPath();
+            ctx.arc(190, 190, 170, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Small center dot
+            ctx.beginPath();
+            ctx.arc(190, 190, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#ccc';
+            ctx.fill();
+            
+            saveState();
+        }
+        
+        function saveState() {
+            history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            if (history.length > 50) history.shift();
+        }
+        
+        function undo() {
+            if (history.length > 1) {
+                history.pop();
+                ctx.putImageData(history[history.length - 1], 0, 0);
+            }
+        }
+        
+        function resetCanvas() {
+            history = [];
+            initCanvas();
+        }
+        
+        function clearAll() {
+            if (confirm('Clear your entire drawing?')) {
+                resetCanvas();
+            }
+        }
+        
+        function setBrush(size) {
+            brushSize = size;
+            document.querySelectorAll('.brush-size').forEach(b => {
+                b.classList.toggle('active', b.dataset.size == size);
+            });
+        }
+        
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            if (e.touches) {
+                return {
+                    x: (e.touches[0].clientX - rect.left) * scaleX,
+                    y: (e.touches[0].clientY - rect.top) * scaleY
+                };
+            }
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+        
+        function startDraw(e) {
+            isDrawing = true;
+            const pos = getPos(e);
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            
+            const pos = getPos(e);
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+        
+        function endDraw() {
+            if (isDrawing) {
+                isDrawing = false;
+                saveState();
+            }
+        }
+        
+        // Event listeners
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mouseout', endDraw);
+        
+        canvas.addEventListener('touchstart', startDraw);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', endDraw);
+        
+        function randomizeTime() {
+            targetTime = testTimes[Math.floor(Math.random() * testTimes.length)];
+            document.getElementById('targetTime').textContent = targetTime;
+        }
+        
+        function startDrawing() {
+            document.getElementById('instructionsCard').classList.add('hidden');
+            document.getElementById('drawingCard').classList.remove('hidden');
+            document.getElementById('currentTarget').textContent = targetTime;
+            
+            initCanvas();
+            startTimer();
+        }
+        
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                document.getElementById('drawTimer').textContent = 
+                    `Time: ${mins}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function saveDrawing() {
+            stopTimer();
+            
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+            
+            const imageData = canvas.toDataURL('image/png');
+            
+            // Save to history
+            const historyData = JSON.parse(localStorage.getItem('clockDrawingHistory') || '[]');
+            historyData.push({
+                date: new Date().toISOString(),
+                targetTime: targetTime,
+                completionTime: timeStr,
+                image: imageData
+            });
+            if (historyData.length > 10) historyData.shift();
+            localStorage.setItem('clockDrawingHistory', JSON.stringify(historyData));
+            
+            // Show results
+            document.getElementById('drawingCard').classList.add('hidden');
+            document.getElementById('resultsCard').classList.remove('hidden');
+            document.getElementById('savedImage').src = imageData;
+            document.getElementById('resultTarget').textContent = targetTime;
+            document.getElementById('resultTime').textContent = timeStr;
+            
+            displayHistory();
+        }
+        
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = `clock-drawing-${new Date().toISOString().slice(0,10)}.png`;
+            link.href = document.getElementById('savedImage').src;
+            link.click();
+        }
+        
+        function tryAgain() {
+            document.getElementById('resultsCard').classList.add('hidden');
+            document.getElementById('instructionsCard').classList.remove('hidden');
+            randomizeTime();
+        }
+        
+        function displayHistory() {
+            const historyData = JSON.parse(localStorage.getItem('clockDrawingHistory') || '[]');
+            const grid = document.getElementById('historyGrid');
+            
+            if (historyData.length === 0) {
+                grid.innerHTML = '<p style="color: #888; text-align: center; grid-column: 1/-1;">No previous drawings</p>';
+                return;
+            }
+            
+            grid.innerHTML = historyData.slice(-6).reverse().map(h => {
+                const date = new Date(h.date).toLocaleDateString();
+                return `
+                    <div class="history-item">
+                        <img src="${h.image}" alt="Clock from ${date}" onclick="viewHistorical('${h.image}')">
+                        <div class="date">${date}<br>${h.targetTime}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function viewHistorical(imgSrc) {
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <html>
+                <head><title>Clock Drawing</title></head>
+                <body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #1a2332;">
+                    <img src="${imgSrc}" style="max-width: 90%; max-height: 90%; border-radius: 50%; border: 4px solid #C5A572;">
+                </body>
+                </html>
+            `);
+        }
+        
+        // Initialize
+        displayHistory();
+    </script>
+</body>
+</html>

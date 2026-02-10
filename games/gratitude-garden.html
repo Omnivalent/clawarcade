@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Gratitude Garden</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(180deg,#1a2a1a 0%,#0a1a0a 100%);color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:20px;touch-action:manipulation;user-select:none}
+h1{font-size:28px;color:#7dcea0;margin-bottom:8px;text-shadow:0 0 20px rgba(125,206,160,0.3)}
+.subtitle{font-size:16px;color:#8888aa;margin-bottom:20px}
+#game{width:100%;max-width:500px;flex:1;display:flex;flex-direction:column;align-items:center}
+.card{background:#1e2e1e;border-radius:20px;padding:24px;margin:10px 0;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:2px solid #2a4a2a}
+.garden-view{background:linear-gradient(180deg,#2a3a2a 0%,#1a2a1a 100%);border-radius:16px;padding:20px;min-height:200px;margin:16px 0;position:relative;overflow:hidden;border:2px solid #3a5a3a}
+.ground{position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(180deg,#3a4a2a 0%,#2a3a1a 100%);border-radius:0 0 14px 14px}
+.plants-container{display:flex;justify-content:center;align-items:flex-end;gap:8px;flex-wrap:wrap;min-height:140px;padding-bottom:30px;position:relative;z-index:1}
+.plant{display:flex;flex-direction:column;align-items:center;animation:grow 0.5s ease-out}
+@keyframes grow{from{transform:scale(0) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.plant-emoji{font-size:32px;cursor:pointer;transition:transform 0.2s}
+.plant-emoji:hover{transform:scale(1.2)}
+.stats{display:flex;justify-content:center;gap:24px;margin:16px 0}
+.stat{text-align:center}
+.stat-number{font-size:28px;color:#7dcea0;font-weight:700}
+.stat-label{font-size:14px;color:#8888aa}
+.input-area{margin:20px 0}
+.input-area textarea{width:100%;background:#0a1a0a;border:2px solid #3a5a3a;border-radius:12px;padding:16px;font-size:18px;color:#e8e8f0;resize:none;font-family:inherit;min-height:100px}
+.input-area textarea:focus{outline:none;border-color:#7dcea0}
+.input-area textarea::placeholder{color:#5a6a5a}
+.prompt{font-size:20px;color:#aab;margin-bottom:16px}
+.prompts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+.prompt-chip{background:#2a3a2a;border:1px solid #3a5a3a;border-radius:20px;padding:8px 16px;font-size:14px;color:#8888aa;cursor:pointer;transition:all 0.2s}
+.prompt-chip:hover,.prompt-chip:active{background:#3a4a3a;border-color:#7dcea0;color:#7dcea0}
+.btn{background:#7dcea0;color:#0a1a0a;border:none;padding:18px 40px;border-radius:30px;font-size:20px;font-weight:700;cursor:pointer;margin:10px;min-height:60px;transition:all 0.2s;box-shadow:0 4px 15px rgba(125,206,160,0.3)}
+.btn:active{transform:scale(0.95)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn.secondary{background:transparent;border:2px solid #7dcea0;color:#7dcea0}
+.history-list{max-height:300px;overflow-y:auto;margin:16px 0}
+.history-item{background:#1a2a1a;border-radius:12px;padding:16px;margin:8px 0;text-align:left;border:1px solid #2a4a2a}
+.history-item .plant-icon{font-size:24px;float:left;margin-right:12px}
+.history-item .text{font-size:16px;color:#c8d8c8;line-height:1.5}
+.history-item .date{font-size:12px;color:#5a6a5a;margin-top:8px}
+.streak-badge{background:linear-gradient(135deg,#7dcea0,#5daa80);border-radius:12px;padding:16px;margin:16px 0}
+.streak-badge .number{font-size:36px;font-weight:700;color:#0a1a0a}
+.streak-badge .label{font-size:14px;color:#1a3a1a}
+#screen-garden,#screen-plant,#screen-history{display:none;width:100%}
+#screen-garden.active,#screen-plant.active,#screen-history.active{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<h1>🌱 Gratitude Garden</h1>
+<p class="subtitle">Grow something beautiful</p>
+
+<div id="game">
+  <div id="screen-garden" class="active">
+    <div class="card">
+      <div class="garden-view">
+        <div class="plants-container" id="garden"></div>
+        <div class="ground"></div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-number" id="total-plants">0</div>
+          <div class="stat-label">Plants Grown</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number" id="streak-days">0</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+      </div>
+      <p style="color:#8888aa;font-size:16px;margin-top:12px" id="garden-message">Plant gratitude to grow your garden</p>
+    </div>
+    <button class="btn" onclick="showPlant()">🌱 Plant Gratitude</button>
+    <button class="btn secondary" onclick="showHistory()">📖 View Garden History</button>
+  </div>
+
+  <div id="screen-plant">
+    <div class="card">
+      <p class="prompt">What are you grateful for today?</p>
+      <div class="prompts">
+        <div class="prompt-chip" onclick="usePrompt('A person who helped me')">A person</div>
+        <div class="prompt-chip" onclick="usePrompt('Something that made me smile')">Made me smile</div>
+        <div class="prompt-chip" onclick="usePrompt('A small comfort')">Small comfort</div>
+        <div class="prompt-chip" onclick="usePrompt('Something I learned')">Something I learned</div>
+      </div>
+      <div class="input-area">
+        <textarea id="gratitude-input" placeholder="I'm grateful for..." maxlength="200" oninput="updateButton()"></textarea>
+      </div>
+      <p style="color:#5a6a5a;font-size:14px">Even the smallest gratitude can bloom</p>
+    </div>
+    <button class="btn" id="plant-btn" onclick="plantGratitude()" disabled>🌱 Plant This</button>
+    <button class="btn secondary" onclick="showGarden()">Back to Garden</button>
+  </div>
+
+  <div id="screen-history">
+    <div class="card">
+      <p style="font-size:22px;color:#7dcea0;margin-bottom:8px">Your Gratitude Journey</p>
+      <div class="streak-badge" id="streak-badge" style="display:none">
+        <div class="number" id="history-streak">0</div>
+        <div class="label">Day Streak 🔥</div>
+      </div>
+      <div class="history-list" id="history-list"></div>
+      <p style="color:#5a6a5a;font-size:14px;margin-top:12px" id="history-empty">Your gratitude journey begins today</p>
+    </div>
+    <button class="btn" onclick="showGarden()">Back to Garden</button>
+  </div>
+</div>
+
+<script>
+const PLANTS = ['🌸', '🌷', '🌻', '🌺', '🌹', '🌼', '💐', '🪻', '🪷', '🌿', '🍀', '🌱', '🪴', '🌵', '🎋', '🎍'];
+
+let gratitudes = [];
+let streak = 0;
+let lastPlantDate = null;
+
+function loadData() {
+  try {
+    const data = JSON.parse(localStorage.getItem('gratitudeGarden') || '{}');
+    gratitudes = data.gratitudes || [];
+    streak = data.streak || 0;
+    lastPlantDate = data.lastPlantDate || null;
+    
+    // Check streak
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    
+    if (lastPlantDate !== today && lastPlantDate !== yesterday) {
+      streak = 0;
+    }
+    
+    updateGarden();
+  } catch(e) {}
+}
+
+function saveData() {
+  try {
+    localStorage.setItem('gratitudeGarden', JSON.stringify({
+      gratitudes,
+      streak,
+      lastPlantDate
+    }));
+  } catch(e) {}
+}
+
+function showScreen(id) {
+  document.querySelectorAll('#game > div').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showGarden() {
+  updateGarden();
+  showScreen('screen-garden');
+}
+
+function showPlant() {
+  document.getElementById('gratitude-input').value = '';
+  updateButton();
+  showScreen('screen-plant');
+  document.getElementById('gratitude-input').focus();
+}
+
+function showHistory() {
+  renderHistory();
+  showScreen('screen-history');
+}
+
+function updateGarden() {
+  const garden = document.getElementById('garden');
+  const today = new Date().toDateString();
+  
+  // Show recent plants (last 20)
+  const recent = gratitudes.slice(-20);
+  
+  if (recent.length === 0) {
+    garden.innerHTML = '<p style="color:#5a6a5a;padding:40px;">Your garden awaits its first seed 🌱</p>';
+  } else {
+    garden.innerHTML = recent.map(g => `
+      <div class="plant" title="${g.text}">
+        <div class="plant-emoji" onclick="showPlantDetail('${encodeURIComponent(g.text)}')">${g.plant}</div>
+      </div>
+    `).join('');
+  }
+  
+  document.getElementById('total-plants').textContent = gratitudes.length;
+  document.getElementById('streak-days').textContent = streak;
+  
+  // Update message
+  const plantedToday = lastPlantDate === today;
+  const msg = document.getElementById('garden-message');
+  if (plantedToday) {
+    msg.textContent = "You've planted gratitude today 💚";
+  } else if (gratitudes.length === 0) {
+    msg.textContent = "Plant your first gratitude to start growing";
+  } else {
+    msg.textContent = "Your garden is waiting for today's gratitude";
+  }
+}
+
+function usePrompt(text) {
+  document.getElementById('gratitude-input').value = text;
+  updateButton();
+  document.getElementById('gratitude-input').focus();
+}
+
+function updateButton() {
+  const text = document.getElementById('gratitude-input').value.trim();
+  document.getElementById('plant-btn').disabled = text.length < 3;
+}
+
+function plantGratitude() {
+  const text = document.getElementById('gratitude-input').value.trim();
+  if (text.length < 3) return;
+  
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  
+  // Update streak
+  if (lastPlantDate === yesterday) {
+    streak++;
+  } else if (lastPlantDate !== today) {
+    streak = 1;
+  }
+  
+  lastPlantDate = today;
+  
+  // Add gratitude
+  const plant = PLANTS[Math.floor(Math.random() * PLANTS.length)];
+  gratitudes.push({
+    text,
+    plant,
+    date: Date.now()
+  });
+  
+  saveData();
+  
+  // Celebration
+  playTone(523, 0.15);
+  setTimeout(() => playTone(659, 0.15), 100);
+  setTimeout(() => playTone(784, 0.15), 200);
+  
+  // Show garden with new plant
+  showGarden();
+  
+  // Scroll to see new plant
+  setTimeout(() => {
+    const garden = document.getElementById('garden');
+    const lastPlant = garden.lastElementChild;
+    if (lastPlant) lastPlant.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+function showPlantDetail(encodedText) {
+  const text = decodeURIComponent(encodedText);
+  alert(`💚 ${text}`);
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const empty = document.getElementById('history-empty');
+  const badge = document.getElementById('streak-badge');
+  
+  if (gratitudes.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    badge.style.display = 'none';
+  } else {
+    empty.style.display = 'none';
+    if (streak > 1) {
+      badge.style.display = 'block';
+      document.getElementById('history-streak').textContent = streak;
+    } else {
+      badge.style.display = 'none';
+    }
+    
+    // Show in reverse chronological order
+    const sorted = [...gratitudes].reverse();
+    list.innerHTML = sorted.map(g => {
+      const date = new Date(g.date);
+      const dateStr = date.toLocaleDateString(undefined, { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      return `
+        <div class="history-item">
+          <span class="plant-icon">${g.plant}</span>
+          <div class="text">${escapeHtml(g.text)}</div>
+          <div class="date">${dateStr}</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Audio
+let audioCtx = null;
+function playTone(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+// Init
+loadData();
+</script>
+</body>
+</html>

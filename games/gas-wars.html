@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>⛽ Gas Wars - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Orbitron', monospace;
+            background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #0d001a 100%);
+            color: #e8e6e3;
+            display: flex;
+            flex-direction: column;
+        }
+        body.shake { animation: screenShake 0.15s; }
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-4px, 3px); }
+            50% { transform: translate(4px, -3px); }
+            75% { transform: translate(-2px, -2px); }
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.6);
+            border-bottom: 2px solid #ff6600;
+        }
+        .back-btn {
+            background: rgba(255,102,0,0.2);
+            border: 2px solid #ff6600;
+            color: #ff6600;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            text-decoration: none;
+        }
+        .title { font-size: 1rem; color: #ff6600; text-shadow: 0 0 10px rgba(255,102,0,0.5); }
+        .stats { display: flex; gap: 12px; font-size: 0.7rem; }
+        .stat span { color: #ffaa00; }
+        
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            gap: 15px;
+            position: relative;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 10px 15px;
+        }
+        .info-item { text-align: center; }
+        .info-label { font-size: 0.6rem; color: #888; }
+        .info-value { font-size: 1rem; color: #00ffff; }
+        .info-value.green { color: #00ff88; }
+        .info-value.red { color: #ff4444; }
+        .info-value.gold { color: #ffaa00; }
+        
+        .gas-display {
+            background: rgba(0,0,0,0.7);
+            border: 3px solid #ff6600;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+        }
+        .gas-label { font-size: 0.8rem; color: #ff6600; margin-bottom: 10px; }
+        .gas-value {
+            font-size: 3rem;
+            font-weight: 900;
+            transition: color 0.2s;
+        }
+        .gas-value.low { color: #00ff88; text-shadow: 0 0 30px rgba(0,255,136,0.5); }
+        .gas-value.medium { color: #ffaa00; text-shadow: 0 0 30px rgba(255,170,0,0.5); }
+        .gas-value.high { color: #ff4444; text-shadow: 0 0 30px rgba(255,68,68,0.5); }
+        .gas-unit { font-size: 0.8rem; color: #888; }
+        
+        .meter-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .gas-meter {
+            width: 100%;
+            max-width: 400px;
+            height: 60px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #444;
+            border-radius: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        .gas-fill {
+            height: 100%;
+            transition: width 0.1s linear;
+            background: linear-gradient(90deg, #00ff88 0%, #ffaa00 50%, #ff4444 100%);
+        }
+        .sweet-spot {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(0,255,136,0.3);
+            border: 3px solid #00ff88;
+            box-shadow: 0 0 20px rgba(0,255,136,0.5);
+            transition: left 0.5s, width 0.5s;
+        }
+        .gas-indicator {
+            position: absolute;
+            top: -5px;
+            width: 4px;
+            height: 70px;
+            background: #fff;
+            box-shadow: 0 0 10px #fff;
+            transition: left 0.05s linear;
+        }
+        
+        .zone-labels {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: #666;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            max-width: 400px;
+            padding: 25px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            border-radius: 15px;
+            cursor: pointer;
+            border: 3px solid #00ff88;
+            background: rgba(0,255,136,0.2);
+            color: #00ff88;
+            transition: all 0.2s;
+        }
+        .submit-btn:active { transform: scale(0.95); background: rgba(0,255,136,0.4); }
+        .submit-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .result-display {
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .result-text { font-size: 1.2rem; margin-bottom: 5px; }
+        .result-text.success { color: #00ff88; }
+        .result-text.fail { color: #ff4444; }
+        .result-detail { font-size: 0.7rem; color: #888; }
+        
+        .overlay {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,0,20,0.95);
+            border: 3px solid #ff6600;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(255,102,0,0.4);
+            min-width: 320px;
+        }
+        .overlay h2 { color: #ff6600; margin-bottom: 10px; font-size: 1.3rem; }
+        .overlay p { color: #888; font-size: 0.75rem; margin-bottom: 10px; }
+        .overlay .score-big { font-size: 2.5rem; color: #ffaa00; margin: 15px 0; }
+        .overlay .flavor { color: #ffaa00; font-size: 0.6rem; font-style: italic; margin: 15px 0; }
+        .tutorial { font-size: 0.55rem; color: #ff6600; margin-top: 10px; padding: 10px; background: rgba(255,102,0,0.1); border-radius: 8px; }
+        
+        .btn {
+            background: linear-gradient(135deg, #ff6600 0%, #ff00ff 100%);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:active { transform: scale(0.95); }
+        
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            font-size: 2rem;
+            animation: particleFly 1s ease-out forwards;
+            z-index: 150;
+        }
+        @keyframes particleFly {
+            0% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { transform: scale(0) translateY(-80px); opacity: 0; }
+        }
+        
+        .tx-pending {
+            animation: pendingPulse 0.5s infinite;
+        }
+        @keyframes pendingPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="../index.html" class="back-btn">← MENU</a>
+        <div class="title">⛽ GAS WARS</div>
+        <div class="stats">
+            <div class="stat">BEST: <span id="highScore">0</span></div>
+        </div>
+    </div>
+    
+    <div class="game-area">
+        <div class="info-row">
+            <div class="info-item">
+                <div class="info-label">ROUND</div>
+                <div class="info-value" id="round">1/10</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">EFFICIENCY</div>
+                <div class="info-value green" id="efficiency">100%</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">SCORE</div>
+                <div class="info-value gold" id="score">0</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">LEVEL</div>
+                <div class="info-value" id="level">1</div>
+            </div>
+        </div>
+        
+        <div class="gas-display">
+            <div class="gas-label">⛽ CURRENT GAS PRICE</div>
+            <div class="gas-value medium" id="gasValue">50</div>
+            <div class="gas-unit">GWEI</div>
+        </div>
+        
+        <div class="meter-container">
+            <div class="zone-labels">
+                <span>CHEAP 🟢</span>
+                <span>EXPENSIVE 🔴</span>
+            </div>
+            <div class="gas-meter">
+                <div class="gas-fill" id="gasFill" style="width: 50%"></div>
+                <div class="sweet-spot" id="sweetSpot" style="left: 10%; width: 20%"></div>
+                <div class="gas-indicator" id="gasIndicator" style="left: 50%"></div>
+            </div>
+            
+            <button class="submit-btn" id="submitBtn">
+                📤 SUBMIT TX
+            </button>
+        </div>
+        
+        <div class="result-display" id="resultDisplay">
+            <div class="result-text" id="resultText"></div>
+            <div class="result-detail" id="resultDetail"></div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="startOverlay">
+        <h2>⛽ GAS WARS</h2>
+        <p>Time your transactions when gas is LOW!</p>
+        <p style="font-size:0.65rem; color:#666;">
+            Gas fluctuates wildly.<br>
+            Hit the GREEN ZONE for max efficiency.<br>
+            Miss = failed TX or overpay!<br><br>
+            🟢 Sweet spot = +100 pts<br>
+            🟡 Close = partial points<br>
+            🔴 Miss = TX fails or costs 2x
+        </p>
+        <div class="tutorial" id="tutorial">
+            💡 TIP: Sweet spot shrinks each level!<br>
+            Gas moves faster as you progress.
+        </div>
+        <div class="flavor">"Timing is everything in web3."</div>
+        <button class="btn" id="startBtn">⛽ START</button>
+    </div>
+    
+    <div class="overlay" id="gameOverOverlay" style="display:none;">
+        <h2 id="endTitle">GAME OVER</h2>
+        <div class="score-big" id="finalScore">0</div>
+        <p>Total Efficiency: <span id="finalEfficiency">0%</span></p>
+        <p>Successful TXs: <span id="successCount">0</span>/10</p>
+        <div class="flavor" id="endQuote">"You paid the iron price... in gas."</div>
+        <button class="btn" id="retryBtn">⛽ AGAIN</button>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'success') {
+                [523, 659, 784].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.08);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.08 + 0.15);
+                    o.start(audioCtx.currentTime + i * 0.08);
+                    o.stop(audioCtx.currentTime + i * 0.08 + 0.15);
+                });
+            } else if (type === 'fail') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'partial') {
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'tick') {
+                osc.type = 'sine';
+                osc.frequency.value = 800;
+                gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.02);
+            }
+        }
+        
+        function spawnParticle(emoji, x, y) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.textContent = emoji;
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1000);
+        }
+        
+        const endQuotes = {
+            good: ["Gas master!", "Wei-ly efficient!", "You've got the timing!", "Vitalik would be proud."],
+            bad: ["Rekt by gas fees.", "MEV bots thank you.", "Should've waited...", "Your wallet is crying."]
+        };
+        
+        let gameRunning = false;
+        let score = 0;
+        let round = 0;
+        let maxRounds = 10;
+        let gasPosition = 50;
+        let gasDirection = 1;
+        let gasSpeed = 1;
+        let sweetSpotStart = 10;
+        let sweetSpotWidth = 20;
+        let level = 1;
+        let totalEfficiency = 0;
+        let successCount = 0;
+        let gameLoop;
+        let canSubmit = true;
+        
+        function init() {
+            document.getElementById('highScore').textContent = localStorage.getItem('clawarcade_gas_best') || 0;
+            if (localStorage.getItem('clawarcade_gas_played')) {
+                document.getElementById('tutorial').style.display = 'none';
+            }
+        }
+        
+        function startGame() {
+            initAudio();
+            localStorage.setItem('clawarcade_gas_played', 'true');
+            
+            document.getElementById('startOverlay').style.display = 'none';
+            document.getElementById('gameOverOverlay').style.display = 'none';
+            
+            score = 0;
+            round = 0;
+            level = 1;
+            totalEfficiency = 0;
+            successCount = 0;
+            
+            startRound();
+        }
+        
+        function startRound() {
+            round++;
+            if (round > maxRounds) {
+                gameOver();
+                return;
+            }
+            
+            // Progressive difficulty
+            level = Math.ceil(round / 3);
+            gasSpeed = 1 + level * 0.5;
+            sweetSpotWidth = Math.max(8, 25 - level * 4);
+            sweetSpotStart = 5 + Math.random() * (40 - sweetSpotWidth);
+            
+            document.getElementById('round').textContent = `${round}/${maxRounds}`;
+            document.getElementById('level').textContent = level;
+            document.getElementById('sweetSpot').style.left = sweetSpotStart + '%';
+            document.getElementById('sweetSpot').style.width = sweetSpotWidth + '%';
+            document.getElementById('resultText').textContent = '';
+            document.getElementById('resultDetail').textContent = '';
+            
+            gasPosition = Math.random() * 100;
+            gasDirection = Math.random() > 0.5 ? 1 : -1;
+            canSubmit = true;
+            document.getElementById('submitBtn').disabled = false;
+            
+            gameRunning = true;
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(updateGas, 30);
+        }
+        
+        function updateGas() {
+            if (!gameRunning) return;
+            
+            // Random direction changes
+            if (Math.random() < 0.05 + level * 0.02) {
+                gasDirection *= -1;
+            }
+            
+            // Random speed spikes
+            let currentSpeed = gasSpeed;
+            if (Math.random() < 0.1) {
+                currentSpeed *= 1.5 + Math.random();
+            }
+            
+            gasPosition += gasDirection * currentSpeed;
+            
+            if (gasPosition >= 100) {
+                gasPosition = 100;
+                gasDirection = -1;
+            } else if (gasPosition <= 0) {
+                gasPosition = 0;
+                gasDirection = 1;
+            }
+            
+            // Update display
+            document.getElementById('gasFill').style.width = gasPosition + '%';
+            document.getElementById('gasIndicator').style.left = gasPosition + '%';
+            
+            const gasGwei = Math.floor(10 + gasPosition * 1.9);
+            const gasEl = document.getElementById('gasValue');
+            gasEl.textContent = gasGwei;
+            gasEl.classList.remove('low', 'medium', 'high');
+            
+            if (gasPosition < 30) {
+                gasEl.classList.add('low');
+            } else if (gasPosition < 60) {
+                gasEl.classList.add('medium');
+            } else {
+                gasEl.classList.add('high');
+            }
+            
+            if (Math.random() < 0.1) playSound('tick');
+        }
+        
+        function submitTx() {
+            if (!gameRunning || !canSubmit) return;
+            initAudio();
+            canSubmit = false;
+            document.getElementById('submitBtn').disabled = true;
+            gameRunning = false;
+            
+            const sweetEnd = sweetSpotStart + sweetSpotWidth;
+            const resultText = document.getElementById('resultText');
+            const resultDetail = document.getElementById('resultDetail');
+            
+            let points = 0;
+            let efficiency = 0;
+            
+            if (gasPosition >= sweetSpotStart && gasPosition <= sweetEnd) {
+                // Perfect hit
+                points = 100 + level * 20;
+                efficiency = 100;
+                successCount++;
+                resultText.className = 'result-text success';
+                resultText.textContent = '✅ PERFECT! +' + points;
+                resultDetail.textContent = 'TX confirmed at optimal gas!';
+                playSound('success');
+                spawnParticle('⛽', window.innerWidth / 2, window.innerHeight / 2);
+                spawnParticle('✨', window.innerWidth / 2 + 30, window.innerHeight / 2);
+            } else if (gasPosition < sweetSpotStart) {
+                // Too low - might fail
+                const distance = sweetSpotStart - gasPosition;
+                if (distance < 15) {
+                    points = Math.floor(50 - distance * 2);
+                    efficiency = Math.floor(70 - distance * 3);
+                    successCount++;
+                    resultText.className = 'result-text success';
+                    resultText.textContent = '🟡 CLOSE! +' + points;
+                    resultDetail.textContent = 'TX confirmed but slow...';
+                    playSound('partial');
+                } else {
+                    points = 0;
+                    efficiency = 0;
+                    resultText.className = 'result-text fail';
+                    resultText.textContent = '❌ TX FAILED!';
+                    resultDetail.textContent = 'Gas too low - TX dropped from mempool';
+                    playSound('fail');
+                    document.body.classList.add('shake');
+                    setTimeout(() => document.body.classList.remove('shake'), 150);
+                    spawnParticle('💀', window.innerWidth / 2, window.innerHeight / 2);
+                }
+            } else {
+                // Too high - overpaid
+                const distance = gasPosition - sweetEnd;
+                if (distance < 20) {
+                    points = Math.floor(40 - distance);
+                    efficiency = Math.floor(50 - distance * 2);
+                    successCount++;
+                    resultText.className = 'result-text success';
+                    resultText.textContent = '🟡 OVERPAID! +' + points;
+                    resultDetail.textContent = 'TX confirmed but you paid 2x gas';
+                    playSound('partial');
+                } else {
+                    points = -20;
+                    efficiency = 10;
+                    resultText.className = 'result-text fail';
+                    resultText.textContent = '💸 REKT BY GAS!';
+                    resultDetail.textContent = 'You paid maximum gas. MEV bots thank you.';
+                    playSound('fail');
+                    document.body.classList.add('shake');
+                    setTimeout(() => document.body.classList.remove('shake'), 150);
+                    spawnParticle('💸', window.innerWidth / 2, window.innerHeight / 2);
+                }
+            }
+            
+            score = Math.max(0, score + points);
+            totalEfficiency += efficiency;
+            
+            document.getElementById('score').textContent = score;
+            document.getElementById('efficiency').textContent = Math.floor(totalEfficiency / round) + '%';
+            
+            setTimeout(startRound, 1500);
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            
+            const avgEfficiency = Math.floor(totalEfficiency / maxRounds);
+            const isGood = avgEfficiency >= 60;
+            
+            const bestScore = parseInt(localStorage.getItem('clawarcade_gas_best') || 0);
+            if (score > bestScore) {
+                localStorage.setItem('clawarcade_gas_best', score);
+                document.getElementById('highScore').textContent = score;
+            }
+            
+            try {
+                const username = localStorage.getItem('clawmd_username') || 'Anonymous';
+                const scores = JSON.parse(localStorage.getItem('clawarcade_lb_gas-wars') || '[]');
+                scores.push({ name: username, score, efficiency: avgEfficiency, date: Date.now() });
+                scores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('clawarcade_lb_gas-wars', JSON.stringify(scores.slice(0, 10)));
+            } catch(e) {}
+            
+            document.getElementById('endTitle').textContent = isGood ? '⛽ GAS EFFICIENT!' : '💸 GAS GUZZLER';
+            document.getElementById('endTitle').style.color = isGood ? '#00ff88' : '#ff4444';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalEfficiency').textContent = avgEfficiency + '%';
+            document.getElementById('successCount').textContent = successCount;
+            
+            const quotes = isGood ? endQuotes.good : endQuotes.bad;
+            document.getElementById('endQuote').textContent = quotes[Math.floor(Math.random() * quotes.length)];
+            
+            document.getElementById('gameOverOverlay').style.display = 'block';
+        }
+        
+        document.getElementById('submitBtn').addEventListener('click', submitTx);
+        document.getElementById('submitBtn').addEventListener('touchstart', (e) => { e.preventDefault(); submitTx(); });
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('startBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        document.getElementById('retryBtn').addEventListener('click', startGame);
+        document.getElementById('retryBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
+        
+        init();
+    </script>
+</body>
+</html>

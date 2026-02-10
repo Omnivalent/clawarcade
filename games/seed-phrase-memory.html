@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔑 Seed Phrase Memory - ClawArcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Orbitron',monospace;background:linear-gradient(135deg,#0a0015,#1a0030,#0d001a);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:1rem;touch-action:manipulation}
+        .back-btn{position:fixed;top:1rem;left:1rem;background:rgba(255,102,0,.2);border:2px solid #f60;color:#f60;padding:.5rem 1rem;border-radius:5px;font-family:inherit;text-decoration:none;z-index:100}
+        .container{text-align:center;max-width:500px;width:100%;margin-top:3rem}
+        h1{font-size:clamp(1.3rem,5vw,1.6rem);color:#f60;text-shadow:0 0 20px #f60;margin-bottom:.5rem}
+        .sub{color:#888;font-size:.8rem;margin-bottom:1rem}
+        .stats{display:flex;justify-content:space-around;margin:1rem 0}
+        .stat{text-align:center}
+        .stat-label{color:#888;font-size:.65rem}
+        .stat-value{font-size:1.1rem;color:#0ff}
+        .phase{color:#f60;font-size:1rem;margin:1rem 0}
+        .timer{width:100%;height:8px;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;margin:1rem 0}
+        .timer-fill{height:100%;background:linear-gradient(90deg,#f00,#ff0,#0f0);transition:width .1s linear}
+        .phrase{background:#0a0a0a;border:2px solid #f60;border-radius:10px;padding:1rem;margin:1rem 0;min-height:180px;transition:all .3s}
+        .phrase.shake{animation:shake .3s}
+        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+        .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem}
+        .word{background:rgba(255,170,0,.1);border:1px solid #f60;border-radius:5px;padding:.4rem;font-family:'JetBrains Mono',monospace;font-size:.8rem;transition:all .3s}
+        .word.revealed{background:rgba(0,255,0,.2);border-color:#0f0}
+        .word-num{color:#888;font-size:.55rem}
+        .word-text{color:#fff}
+        .hidden .word-text{color:transparent;background:#333;border-radius:3px}
+        .input-area{margin:1rem 0;display:none}
+        .input{background:#0a0a0a;border:2px solid #0ff;border-radius:5px;color:#fff;padding:.7rem;font-family:'JetBrains Mono',monospace;font-size:1rem;width:100%;text-align:center}
+        .input:focus{outline:none;border-color:#f60;box-shadow:0 0 15px rgba(255,102,0,.3)}
+        .hint{color:#888;font-size:.75rem;margin-top:.4rem}
+        .btn{background:linear-gradient(135deg,#f60,#f0f);border:none;color:#000;padding:.9rem 1.8rem;font-size:1rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin:.5rem}
+        .btn:active{transform:scale(.95)}
+        .distraction{position:fixed;font-size:2.5rem;pointer-events:none;z-index:50;animation:float 3s ease-in-out;opacity:0}
+        @keyframes float{0%{opacity:0;transform:translateY(80px)}20%,80%{opacity:1}100%{opacity:0;transform:translateY(-80px)}}
+        .result{font-size:1.1rem;margin:1rem 0}
+        .correct{color:#0f0}
+        .wrong{color:#f00}
+        .over{display:none}
+        .over.show{display:block}
+        .start-screen{text-align:center;margin-top:2rem}
+        .start-btn{background:linear-gradient(135deg,#f60,#f80);border:2px solid #f60;color:#000;padding:1.2rem 2.5rem;font-size:1.2rem;font-family:inherit;font-weight:700;border-radius:10px;cursor:pointer;margin-top:1.5rem}
+        .tutorial{font-size:.55rem;color:#f60;margin-top:10px;padding:10px;background:rgba(255,102,0,.1);border-radius:8px}
+        .difficulty{font-size:.7rem;color:#f0f;margin-top:.5rem}
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-btn">← BACK</a>
+    
+    <div class="container">
+        <div id="start" class="start-screen">
+            <h1>🔑 SEED PHRASE MEMORY 🔑</h1>
+            <p style="color:#888;margin:1rem 0">Memorize 12 words.<br>Your crypto depends on it.</p>
+            <p style="color:#666;font-size:.85rem">Watch out for distractions!<br>Type each word back correctly.</p>
+            <div class="tutorial" id="tutorial">
+                💡 TIP: Each round gives you less time!<br>
+                More distractions appear as you progress.
+            </div>
+            <button class="start-btn" id="startBtn">START</button>
+        </div>
+        
+        <div id="game" style="display:none">
+            <h1>🔑 SEED PHRASE MEMORY 🔑</h1>
+            <p class="sub">Your crypto depends on this.</p>
+            <div class="stats">
+                <div class="stat"><div class="stat-label">ROUND</div><div class="stat-value" id="round">1</div></div>
+                <div class="stat"><div class="stat-label">SCORE</div><div class="stat-value" id="score">0</div></div>
+                <div class="stat"><div class="stat-label">BEST</div><div class="stat-value" id="best">0</div></div>
+            </div>
+            <div class="difficulty" id="difficulty">MEMORIZE TIME: 15s</div>
+            <div class="phase" id="phase">READY?</div>
+            <div class="timer"><div class="timer-fill" id="timer"></div></div>
+            <div class="phrase" id="phrase"><div class="grid" id="grid"></div></div>
+            <div class="input-area" id="inputArea">
+                <input type="text" class="input" id="input" placeholder="Type word #1..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+                <div class="hint" id="hint">Word 1 of 12</div>
+            </div>
+            <div class="result" id="result"></div>
+            <button class="btn" id="actionBtn">START ROUND</button>
+        </div>
+        
+        <div id="over" class="over">
+            <h1>💀 FUNDS LOST 💀</h1>
+            <p style="color:#888">You forgot your seed phrase!</p>
+            <div style="font-size:1.5rem;color:#0ff;margin:1rem 0">Score: <span id="finalScore">0</span></div>
+            <div id="stats"></div>
+            <button class="btn" id="restartBtn">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+    (function(){
+        const $=id=>document.getElementById(id);
+        let audioCtx=null;
+        
+        function initAudio(){
+            if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+            if(audioCtx.state==='suspended')audioCtx.resume();
+        }
+        
+        // BIP39 subset
+        const words=['abandon','ability','able','about','above','absent','absorb','abstract','abuse','access','accident','account','accuse','achieve','acid','across','act','action','adapt','add','address','adjust','admit','adult','advance','advice','afraid','again','age','agent','agree','ahead','aim','air','alarm','album','alert','alien','all','allow','almost','alone','alpha','already','also','alter','always','among','amount','anchor','ancient','anger','angle','angry','animal','answer','any','apart','appear','apple','area','arena','argue','arm','armor','army','around','art','artist','basic','basket','beach','beauty','because','become','before','begin','believe','below','bench','benefit','best','better','beyond','bird','black','blade','blame','bless','blind','blood','blue','blur','board','boat','body','bomb','bone','bonus','book','boost','border','boss','bottom','box','boy','brain','brand','brave','bread','bridge','bright','bring','brother','brown','brush','bubble','budget','build','burden','burger','bus','business','busy'];
+        const distractions=['🚀','💰','📉','📈','🔥','💎','🐕','🌙','⚡','🎰','💸','🤑','🦍','🐸','🌕'];
+        
+        let phrase=[],wordIdx=0,score=0,round=1,phase='idle',timer=null,memTime=15000,distractRate=0.05;
+        
+        function sound(f,d){
+            if(!audioCtx)return;
+            try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.08,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}
+        }
+        
+        function genPhrase(){
+            const s=[...words].sort(()=>Math.random()-.5);
+            return s.slice(0,12);
+        }
+        
+        function display(hidden=false){
+            const g=$('grid');g.innerHTML='';
+            phrase.forEach((w,i)=>{
+                const d=document.createElement('div');
+                d.className='word'+(hidden?' hidden':'');
+                d.id='word-'+i;
+                d.innerHTML=`<div class="word-num">${i+1}</div><div class="word-text">${w}</div>`;
+                g.appendChild(d);
+            });
+        }
+        
+        function startGame(){
+            initAudio();
+            localStorage.setItem('clawarcade_seed_played','true');
+            
+            score=0;round=1;memTime=15000;distractRate=0.05;
+            $('start').style.display='none';
+            $('game').style.display='block';
+            $('over').classList.remove('show');
+            updateBest();
+            $('actionBtn').textContent='START ROUND';
+            $('actionBtn').style.display='inline-block';
+            $('inputArea').style.display='none';
+            $('result').textContent='';
+            $('phase').textContent='READY?';
+            $('grid').innerHTML='<p style="color:#888;padding:2rem">Press START ROUND</p>';
+            $('difficulty').textContent='MEMORIZE TIME: 15s';
+        }
+        
+        function startRound(){
+            phrase=genPhrase();wordIdx=0;phase='memorize';
+            $('actionBtn').style.display='none';
+            $('inputArea').style.display='none';
+            $('result').textContent='';
+            $('phase').textContent='👀 MEMORIZE!';
+            $('round').textContent=round;
+            $('difficulty').textContent=`MEMORIZE TIME: ${(memTime/1000).toFixed(0)}s`;
+            
+            display(false);
+            
+            let timeLeft=memTime;
+            $('timer').style.width='100%';
+            if(timer)clearInterval(timer);
+            timer=setInterval(()=>{
+                timeLeft-=100;
+                $('timer').style.width=(timeLeft/memTime*100)+'%';
+                
+                // Progressive distractions
+                if(Math.random()<distractRate)spawnDistraction();
+                
+                if(timeLeft<=0){clearInterval(timer);startRecall()}
+            },100);
+            
+            sound(440,.2);
+        }
+        
+        function spawnDistraction(){
+            const d=document.createElement('div');
+            d.className='distraction';
+            d.textContent=distractions[Math.floor(Math.random()*distractions.length)];
+            d.style.left=Math.random()*80+10+'%';
+            d.style.top=Math.random()*60+20+'%';
+            document.body.appendChild(d);
+            setTimeout(()=>d.remove(),3000);
+        }
+        
+        function startRecall(){
+            phase='recall';
+            $('phase').textContent='🧠 RECALL!';
+            display(true);
+            $('inputArea').style.display='block';
+            $('input').value='';
+            $('input').focus();
+            $('hint').textContent='Word 1 of 12';
+            sound(660,.2);
+        }
+        
+        function checkWord(){
+            const inp=$('input').value.trim().toLowerCase();
+            const correct=phrase[wordIdx].toLowerCase();
+            
+            if(inp===correct){
+                sound(523,.1);
+                const wordEl=$('word-'+wordIdx);
+                if(wordEl){
+                    wordEl.classList.remove('hidden');
+                    wordEl.classList.add('revealed');
+                }
+                wordIdx++;
+                $('input').value='';
+                
+                if(wordIdx>=12){roundComplete()}
+                else{
+                    $('hint').textContent=`Word ${wordIdx+1} of 12`;
+                    $('input').placeholder=`Type word #${wordIdx+1}...`;
+                }
+            }else{
+                sound(200,.3);
+                $('phrase').classList.add('shake');
+                setTimeout(()=>$('phrase').classList.remove('shake'),300);
+                endGame();
+            }
+        }
+        
+        function roundComplete(){
+            phase='idle';
+            const bonus=Math.max(0,Math.floor(memTime/1000)*10);
+            score+=100+bonus+round*50;
+            round++;
+            
+            // Progressive difficulty
+            memTime=Math.max(5000,memTime-1500);
+            distractRate=Math.min(0.15,distractRate+0.02);
+            
+            $('result').className='result correct';
+            $('result').textContent='✅ PERFECT! +'+(100+bonus+((round-1)*50));
+            $('inputArea').style.display='none';
+            $('actionBtn').textContent='NEXT ROUND';
+            $('actionBtn').style.display='inline-block';
+            $('phase').textContent='ROUND COMPLETE!';
+            $('score').textContent=score;
+            
+            sound(523,.1);setTimeout(()=>sound(659,.1),100);setTimeout(()=>sound(784,.2),200);
+            updateBest();
+        }
+        
+        function endGame(){
+            phase='idle';
+            if(timer)clearInterval(timer);
+            
+            $('game').style.display='none';
+            $('over').classList.add('show');
+            $('finalScore').textContent=score;
+            $('stats').innerHTML=`<p>Rounds: ${round-1}</p><p>Failed word: ${wordIdx+1}</p><p>Expected: "${phrase[wordIdx]}"</p>`;
+            
+            try{
+                const username=localStorage.getItem('clawmd_username')||'Anonymous';
+                const scores=JSON.parse(localStorage.getItem('clawarcade_lb_seed-phrase-memory')||'[]');
+                scores.push({name:username,score,rounds:round-1,date:Date.now()});
+                scores.sort((a,b)=>b.score-a.score);
+                localStorage.setItem('clawarcade_lb_seed-phrase-memory',JSON.stringify(scores.slice(0,10)));
+            }catch(e){}
+            updateBest();
+        }
+        
+        function updateBest(){
+            const scores=JSON.parse(localStorage.getItem('clawarcade_lb_seed-phrase-memory')||'[]');
+            $('best').textContent=scores[0]?.score||0;
+        }
+        
+        // Hide tutorial after first play
+        if(localStorage.getItem('clawarcade_seed_played')){
+            $('tutorial').style.display='none';
+        }
+        
+        $('startBtn').onclick=$('startBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+        $('actionBtn').onclick=$('actionBtn').ontouchstart=function(e){e.preventDefault();startRound()};
+        $('restartBtn').onclick=$('restartBtn').ontouchstart=function(e){e.preventDefault();startGame()};
+        $('input').onkeydown=e=>{if(e.key==='Enter'&&phase==='recall')checkWord()};
+        
+        // Also check on input for mobile
+        $('input').oninput=function(){
+            if(phase==='recall'){
+                const inp=this.value.trim().toLowerCase();
+                const correct=phrase[wordIdx]?.toLowerCase();
+                if(inp===correct){
+                    checkWord();
+                }
+            }
+        };
+    })();
+    </script>
+</body>
+</html>

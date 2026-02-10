@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Zen Garden - ClawArcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+    background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#0d0d1f 100%);
+    color:#e0e0e0;
+    font-family:'Orbitron',-apple-system,system-ui,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100dvh;
+    overflow:hidden;
+    touch-action:none;
+    user-select:none
+}
+/* Animated background grid */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+        linear-gradient(180deg, rgba(0,212,170,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,170,0.02) 1px, transparent 1px),
+        radial-gradient(ellipse at 50% 30%, rgba(0,212,170,0.08) 0%, transparent 50%);
+    background-size: 35px 35px, 35px 35px, 100% 100%;
+    animation: gridFloat 25s linear infinite;
+    pointer-events: none;
+    z-index: -1;
+}
+@keyframes gridFloat {
+    0% { background-position: 0 0, 0 0, 0 0; }
+    100% { background-position: 0 70px, 70px 0, 0 0; }
+}
+h1{
+    font-size:1.4rem;
+    color:#00d4aa;
+    margin-bottom:8px;
+    text-shadow:0 0 15px rgba(0,212,170,0.7),0 0 30px rgba(0,212,170,0.3);
+    letter-spacing:3px;
+    animation: titleGlow 3s ease-in-out infinite;
+}
+@keyframes titleGlow {
+    0%, 100% { text-shadow: 0 0 15px rgba(0,212,170,0.7), 0 0 30px rgba(0,212,170,0.3); }
+    50% { text-shadow: 0 0 25px rgba(0,212,170,1), 0 0 50px rgba(0,212,170,0.5); }
+}
+#info{
+    font-size:.85rem;
+    color:#8888aa;
+    margin-bottom:10px;
+    text-shadow:0 0 5px rgba(136,136,170,0.3);
+}
+canvas{
+    border-radius:12px;
+    border:3px solid #00d4aa;
+    box-shadow:
+        0 0 25px rgba(0,212,170,0.4),
+        0 0 50px rgba(0,212,170,0.15),
+        inset 0 0 20px rgba(0,212,170,0.1);
+    transition:box-shadow 0.3s;
+}
+canvas:hover {
+    box-shadow:
+        0 0 35px rgba(0,212,170,0.5),
+        0 0 70px rgba(0,212,170,0.2),
+        inset 0 0 30px rgba(0,212,170,0.15);
+}
+#tools{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+.tool{
+    background:rgba(0,212,170,0.1);
+    border:2px solid rgba(0,212,170,0.4);
+    color:#00d4aa;
+    padding:10px 18px;
+    border-radius:25px;
+    font-size:.85rem;
+    cursor:pointer;
+    min-height:46px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:'Orbitron',sans-serif;
+    text-shadow:0 0 5px rgba(0,212,170,0.4);
+    box-shadow:0 0 10px rgba(0,212,170,0.15);
+    transition:all 0.25s;
+}
+.tool.active{
+    border-color:#00d4aa;
+    background:rgba(0,212,170,0.25);
+    color:#fff;
+    box-shadow:0 0 20px rgba(0,212,170,0.4);
+}
+.tool:active{transform:scale(.95)}
+.tool:hover{
+    background:rgba(0,212,170,0.2);
+    box-shadow:0 0 15px rgba(0,212,170,0.3);
+}
+.tool.clear{
+    background:rgba(255,68,68,0.1);
+    border-color:rgba(255,68,68,0.4);
+    color:#ff6666;
+    text-shadow:0 0 5px rgba(255,68,68,0.4);
+}
+.tool.clear:hover{
+    background:rgba(255,68,68,0.2);
+    box-shadow:0 0 15px rgba(255,68,68,0.3);
+}
+/* Ambient particles */
+.ambient-particle {
+    position: fixed;
+    width: 4px;
+    height: 4px;
+    background: rgba(0,212,170,0.3);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: float 8s ease-in-out infinite;
+}
+@keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
+    50% { transform: translateY(-30px) translateX(10px); opacity: 0.7; }
+}
+</style>
+</head>
+<body>
+<h1>🪨 ZEN GARDEN</h1>
+<div id="info">Draw peaceful patterns in the sand</div>
+<canvas id="c"></canvas>
+<div id="tools">
+  <div class="tool active" data-t="thin" onclick="setTool(this)">━ Fine</div>
+  <div class="tool" data-t="thick" onclick="setTool(this)">▬ Broad</div>
+  <div class="tool" data-t="circle" onclick="setTool(this)">◯ Ripple</div>
+  <div class="tool clear" data-t="clear" onclick="clearGarden()">🗑 Reset</div>
+</div>
+<script>
+// Add ambient particles
+for (let i = 0; i < 12; i++) {
+    const p = document.createElement('div');
+    p.className = 'ambient-particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = Math.random() * 100 + '%';
+    p.style.animationDelay = Math.random() * 5 + 's';
+    p.style.animationDuration = (6 + Math.random() * 4) + 's';
+    document.body.appendChild(p);
+}
+
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+let W, H, drawing = false, lastX, lastY, tool = 'thin';
+const rocks = [], rakeLines = [];
+let borderPhase = 0;
+
+function resize() {
+    const s = Math.min(window.innerWidth - 20, window.innerHeight - 150, 460);
+    W = H = s;
+    canvas.width = W;
+    canvas.height = H;
+    placeRocks();
+    drawAll();
+}
+
+function placeRocks() {
+    rocks.length = 0;
+    const count = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+        const r = 18 + Math.random() * 28;
+        rocks.push({x: r + Math.random() * (W - r * 2), y: r + Math.random() * (H - r * 2), r});
+    }
+}
+
+function isOnRock(x, y) {
+    return rocks.some(r => Math.hypot(x - r.x, y - r.y) < r.r + 10);
+}
+
+function drawAll() {
+    // Gradient sand background
+    const sandGrad = ctx.createLinearGradient(0, 0, W, H);
+    sandGrad.addColorStop(0, '#e8dcc8');
+    sandGrad.addColorStop(0.5, '#d4c5a0');
+    sandGrad.addColorStop(1, '#c9b98a');
+    ctx.fillStyle = sandGrad;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Sand texture with noise
+    ctx.fillStyle = '#c9b98a';
+    for (let i = 0; i < 1200; i++) {
+        ctx.fillRect(Math.random() * W, Math.random() * H, Math.random() < 0.5 ? 1 : 2, 1);
+    }
+    // Lighter grain
+    ctx.fillStyle = '#f0e6d2';
+    for (let i = 0; i < 400; i++) {
+        ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
+    }
+    
+    // Rake lines with enhanced effects
+    rakeLines.forEach(line => {
+        if (line.type === 'circle') {
+            drawCirclePattern(line.x, line.y, line.size);
+            return;
+        }
+        const w = line.type === 'thick' ? 14 : 5;
+        const count = line.type === 'thick' ? 6 : 4;
+        
+        // Draw multiple parallel lines for rake effect
+        for (let i = 0; i < count; i++) {
+            const off = (i - Math.floor(count / 2)) * (w / count * 1.6);
+            
+            // Shadow/groove
+            ctx.strokeStyle = 'rgba(160,144,96,0.6)';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            line.pts.forEach((p, j) => {
+                const px = p.x + off * Math.cos(p.a + Math.PI / 2) + 1;
+                const py = p.y + off * Math.sin(p.a + Math.PI / 2) + 1;
+                j === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+            
+            // Main line
+            ctx.strokeStyle = '#b8a97a';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            line.pts.forEach((p, j) => {
+                const px = p.x + off * Math.cos(p.a + Math.PI / 2);
+                const py = p.y + off * Math.sin(p.a + Math.PI / 2);
+                j === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+        }
+        
+        // Soft shadow under main path
+        ctx.strokeStyle = 'rgba(168,153,106,0.35)';
+        ctx.lineWidth = line.type === 'thick' ? 18 : 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        line.pts.forEach((p, j) => j === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+    });
+    
+    // Rocks with enhanced 3D effect
+    rocks.forEach(r => {
+        // Shadow
+        ctx.fillStyle = 'rgba(100,90,60,0.4)';
+        ctx.beginPath();
+        ctx.ellipse(r.x + 4, r.y + 6, r.r, r.r * 0.65, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Rock body with gradient
+        const rockGrad = ctx.createRadialGradient(r.x - r.r * 0.35, r.y - r.r * 0.35, 0, r.x, r.y, r.r);
+        rockGrad.addColorStop(0, '#999');
+        rockGrad.addColorStop(0.5, '#666');
+        rockGrad.addColorStop(1, '#333');
+        ctx.fillStyle = rockGrad;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(200,200,200,0.35)';
+        ctx.beginPath();
+        ctx.arc(r.x - r.r * 0.3, r.y - r.r * 0.3, r.r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Secondary highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.arc(r.x - r.r * 0.2, r.y - r.r * 0.25, r.r * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawCirclePattern(cx, cy, size) {
+    // Draw concentric ripple circles
+    for (let ring = 1; ring <= 4; ring++) {
+        const rad = size * ring * 0.55;
+        
+        // Shadow
+        ctx.strokeStyle = 'rgba(160,144,96,0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(cx + 1, cy + 1, rad, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Main line
+        ctx.strokeStyle = '#b8a97a';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    
+    // Center dot
+    ctx.fillStyle = '#a89970';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return [t.clientX - r.left, t.clientY - r.top];
+}
+
+function startDraw(e) {
+    e.preventDefault();
+    drawing = true;
+    [lastX, lastY] = getPos(e);
+    if (tool === 'circle') {
+        if (!isOnRock(lastX, lastY)) {
+            rakeLines.push({type: 'circle', x: lastX, y: lastY, size: 35});
+        }
+        drawAll();
+        drawing = false;
+        return;
+    }
+    rakeLines.push({type: tool, pts: []});
+}
+
+function moveDraw(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const [x, y] = getPos(e);
+    if (isOnRock(x, y)) { lastX = x; lastY = y; return; }
+    const a = Math.atan2(y - lastY, x - lastX);
+    rakeLines[rakeLines.length - 1].pts.push({x, y, a});
+    lastX = x; lastY = y;
+    drawAll();
+}
+
+function stopDraw() { drawing = false; }
+
+canvas.addEventListener('touchstart', startDraw, {passive: false});
+canvas.addEventListener('touchmove', moveDraw, {passive: false});
+canvas.addEventListener('touchend', stopDraw);
+canvas.addEventListener('mousedown', startDraw);
+canvas.addEventListener('mousemove', moveDraw);
+canvas.addEventListener('mouseup', stopDraw);
+canvas.addEventListener('mouseleave', stopDraw);
+
+function setTool(el) {
+    tool = el.dataset.t;
+    document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function clearGarden() {
+    rakeLines.length = 0;
+    placeRocks();
+    drawAll();
+}
+
+// Animate border glow
+function animateBorder() {
+    borderPhase += 0.02;
+    const glow = 20 + Math.sin(borderPhase) * 10;
+    canvas.style.boxShadow = `0 0 ${glow}px rgba(0,212,170,${0.35 + Math.sin(borderPhase) * 0.15}), 0 0 ${glow * 2}px rgba(0,212,170,0.12), inset 0 0 ${glow}px rgba(0,212,170,0.08)`;
+    requestAnimationFrame(animateBorder);
+}
+
+resize();
+animateBorder();
+window.addEventListener('resize', resize);
+</script>
+</body>
+</html>

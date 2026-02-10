@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Neon Pong - ClawMD</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100dvh;overflow:hidden;background:#0a0a1a;color:#fff;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none}
+#app{display:flex;flex-direction:column;height:100dvh}
+#top{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:#0d0d2b;border-bottom:1px solid #1a1a3a;font-size:14px}
+#top .title{color:#0ff;text-shadow:0 0 8px #0ff;animation:neonPulse 2s ease-in-out infinite}
+@keyframes neonPulse{0%,100%{text-shadow:0 0 8px #0ff}50%{text-shadow:0 0 15px #0ff,0 0 25px #0ff}}
+#top .scores span{margin:0 8px;transition:transform 0.2s,text-shadow 0.2s}
+#top .scores span.pop{transform:scale(1.3);text-shadow:0 0 15px currentColor}
+.p-score{color:#0f0;text-shadow:0 0 6px #0f0}
+.ai-score{color:#f0f;text-shadow:0 0 6px #f0f}
+.opponent-name{color:#f0f;font-size:12px}
+.wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;transition:transform 0.05s}
+.wrap.shake{animation:shake 0.3s ease-out}
+@keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-5px,3px)}40%{transform:translate(5px,-3px)}60%{transform:translate(-3px,5px)}80%{transform:translate(3px,-5px)}}
+canvas{display:block;width:100%;border:2px solid #0ff;border-radius:4px;box-shadow:0 0 20px rgba(0,255,255,0.2),inset 0 0 20px rgba(0,255,255,0.05);transition:box-shadow 0.3s,border-color 0.3s}
+canvas.mp{border-color:#f0f;box-shadow:0 0 20px rgba(255,0,255,0.2),inset 0 0 20px rgba(255,0,255,0.05)}
+#controls{height:64px;display:flex;align-items:center;justify-content:center;gap:12px;background:#0d0d2b;border-top:1px solid #1a1a3a}
+#controls button{min-width:44px;min-height:44px;padding:8px 16px;border:1px solid #0ff;background:transparent;color:#0ff;border-radius:8px;font-size:14px;cursor:pointer;text-shadow:0 0 6px #0ff;transition:all 0.2s}
+#controls button:active{background:#0ff3;transform:scale(0.95)}
+#controls button:disabled{opacity:0.4;cursor:not-allowed}
+#controls button.mp-btn{border-color:#f0f;color:#f0f}
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a1aee;z-index:10;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#overlay.hidden{display:none}
+#overlay h2{color:#0ff;text-shadow:0 0 12px #0ff,0 0 30px #0ff;font-size:24px;margin-bottom:12px;animation:neonPulse 2s ease-in-out infinite}
+#overlay h2.mp{color:#f0f;text-shadow:0 0 12px #f0f,0 0 30px #f0f}
+#overlay p{color:#aaa;margin-bottom:20px;font-size:14px;text-align:center;padding:0 20px}
+#overlay button{min-height:44px;padding:10px 32px;border:2px solid #0ff;background:transparent;color:#0ff;border-radius:8px;font-size:16px;cursor:pointer;text-shadow:0 0 8px #0ff;transition:all 0.2s;margin:5px}
+#overlay button:active{background:#0ff2;transform:scale(0.95)}
+#overlay button.mp-btn{border-color:#f0f;color:#f0f}
+#overlay button.selected{background:#0ff3;box-shadow:0 0 15px #0ff}
+.score-popup{position:absolute;font-size:2rem;font-weight:bold;pointer-events:none;animation:scoreFloat 1s ease-out forwards;z-index:5}
+@keyframes scoreFloat{0%{opacity:1;transform:translateY(0) scale(1)}50%{transform:translateY(-20px) scale(1.3)}100%{opacity:0;transform:translateY(-40px) scale(0.8)}}
+/* Difficulty Selection */
+.difficulty-select{display:flex;flex-direction:column;align-items:center;gap:10px;margin:15px 0}
+.difficulty-select h3{color:#0ff;font-size:16px;margin-bottom:5px}
+.diff-buttons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.diff-btn{min-width:80px;padding:8px 16px;border:2px solid #555;background:transparent;color:#888;border-radius:8px;font-size:14px;cursor:pointer;transition:all 0.2s}
+.diff-btn.easy{border-color:#0f0;color:#0f0}
+.diff-btn.medium{border-color:#ff0;color:#ff0}
+.diff-btn.hard{border-color:#f44;color:#f44}
+.diff-btn.selected{background:rgba(255,255,255,0.15);transform:scale(1.05);box-shadow:0 0 12px currentColor}
+/* Connection overlay */
+.connection-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,26,0.98);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
+.connection-overlay.hidden{display:none}
+.connection-overlay h2{color:#f0f;margin-bottom:16px}
+.connection-overlay p{color:#aaa;margin-bottom:12px}
+.connection-overlay .spinner{width:40px;height:40px;border:3px solid #f0f;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.connection-overlay button{margin-top:20px;padding:10px 24px;background:transparent;border:2px solid #ff6666;color:#ff6666;border-radius:8px;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="top">
+<span class="title">⚡ NEON PONG</span>
+<div class="scores">
+    <span class="p-score" id="ps">You: 0</span>|<span class="ai-score" id="as"><span id="opponent-label">AI</span>: 0</span>
+</div>
+</div>
+<div class="wrap" id="wrap">
+<canvas id="c"></canvas>
+</div>
+<div id="controls">
+<button id="btnPause">⏸ Pause</button>
+<button id="btnReset">🔄 Reset</button>
+<button id="btnMute">🔊</button>
+<button id="btnResign" class="mp-btn" style="display:none">🏳️ Resign</button>
+</div>
+</div>
+<!-- Game Timer -->
+<div id="gameTimer" style="display:none;position:absolute;top:50px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);padding:8px 20px;border-radius:20px;border:2px solid #f0f;z-index:20;">
+    <span style="color:#f0f;font-size:24px;font-weight:bold;" id="timerDisplay">1:00</span>
+</div>
+
+<!-- Leaderboard Modal -->
+<div id="leaderboardModal" style="display:none;position:fixed;inset:0;background:rgba(10,10,26,0.95);z-index:100;overflow-y:auto;">
+    <div style="max-width:400px;margin:20px auto;padding:20px;">
+        <h2 style="color:#9d00ff;text-align:center;margin-bottom:20px;">🏆 TOURNAMENT LEADERBOARD</h2>
+        <div id="leaderboardContent" style="background:rgba(0,0,0,0.5);border-radius:12px;padding:15px;border:1px solid #9d00ff;">
+            <div style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #333;color:#888;font-size:12px;">
+                <span style="width:40px;">#</span>
+                <span style="flex:1;">Player</span>
+                <span style="width:60px;text-align:center;">Wins</span>
+                <span style="width:60px;text-align:right;">Points</span>
+            </div>
+            <div id="leaderboardList"></div>
+        </div>
+        <button onclick="closeLeaderboard()" style="width:100%;margin-top:15px;padding:12px;background:linear-gradient(135deg,#9d00ff,#0ff);border:none;color:#000;font-weight:bold;border-radius:8px;cursor:pointer;">
+            ✕ CLOSE
+        </button>
+    </div>
+</div>
+
+<div id="overlay">
+<h2 id="overlayTitle">⚡ NEON PONG</h2>
+<p id="overlayMsg">Touch & drag to move your paddle (bottom).<br>First to 11 wins!</p>
+<button onclick="showLeaderboard()" style="margin-bottom:10px;padding:8px 16px;background:rgba(157,0,255,0.2);border:1px solid #9d00ff;color:#9d00ff;border-radius:8px;cursor:pointer;font-size:12px;">
+    🏆 View Leaderboard
+</button>
+<div class="difficulty-select" id="difficultySelect">
+    <h3>Select Difficulty</h3>
+    <div class="diff-buttons">
+        <button class="diff-btn easy" data-diff="easy">🟢 Easy</button>
+        <button class="diff-btn medium selected" data-diff="medium">🟡 Medium</button>
+        <button class="diff-btn hard" data-diff="hard">🔴 Hard</button>
+    </div>
+</div>
+<button id="btnStart">▶ START</button>
+</div>
+<!-- Tournament Registration Modal -->
+<div class="connection-overlay" id="tournamentModal" style="display:none;overflow-y:auto;">
+    <div style="max-width:350px;margin:20px auto;padding:20px;">
+        <h2 style="color:#9d00ff;text-shadow:0 0 20px #9d00ff,0 0 40px #9d00ff;text-align:center;animation:neonPulse 2s infinite;">🏓 PONG TOURNAMENT</h2>
+        <p style="color:#0f8;font-size:20px;margin:10px 0;text-align:center;text-shadow:0 0 10px #0f8;" id="t-prize">~$44 PRIZE</p>
+        <p style="color:#aaa;font-size:12px;margin-bottom:15px;text-align:center;">90 sec • Most Points Wins • Ball Speeds Up!</p>
+        
+        <!-- LEADERBOARD SECTION -->
+        <div style="background:rgba(0,0,0,0.6);border-radius:12px;padding:12px;border:1px solid #9d00ff;margin-bottom:15px;box-shadow:0 0 20px rgba(157,0,255,0.3);">
+            <h3 style="color:#9d00ff;font-size:14px;margin-bottom:10px;text-align:center;">🏆 LEADERBOARD</h3>
+            <div style="display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #333;color:#666;font-size:10px;">
+                <span style="width:30px;">#</span>
+                <span style="flex:1;">Player</span>
+                <span style="width:40px;text-align:center;">W</span>
+                <span style="width:50px;text-align:right;">Pts</span>
+            </div>
+            <div id="t-leaderboard" style="max-height:150px;overflow-y:auto;"></div>
+        </div>
+        
+        <!-- PLAY BUTTON -->
+        <button onclick="registerForTournament()" id="playBtn"
+            style="width:100%;padding:16px;background:linear-gradient(135deg,#9d00ff,#0ff);border:none;color:#000;font-weight:bold;border-radius:12px;font-size:18px;cursor:pointer;margin-bottom:15px;box-shadow:0 0 30px rgba(157,0,255,0.5);animation:neonPulse 2s infinite;">
+            🎮 PLAY NOW
+        </button>
+        
+        <!-- SIGNUP FORM -->
+        <div style="background:rgba(0,0,0,0.5);padding:15px;border-radius:12px;border:1px solid #0ff;">
+            <input type="text" id="t-nickname" placeholder="Your Nickname" maxlength="20" 
+                style="width:100%;padding:12px;margin-bottom:10px;background:#0d0d2b;border:2px solid #0ff;color:#0ff;border-radius:8px;font-size:14px;box-shadow:0 0 10px rgba(0,255,255,0.2);">
+            <input type="text" id="t-wallet" placeholder="Solana Wallet Address" 
+                style="width:100%;padding:12px;background:#0d0d2b;border:2px solid #0ff;color:#0ff;border-radius:8px;font-size:14px;box-shadow:0 0 10px rgba(0,255,255,0.2);"
+                pattern="^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+                oninput="validateWallet(this)">
+            <p id="walletError" style="color:#f44;font-size:11px;margin-top:5px;display:none;">Invalid Solana wallet address</p>
+        </div>
+        
+        <button onclick="skipTournament()" style="width:100%;margin-top:15px;background:transparent;border:1px solid #444;color:#666;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;">
+            Just Play vs AI (No Prize)
+        </button>
+    </div>
+</div>
+
+<!-- Matchmaking Lobby -->
+<div class="connection-overlay" id="lobbyModal" style="display:none">
+    <div class="spinner"></div>
+    <h2 style="color:#9d00ff;">🏓 Finding Opponent...</h2>
+    <p style="color:#aaa;margin:15px 0;">Waiting for another player to join</p>
+    <p style="color:#0f8;font-size:14px;" id="lobbyStatus">Players in queue: 1</p>
+    <p style="color:#666;font-size:12px;margin-top:10px;">Share this page with a friend to play!</p>
+    <button onclick="cancelMatchmaking()" style="margin-top:20px;background:transparent;border:1px solid #f66;color:#f66;padding:10px 24px;border-radius:8px;cursor:pointer;">
+        Cancel
+    </button>
+</div>
+
+<!-- Multiplayer connection overlay -->
+<div class="connection-overlay hidden" id="connectionOverlay">
+    <div class="spinner"></div>
+    <h2 id="connectionTitle">Connecting...</h2>
+    <p id="connectionMsg">Establishing connection to opponent</p>
+    <button onclick="cancelMultiplayer()">Cancel</button>
+</div>
+<script>
+(function(){
+const API_BASE = 'https://clawmd-multiplayer.bassel-amin92-76d.workers.dev';
+
+// === DIFFICULTY SETTINGS ===
+const DIFFICULTY = {
+    easy: {
+        ballSpeed: 3.5,
+        paddleWidth: 0.28,  // 28% of screen width
+        aiSpeed: 2.5,
+        aiReaction: 0.6    // AI reaction multiplier (lower = slower)
+    },
+    medium: {
+        ballSpeed: 5,
+        paddleWidth: 0.22,  // 22% of screen width
+        aiSpeed: 4,
+        aiReaction: 0.85
+    },
+    hard: {
+        ballSpeed: 7,
+        paddleWidth: 0.16,  // 16% of screen width
+        aiSpeed: 6,
+        aiReaction: 1.0
+    }
+};
+
+let currentDifficulty = 'medium';
+
+// === MULTIPLAYER STATE ===
+let isMultiplayer = false;
+let matchId = null;
+let opponentName = 'AI';
+let ws = null;
+let reconnectAttempts = 0;
+let lastSentPaddleX = 0;
+let opponentPaddleX = 0;
+
+// === WEB AUDIO API SOUND SYSTEM ===
+let audioCtx = null;
+let soundEnabled = true;
+let audioInitialized = false;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    audioInitialized = true;
+}
+
+function initAudioOnce() {
+    if (!audioInitialized) initAudio();
+}
+document.addEventListener('click', initAudioOnce, { once: true });
+document.addEventListener('touchstart', initAudioOnce, { once: true });
+
+function playTone(freq, type, duration, vol = 0.2) {
+    if (!soundEnabled || !audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function playPaddleHit() { playTone(440, 'sine', 0.08, 0.2); }
+function playWallHit() { playTone(220, 'triangle', 0.05, 0.15); }
+function playScore(player) { 
+    if (player) {
+        playTone(523, 'sine', 0.1, 0.2);
+        setTimeout(() => playTone(659, 'sine', 0.15, 0.2), 100);
+    } else {
+        playTone(200, 'sawtooth', 0.2, 0.2);
+    }
+}
+function playWin() {
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.2, 0.25), i * 100));
+}
+function playLose() {
+    [400, 300, 200, 100].forEach((f, i) => setTimeout(() => playTone(f, 'sawtooth', 0.15, 0.2), i * 120));
+}
+function playClick() { playTone(600, 'sine', 0.05, 0.1); }
+
+document.getElementById('btnMute').onclick = () => {
+    initAudio();
+    soundEnabled = !soundEnabled;
+    document.getElementById('btnMute').textContent = soundEnabled ? '🔊' : '🔇';
+    playClick();
+};
+
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const overlay=document.getElementById('overlay'),btnStart=document.getElementById('btnStart');
+const btnPause=document.getElementById('btnPause'),btnReset=document.getElementById('btnReset');
+const psEl=document.getElementById('ps'),asEl=document.getElementById('as');
+const wrap=document.getElementById('wrap');
+let W,H,dpr,running=false,paused=false,gameEnded=false;
+let pScore=0,aiScore=0;
+const pad={w:0,h:0},ball={x:0,y:0,vx:0,vy:0,r:8,speed:5,trail:[]}; // Larger ball for mobile visibility
+let playerY=0,aiY=0,touchSide=0;
+let particles=[];
+let borderPhase=0;
+let animFrame=null;
+let lastTime=0;
+
+// Improved paddle movement variables
+let playerX = 0;
+let aiX = 0;
+let targetPlayerX = 0;
+let paddleSpeed = 15; // Increased base speed for responsiveness
+let keyLeft = false;
+let keyRight = false;
+
+function resize(){
+    dpr=window.devicePixelRatio||1;
+    const r=canvas.parentElement.getBoundingClientRect();
+    W=r.width-4;H=r.height-4;
+    canvas.width=W*dpr;canvas.height=H*dpr;
+    canvas.style.width=W+'px';canvas.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const diff = DIFFICULTY[currentDifficulty];
+    pad.w=W*diff.paddleWidth;
+    pad.h=Math.max(10,H*0.02);
+}
+window.addEventListener('resize',resize);
+
+function resetBall(dir){
+    ball.x=W/2;ball.y=H/2;
+    const angle=(Math.random()*0.8-0.4);
+    const diff = DIFFICULTY[currentDifficulty];
+    ball.speed = diff.ballSpeed;
+    const spd=ball.speed;
+    ball.vx=Math.sin(angle)*spd*(Math.random()>0.5?1:-1);
+    ball.vy=Math.cos(angle)*spd*dir;
+    ball.trail=[];
+}
+
+function init(){
+    const diff = DIFFICULTY[currentDifficulty];
+    pScore=0;aiScore=0;playerY=H-30;aiY=30;
+    ball.speed = diff.ballSpeed;
+    pad.w = W * diff.paddleWidth;
+    playerX=W/2;aiX=W/2;opponentPaddleX=0.5; // Start at center (as fraction)
+    targetPlayerX = W/2;
+    resetBall(1);updateScores();particles=[];gameEnded=false;
+}
+
+function updateScores(){
+    psEl.textContent='You: '+pScore;
+    document.getElementById('opponent-label').textContent = isMultiplayer ? opponentName : 'AI';
+    asEl.innerHTML=`<span id="opponent-label">${isMultiplayer ? opponentName : 'AI'}</span>: ${aiScore}`;
+}
+
+function popScore(el){
+    el.classList.add('pop');
+    setTimeout(()=>el.classList.remove('pop'),200);
+}
+
+function showScorePopup(x,y,text,color){
+    const el=document.createElement('div');
+    el.className='score-popup';
+    el.textContent=text;
+    el.style.color=color;
+    el.style.textShadow='0 0 15px '+color;
+    el.style.left=x+'px';
+    el.style.top=y+'px';
+    wrap.appendChild(el);
+    setTimeout(()=>el.remove(),1000);
+}
+
+function triggerShake(){
+    wrap.classList.remove('shake');
+    void wrap.offsetWidth;
+    wrap.classList.add('shake');
+}
+
+function addParticles(x,y,color,count){
+    for(let i=0;i<count;i++){
+        const angle=Math.random()*Math.PI*2;
+        const spd=2+Math.random()*4;
+        particles.push({
+            x,y,
+            vx:Math.cos(angle)*spd,
+            vy:Math.sin(angle)*spd,
+            life:20+Math.random()*15,
+            color,
+            size:2+Math.random()*3
+        });
+    }
+}
+
+function update(dt){
+    if(paused || gameEnded)return;
+    
+    const diff = DIFFICULTY[currentDifficulty];
+    
+    // Player movement - direct positioning like Breakout
+    // Handle keyboard input
+    if(keyLeft) targetPlayerX = Math.max(pad.w/2, targetPlayerX - paddleSpeed);
+    if(keyRight) targetPlayerX = Math.min(W - pad.w/2, targetPlayerX + paddleSpeed);
+    
+    // Direct paddle positioning (touch/mouse set targetPlayerX directly)
+    playerX = targetPlayerX;
+    playerX = Math.max(pad.w/2, Math.min(W - pad.w/2, playerX));
+    
+    // Send paddle position in multiplayer
+    if (isMultiplayer && Math.abs(playerX - lastSentPaddleX) > 5) {
+        sendPaddlePosition(playerX / W);
+        lastSentPaddleX = playerX;
+    }
+    
+    // AI / Opponent movement with difficulty scaling
+    if (isMultiplayer) {
+        // Smooth interpolation to opponent position
+        const targetX = opponentPaddleX * W;
+        aiX += (targetX - aiX) * 0.2;
+        aiX = Math.max(pad.w/2, Math.min(W-pad.w/2, aiX));
+    } else {
+        // AI with difficulty-based speed and reaction
+        const aiTargetX = ball.x + (ball.vx * 3 * diff.aiReaction); // Predict where ball will be
+        const aiDiff = aiTargetX - aiX;
+        const aiSpd = Math.min(Math.abs(aiDiff), diff.aiSpeed);
+        
+        // Add some randomness based on difficulty (easier = more mistakes)
+        const randomError = (1 - diff.aiReaction) * (Math.random() - 0.5) * 30;
+        aiX += Math.sign(aiDiff + randomError) * aiSpd;
+        aiX = Math.max(pad.w/2, Math.min(W-pad.w/2, aiX));
+    }
+    
+    // ball trail
+    ball.trail.push({x:ball.x,y:ball.y});
+    if(ball.trail.length>15)ball.trail.shift();
+    
+    // MULTIPLAYER: Only ball controller runs physics, others receive state
+    const runPhysics = !isMultiplayer || isBallController;
+    
+    if (runPhysics) {
+        // Apply speed multiplier for tournament mode
+        const speedMult = (tournamentId && ballSpeedMultiplier) ? ballSpeedMultiplier : 1;
+        ball.x+=ball.vx * speedMult;
+        ball.y+=ball.vy * speedMult;
+        
+        // walls
+        if(ball.x-ball.r<0){ball.x=ball.r;ball.vx*=-1;playWallHit();addParticles(ball.x,ball.y,'#0ff',5);}
+        if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx*=-1;playWallHit();addParticles(ball.x,ball.y,'#0ff',5);}
+        
+        // paddle collisions - player (bottom)
+        if(ball.vy>0&&ball.y+ball.r>=playerY-pad.h/2&&ball.y-ball.r<playerY+pad.h/2){
+            if(ball.x>playerX-pad.w/2-ball.r&&ball.x<playerX+pad.w/2+ball.r){
+                ball.y=playerY-pad.h/2-ball.r;
+                const hit=(ball.x-playerX)/(pad.w/2);
+                ball.speed=Math.min(14,ball.speed+0.15);
+                ball.vx=hit*ball.speed*0.8;
+                ball.vy=-Math.sqrt(ball.speed*ball.speed-ball.vx*ball.vx);
+                playPaddleHit();
+                addParticles(ball.x,ball.y,'#0f0',8);
+                if (isMultiplayer) sendBallState();
+            }
+        }
+        
+        // Opponent/AI (top)
+        if(ball.vy<0&&ball.y-ball.r<=aiY+pad.h/2&&ball.y+ball.r>aiY-pad.h/2){
+            if(ball.x>aiX-pad.w/2-ball.r&&ball.x<aiX+pad.w/2+ball.r){
+                ball.y=aiY+pad.h/2+ball.r;
+                const hit=(ball.x-aiX)/(pad.w/2);
+                ball.speed=Math.min(14,ball.speed+0.15);
+                ball.vx=hit*ball.speed*0.8;
+                ball.vy=Math.sqrt(ball.speed*ball.speed-ball.vx*ball.vx);
+                playPaddleHit();
+                addParticles(ball.x,ball.y,'#f0f',8);
+                if (isMultiplayer) sendBallState();
+            }
+        }
+        
+        // scoring
+        if(ball.y<-20){
+            pScore++;updateScores();popScore(psEl);playScore(true);
+            showScorePopup(W/2,H/3,'+1','#0f0');
+            triggerShake();
+            if(pScore>=11){endGame('You Win!', true);return;}
+            resetBall(1);
+            if (isMultiplayer) sendBallState();
+        }
+        if(ball.y>H+20){
+            aiScore++;updateScores();popScore(asEl);playScore(false);
+            showScorePopup(W/2,H*2/3,'+1','#f0f');
+            triggerShake();
+            if(aiScore>=11){endGame(isMultiplayer ? opponentName + ' Wins!' : 'AI Wins!', false);return;}
+            resetBall(-1);
+            if (isMultiplayer) sendBallState();
+        }
+        
+    }
+    
+    // particles
+    particles=particles.filter(p=>{
+        p.x+=p.vx;p.y+=p.vy;
+        p.vy+=0.1;
+        p.life--;
+        return p.life>0;
+    });
+}
+
+function draw(){
+    // CRITICAL: Ensure W and H are valid before ANY drawing
+    if (!W || !H || !isFinite(W) || !isFinite(H) || W < 10 || H < 10) {
+        // Force resize if dimensions are invalid
+        const rect = canvas.getBoundingClientRect();
+        W = rect.width || 300;
+        H = rect.height || 500;
+        // Also fix canvas internal size
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // Re-init positions
+        playerY = H - 30;
+        aiY = 30;
+        playerX = playerX || W/2;
+        aiX = aiX || W/2;
+        pad.w = W * 0.22;
+        pad.h = 12;
+    }
+    
+    ctx.clearRect(0,0,W,H);
+    
+    // center line
+    ctx.setLineDash([6,6]);ctx.strokeStyle='#1a1a4a';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();ctx.setLineDash([]);
+    
+    // Ensure ball position is valid
+    if (!isFinite(ball.x) || ball.x < 0 || ball.x > W) ball.x = W/2;
+    if (!isFinite(ball.y) || ball.y < 0 || ball.y > H) ball.y = H/2;
+    
+    // trail
+    for(let i=0;i<ball.trail.length;i++){
+        const t=ball.trail[i];
+        if (!isFinite(t.x) || !isFinite(t.y)) continue;
+        const a=(i/ball.trail.length)*0.5;
+        ctx.beginPath();ctx.arc(t.x,t.y,ball.r*(i/ball.trail.length),0,Math.PI*2);
+        ctx.fillStyle=`rgba(0,255,255,${a})`;ctx.fill();
+    }
+    
+    // ball - enhanced visibility for mobile
+    ctx.shadowColor='#0ff';ctx.shadowBlur=25;
+    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+    // Outer glow
+    const ballGrad = ctx.createRadialGradient(ball.x,ball.y,0,ball.x,ball.y,ball.r*2);
+    ballGrad.addColorStop(0,'#fff');
+    ballGrad.addColorStop(0.3,'#0ff');
+    ballGrad.addColorStop(1,'rgba(0,255,255,0)');
+    ctx.fillStyle=ballGrad;ctx.fill();
+    // Inner core
+    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r*0.7,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+    
+    // ULTRA SIMPLE PADDLE DRAWING - use W and H directly
+    // Paddle dimensions
+    const pW = Math.max(50, W * 0.2);
+    const pH = 12;
+    
+    // Player paddle at bottom (green)
+    ctx.shadowColor='#0f0';ctx.shadowBlur=12;
+    ctx.fillStyle='#0f0';
+    ctx.fillRect((playerX || W/2) - pW/2, H - 25, pW, pH);
+    
+    // Opponent paddle at top (magenta)
+    ctx.shadowColor='#f0f';ctx.shadowBlur=12;
+    ctx.fillStyle='#f0f';
+    ctx.fillRect((aiX || W/2) - pW/2, 15, pW, pH);
+    ctx.shadowBlur=0;
+    
+    // particles
+    particles.forEach(p=>{
+        ctx.globalAlpha=p.life/35;
+        ctx.fillStyle=p.color;
+        ctx.shadowColor=p.color;ctx.shadowBlur=6;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size*(p.life/25),0,Math.PI*2);
+        ctx.fill();
+    });
+    ctx.globalAlpha=1;ctx.shadowBlur=0;
+    
+    // border pulse
+    borderPhase+=0.03;
+    const glow=12+Math.sin(borderPhase)*8;
+    const borderColor = isMultiplayer ? 'rgba(255,0,255,' : 'rgba(0,255,255,';
+    canvas.style.boxShadow=`0 0 ${glow}px ${borderColor}${0.2+Math.sin(borderPhase)*0.1}),inset 0 0 ${glow}px ${borderColor}0.05)`;
+}
+
+function loop(now){
+    if(!running)return;
+    try {
+        const dt=Math.min((now-lastTime)/16.67,2);
+        lastTime=now;
+        update(dt);
+        draw();
+    } catch(e) {
+        console.error('Game loop error:', e);
+        // Show error on screen
+        ctx.fillStyle='#f00';
+        ctx.font='14px sans-serif';
+        ctx.fillText('ERROR: ' + e.message, 10, 50);
+    }
+    animFrame=requestAnimationFrame(loop);
+}
+
+function endGame(msg, won){
+    running=false;
+    gameEnded=true;
+    if(animFrame){cancelAnimationFrame(animFrame);animFrame=null;}
+    if(gameTimerInterval){clearInterval(gameTimerInterval);gameTimerInterval=null;}
+    document.getElementById('gameTimer').style.display = 'none';
+    if(won) playWin(); else playLose();
+    overlay.classList.remove('hidden');
+    document.getElementById('overlayTitle').textContent=msg;
+    document.getElementById('overlayTitle').className = isMultiplayer ? 'mp' : '';
+    
+    // Submit result in multiplayer
+    if (isMultiplayer) {
+        submitGameResult(won ? 'win' : 'loss');
+    }
+    
+    // Different flow for tournament matches vs regular
+    if (isMultiplayer && tournamentId) {
+        // Tournament match ended - show tournament options
+        document.getElementById('overlayMsg').innerHTML = `
+            <div style="margin-bottom:15px;">Match recorded!</div>
+            <button onclick="findNewMatch()" style="display:block;width:100%;padding:12px;margin:8px 0;background:linear-gradient(135deg,#f0f,#0ff);border:none;color:#000;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">
+                🔄 Find New Match
+            </button>
+            <button onclick="exitTournament()" style="display:block;width:100%;padding:12px;margin:8px 0;background:transparent;border:2px solid #0ff;color:#0ff;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">
+                🏆 Back to Tournament
+            </button>
+        `;
+        document.getElementById('difficultySelect').style.display = 'none';
+        btnStart.style.display = 'none';
+    } else {
+        document.getElementById('overlayMsg').textContent='Tap START to play again';
+        document.getElementById('difficultySelect').style.display = 'flex';
+        btnStart.style.display = 'block';
+    }
+}
+
+// Tournament post-match functions
+function findNewMatch() {
+    // Reset game state
+    if (ws) ws.close();
+    ws = null;
+    gameEnded = false;
+    pScore = 0;
+    aiScore = 0;
+    
+    // Show lobby modal again
+    overlay.classList.add('hidden');
+    document.getElementById('lobbyModal').style.display = 'flex';
+    startMatchmaking();
+}
+
+function exitTournament() {
+    // Go back to tournament page
+    window.location.href = 'tournament.html';
+}
+
+// === DIFFICULTY SELECTION ===
+document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        playClick();
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        currentDifficulty = btn.dataset.diff;
+    });
+});
+
+// === MULTIPLAYER FUNCTIONS ===
+
+function connectWebSocket() {
+    const token = localStorage.getItem('clawmd_token');
+    if (!token || !matchId) return;
+
+    const wsUrl = `wss://clawmd-multiplayer.bassel-amin92-76d.workers.dev/ws/match/${matchId}?token=${token}`;
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+        document.getElementById('connectionOverlay').classList.add('hidden');
+        reconnectAttempts = 0;
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data);
+            handleServerMessage(msg);
+        } catch (e) {
+            console.error('Failed to parse message:', e);
+        }
+    };
+    
+    ws.onclose = () => {
+        console.log('WebSocket closed');
+        if (isMultiplayer && !gameEnded && reconnectAttempts < 3) {
+            reconnectAttempts++;
+            setTimeout(connectWebSocket, 2000);
+        }
+    };
+    
+    ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+    };
+}
+
+function handleServerMessage(msg) {
+    switch (msg.type) {
+        case 'game_start':
+            opponentName = msg.opponent;
+            document.getElementById('opponent-label').textContent = opponentName;
+            updateScores();
+            // Start game
+            overlay.classList.add('hidden');
+            resize(); init();
+            running=true; paused=false;
+            lastTime=performance.now();
+            animFrame=requestAnimationFrame(loop);
+            break;
+            
+        case 'paddle':
+            // Opponent paddle position (as percentage)
+            opponentPaddleX = msg.x;
+            break;
+            
+        case 'ball':
+            // Sync ball state from opponent (they hit it)
+            ball.x = msg.x * W;
+            ball.y = msg.y * H;
+            ball.vx = msg.vx;
+            ball.vy = msg.vy;
+            ball.speed = msg.speed || ball.speed;
+            break;
+            
+        case 'score':
+            pScore = msg.yourScore;
+            aiScore = msg.opponentScore;
+            updateScores();
+            break;
+            
+        case 'opponent_disconnected':
+            endGame('Opponent disconnected - You Win!', true);
+            break;
+            
+        case 'opponent_resigned':
+            endGame('Opponent resigned - You Win!', true);
+            break;
+            
+        case 'error':
+            console.error('Server error:', msg.message);
+            break;
+    }
+}
+
+function sendPaddlePosition(x) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'paddle',
+            x: x
+        }));
+    }
+}
+
+function sendBallState() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'ball',
+            x: ball.x / W,
+            y: ball.y / H,
+            vx: ball.vx,
+            vy: ball.vy,
+            speed: ball.speed
+        }));
+    }
+}
+
+function resign() {
+    if (!isMultiplayer || gameEnded) return;
+    if (confirm('Are you sure you want to resign?')) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'resign' }));
+        }
+        endGame('You resigned', false);
+    }
+}
+
+async function submitGameResult(result) {
+    // Submit to pong match result endpoint
+    try {
+        const response = await fetch(`${API_BASE}/api/pong/match-result`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tournamentId: tournamentId || null,
+                nickname: playerNickname || 'Player',
+                wallet: playerWallet || null,
+                won: result === 'win',
+                myScore: pScore,
+                opponentScore: aiScore,
+                opponent: opponentName || 'Unknown'
+            })
+        });
+        const data = await response.json();
+        console.log('Match result saved:', data);
+    } catch (e) {
+        console.error('Failed to submit result:', e);
+    }
+}
+
+function cancelMultiplayer() {
+    if (ws) ws.close();
+    isMultiplayer = false;
+    matchId = null;
+    opponentName = 'AI';
+    localStorage.removeItem('clawmd_match');
+    document.getElementById('connectionOverlay').classList.add('hidden');
+    document.getElementById('btnResign').style.display = 'none';
+    document.getElementById('btnPause').disabled = false;
+    canvas.classList.remove('mp');
+    document.getElementById('overlayTitle').className = '';
+    document.getElementById('difficultySelect').style.display = 'flex';
+    updateScores();
+}
+
+function initMultiplayer() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mpParam = urlParams.get('multiplayer');
+    const matchParam = urlParams.get('matchId');
+    
+    if (mpParam === 'true' && matchParam) {
+        matchId = matchParam;
+        isMultiplayer = true;
+        
+        // Get match info from localStorage
+        const matchInfo = JSON.parse(localStorage.getItem('clawmd_match') || '{}');
+        if (matchInfo.opponent) opponentName = matchInfo.opponent;
+        
+        // Update UI for multiplayer
+        canvas.classList.add('mp');
+        document.getElementById('btnResign').style.display = 'block';
+        document.getElementById('btnPause').disabled = true;
+        document.getElementById('overlayTitle').textContent = '🌐 ONLINE PONG';
+        document.getElementById('overlayTitle').className = 'mp';
+        document.getElementById('overlayMsg').textContent = 'Waiting for opponent...';
+        document.getElementById('difficultySelect').style.display = 'none';
+        btnStart.style.display = 'none';
+        
+        // Show connection overlay
+        document.getElementById('connectionOverlay').classList.remove('hidden');
+        document.getElementById('connectionTitle').textContent = 'Connecting...';
+        document.getElementById('connectionMsg').textContent = 'Joining match...';
+        
+        // Connect WebSocket
+        connectWebSocket();
+    }
+}
+
+// Touch controls - direct positioning like Breakout
+let touchActive = false;
+canvas.addEventListener('touchstart',e=>{e.preventDefault();touchActive=true;handleTouch(e.touches[0]);},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(touchActive)handleTouch(e.touches[0]);},{passive:false});
+canvas.addEventListener('touchend',()=>{touchActive=false;});
+function handleTouch(t){
+    const r=canvas.getBoundingClientRect();
+    targetPlayerX=Math.max(pad.w/2,Math.min(W-pad.w/2,(t.clientX-r.left)*(W/r.width)));
+}
+
+// Mouse control - direct positioning
+canvas.addEventListener('mousemove',e=>{
+    const r=canvas.getBoundingClientRect();
+    targetPlayerX=Math.max(pad.w/2,Math.min(W-pad.w/2,e.clientX-r.left));
+});
+
+// Keyboard controls for better responsiveness
+document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyLeft = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyRight = true;
+});
+document.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyLeft = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyRight = false;
+});
+
+btnStart.onclick=()=>{
+    initAudio();playClick();
+    if (isMultiplayer) return; // Don't start manually in multiplayer
+    overlay.classList.add('hidden');
+    resize();init();
+    running=true;paused=false;
+    lastTime=performance.now();
+    animFrame=requestAnimationFrame(loop);
+};
+btnPause.onclick=()=>{
+    if (isMultiplayer) return;
+    playClick();
+    paused=!paused;
+    btnPause.textContent=paused?'▶ Play':'⏸ Pause';
+};
+btnReset.onclick=()=>{
+    playClick();
+    running=false;
+    if(animFrame){cancelAnimationFrame(animFrame);animFrame=null;}
+    if (isMultiplayer) {
+        cancelMultiplayer();
+    }
+    overlay.classList.remove('hidden');
+    document.getElementById('overlayTitle').textContent='⚡ NEON PONG';
+    document.getElementById('overlayTitle').className = '';
+    document.getElementById('overlayMsg').innerHTML='Touch left/right side of screen to move your paddle (bottom).<br>First to 11 wins!';
+    document.getElementById('difficultySelect').style.display = 'flex';
+    btnStart.style.display = 'block';
+};
+document.getElementById('btnResign').onclick = resign;
+
+resize();
+initMultiplayer();
+
+// Make cancelMultiplayer available globally
+window.cancelMultiplayer = cancelMultiplayer;
+
+// === TOURNAMENT MODE ===
+const urlParams = new URLSearchParams(window.location.search);
+const tournamentId = urlParams.get('tournament');
+let tournamentRegistered = false;
+
+if (tournamentId) {
+    // Show tournament modal
+    document.getElementById('tournamentModal').style.display = 'flex';
+    document.getElementById('overlay').classList.add('hidden');
+    
+    // Load leaderboard
+    loadTournamentLeaderboard();
+    
+    // Load prize pool
+    (async function() {
+        try {
+            const balRes = await fetch('https://api.mainnet-beta.solana.com', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({jsonrpc:'2.0',id:1,method:'getBalance',params:['71qXVCAb8pcbfMMA2WN2r5dYtGj9xhJoRjahDreemdxg']})
+            });
+            const balData = await balRes.json();
+            const solBalance = balData.result?.value ? balData.result.value / 1e9 : 1.11;
+            
+            const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+            const priceData = await priceRes.json();
+            const solPrice = priceData.solana?.usd || 79;
+            
+            const halfPool = Math.floor((solBalance * solPrice) / 2);
+            document.getElementById('t-prize').textContent = '$' + halfPool;
+        } catch(e) {}
+    })();
+}
+
+let lobbyWs = null;
+let playerNickname = 'Player';
+let gameTimeLeft = 90; // 1.5 minute game
+let gameTimerInterval = null;
+let ballSpeedMultiplier = 1;
+const PONG_API = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+
+// Validate Solana wallet address
+window.validateWallet = function(input) {
+    const value = input.value.trim();
+    const isValid = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value);
+    const errorEl = document.getElementById('walletError');
+    
+    if (value.length > 0 && !isValid) {
+        input.style.borderColor = '#f44';
+        errorEl.style.display = 'block';
+    } else {
+        input.style.borderColor = '#0ff';
+        errorEl.style.display = 'none';
+    }
+};
+
+// Load tournament leaderboard
+async function loadTournamentLeaderboard() {
+    const container = document.getElementById('t-leaderboard');
+    container.innerHTML = '<div style="text-align:center;color:#666;padding:10px;font-size:11px;">Loading...</div>';
+    
+    try {
+        const res = await fetch(`${PONG_API}/api/pong/leaderboard`);
+        const data = await res.json();
+        
+        if (data.leaderboard && data.leaderboard.length > 0) {
+            container.innerHTML = data.leaderboard.slice(0, 5).map((p, i) => `
+                <div style="display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #222;${i < 3 ? 'background:rgba(157,0,255,0.15);' : ''}">
+                    <span style="width:30px;color:${i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#666'};font-size:12px;">
+                        ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1)}
+                    </span>
+                    <span style="flex:1;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;">${p.nickname}</span>
+                    <span style="width:40px;text-align:center;color:#0f8;font-size:12px;">${p.wins}</span>
+                    <span style="width:50px;text-align:right;color:#0ff;font-size:12px;">${p.totalPoints}</span>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div style="text-align:center;color:#666;padding:15px;font-size:11px;">No matches yet.<br>Be the first! 🏆</div>';
+        }
+    } catch(e) {
+        container.innerHTML = '<div style="text-align:center;color:#666;padding:10px;font-size:11px;">-</div>';
+    }
+}
+
+// Leaderboard functions
+window.showLeaderboard = async function() {
+    document.getElementById('leaderboardModal').style.display = 'block';
+    document.getElementById('leaderboardList').innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Loading...</div>';
+    
+    try {
+        const res = await fetch(`${PONG_API}/api/pong/leaderboard`);
+        const data = await res.json();
+        
+        if (data.leaderboard && data.leaderboard.length > 0) {
+            document.getElementById('leaderboardList').innerHTML = data.leaderboard.map((p, i) => `
+                <div style="display:flex;justify-content:space-between;padding:10px 8px;border-bottom:1px solid #222;${i < 3 ? 'background:rgba(157,0,255,0.1);' : ''}">
+                    <span style="width:40px;color:${i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#888'};">
+                        ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1)}
+                    </span>
+                    <span style="flex:1;color:#fff;">${p.nickname}</span>
+                    <span style="width:60px;text-align:center;color:#0f8;">${p.wins}</span>
+                    <span style="width:60px;text-align:right;color:#0ff;">${p.totalPoints}</span>
+                </div>
+            `).join('');
+        } else {
+            document.getElementById('leaderboardList').innerHTML = '<div style="text-align:center;color:#888;padding:20px;">No matches yet. Be the first!</div>';
+        }
+    } catch(e) {
+        document.getElementById('leaderboardList').innerHTML = '<div style="text-align:center;color:#f66;padding:20px;">Failed to load leaderboard</div>';
+    }
+};
+
+window.closeLeaderboard = function() {
+    document.getElementById('leaderboardModal').style.display = 'none';
+};
+
+// Game timer functions
+function startGameTimer() {
+    gameTimeLeft = 90; // 1.5 minutes
+    ballSpeedMultiplier = 1;
+    document.getElementById('gameTimer').style.display = 'block';
+    updateTimerDisplay();
+    
+    gameTimerInterval = setInterval(() => {
+        gameTimeLeft--;
+        updateTimerDisplay();
+        
+        // Ball speeds up every 15 seconds
+        if (gameTimeLeft % 15 === 0 && gameTimeLeft < 90) {
+            ballSpeedMultiplier += 0.15;
+        }
+        
+        if (gameTimeLeft <= 0) {
+            clearInterval(gameTimerInterval);
+            endTimedGame();
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const mins = Math.floor(gameTimeLeft / 60);
+    const secs = gameTimeLeft % 60;
+    document.getElementById('timerDisplay').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    
+    // Flash red when low
+    if (gameTimeLeft <= 10) {
+        document.getElementById('timerDisplay').style.color = '#f44';
+    }
+}
+
+function endTimedGame() {
+    running = false;
+    paused = true;
+    document.getElementById('gameTimer').style.display = 'none';
+    
+    const won = pScore > aiScore;
+    const msg = pScore === aiScore ? "It's a Draw!" : (won ? 'You Win!' : 'You Lose!');
+    
+    // Save result to leaderboard
+    if (isMultiplayer && tournamentId) {
+        saveMatchResult(won, pScore, aiScore);
+    }
+    
+    endGame(msg + ` (${pScore} - ${aiScore})`, won);
+}
+
+async function saveMatchResult(won, myScore, oppScore) {
+    const nickname = localStorage.getItem('pong_tournament_nickname') || 'Anonymous';
+    const wallet = localStorage.getItem('pong_tournament_wallet');
+    
+    try {
+        await fetch(`${PONG_API}/api/pong/match-result`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tournamentId: tournamentId,
+                nickname: nickname,
+                wallet: wallet,
+                won: won,
+                myScore: myScore,
+                opponentScore: oppScore,
+                opponent: opponentName
+            })
+        });
+    } catch(e) {
+        console.error('Failed to save match result:', e);
+    }
+}
+
+window.registerForTournament = async function() {
+    const nickname = document.getElementById('t-nickname').value.trim();
+    const wallet = document.getElementById('t-wallet').value.trim();
+    
+    if (!nickname) { alert('Please enter a nickname'); return; }
+    if (!wallet || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) { 
+        alert('Please enter a valid Solana wallet address'); return; 
+    }
+    
+    playerNickname = nickname;
+    
+    // Store for later use
+    localStorage.setItem('pong_tournament_nickname', nickname);
+    localStorage.setItem('pong_tournament_wallet', wallet);
+    localStorage.setItem('pong_tournament_id', tournamentId);
+    tournamentRegistered = true;
+    
+    // Check if user has account, try to register for tournament
+    const token = localStorage.getItem('clawarcade_token');
+    if (token) {
+        try {
+            const res = await fetch('https://clawarcade-api.bassel-amin92-76d.workers.dev/api/tournaments/' + tournamentId + '/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ solana_wallet: wallet, nickname: nickname })
+            });
+            const data = await res.json();
+            if (!data.success && !data.error?.includes('Already registered')) {
+                console.log('Registration note:', data.error);
+            }
+        } catch(e) { console.log('Registration error:', e); }
+    }
+    
+    // Hide tournament modal, show lobby
+    document.getElementById('tournamentModal').style.display = 'none';
+    document.getElementById('lobbyModal').style.display = 'flex';
+    
+    // Start matchmaking
+    startMatchmaking();
+};
+
+window.skipTournament = function() {
+    document.getElementById('tournamentModal').style.display = 'none';
+    document.getElementById('overlay').classList.remove('hidden');
+};
+
+window.cancelMatchmaking = function() {
+    if (lobbyWs) {
+        lobbyWs.close();
+        lobbyWs = null;
+    }
+    document.getElementById('lobbyModal').style.display = 'none';
+    document.getElementById('overlay').classList.remove('hidden');
+};
+
+function startMatchmaking() {
+    // Connect to pong matchmaking WebSocket
+    const wsUrl = 'wss://pong-lobby.bassel-amin92-76d.workers.dev/ws/pong-lobby';
+    const statusEl = document.getElementById('lobbyStatus');
+    
+    statusEl.textContent = '🔄 Connecting to lobby...';
+    statusEl.style.color = '#ff0';
+    
+    try {
+        lobbyWs = new WebSocket(wsUrl);
+        
+        // Timeout - if no connection in 10 seconds, show error
+        const connectTimeout = setTimeout(() => {
+            if (lobbyWs && lobbyWs.readyState !== WebSocket.OPEN) {
+                statusEl.textContent = '❌ Connection timeout - try again';
+                statusEl.style.color = '#f66';
+            }
+        }, 10000);
+        
+        lobbyWs.onopen = () => {
+            clearTimeout(connectTimeout);
+            console.log('Connected to lobby');
+            statusEl.textContent = '✓ Connected! Joining queue...';
+            statusEl.style.color = '#0f8';
+            
+            // Send join message with nickname
+            lobbyWs.send(JSON.stringify({
+                type: 'join_queue',
+                nickname: playerNickname,
+                tournamentId: tournamentId
+            }));
+        };
+        
+        lobbyWs.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                handleLobbyMessage(msg);
+            } catch(e) {
+                console.error('Lobby message error:', e);
+                statusEl.textContent = '⚠️ Message error';
+                statusEl.style.color = '#f66';
+            }
+        };
+        
+        lobbyWs.onclose = (e) => {
+            clearTimeout(connectTimeout);
+            console.log('Lobby disconnected:', e.code, e.reason);
+            statusEl.textContent = '❌ Disconnected (code: ' + e.code + ')';
+            statusEl.style.color = '#f66';
+        };
+        
+        lobbyWs.onerror = (err) => {
+            clearTimeout(connectTimeout);
+            console.error('Lobby error:', err);
+            statusEl.textContent = '❌ Connection error - check network';
+            statusEl.style.color = '#f66';
+        };
+    } catch(e) {
+        console.error('WebSocket error:', e);
+        statusEl.textContent = '❌ WebSocket failed: ' + e.message;
+        statusEl.style.color = '#f66';
+    }
+}
+
+let isBallController = false; // Track if we control ball physics
+
+function connectMatchWebSocket(matchId, myPaddle) {
+    // Bottom player controls ball physics
+    isBallController = (myPaddle === 'bottom');
+    
+    const wsUrl = `wss://pong-lobby.bassel-amin92-76d.workers.dev/ws/match/${matchId}?playerId=${crypto.randomUUID()}`;
+    
+    // Show loading state
+    overlay.classList.remove('hidden');
+    document.getElementById('overlayTitle').textContent = '🎮 MATCH FOUND!';
+    document.getElementById('overlayMsg').textContent = '🔄 Connecting to match server...';
+    btnStart.style.display = 'none';
+    
+    ws = new WebSocket(wsUrl);
+    
+    // Match connection timeout
+    const matchTimeout = setTimeout(() => {
+        if (ws && ws.readyState !== WebSocket.OPEN) {
+            document.getElementById('overlayMsg').textContent = '❌ Match connection timeout';
+            btnStart.textContent = 'RETRY';
+            btnStart.style.display = 'block';
+            btnStart.onclick = () => connectMatchWebSocket(matchId, myPaddle);
+        }
+    }, 10000);
+    
+    ws.onopen = () => {
+        clearTimeout(matchTimeout);
+        console.log('Connected to match');
+        document.getElementById('overlayMsg').textContent = '✓ Connected! Waiting for opponent...';
+        
+        // Send join message
+        ws.send(JSON.stringify({
+            type: 'join',
+            nickname: playerNickname,
+            paddle: myPaddle
+        }));
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data);
+            handleMatchMessage(msg);
+        } catch(e) {
+            console.error('Match message error:', e);
+        }
+    };
+    
+    ws.onclose = (e) => {
+        clearTimeout(matchTimeout);
+        console.log('Match disconnected:', e.code, e.reason);
+        if (!gameEnded) {
+            document.getElementById('overlayMsg').textContent = '❌ Disconnected from match (code: ' + e.code + ')';
+        }
+    };
+    
+    ws.onerror = (err) => {
+        clearTimeout(matchTimeout);
+        console.error('Match error:', err);
+        document.getElementById('overlayMsg').textContent = '❌ Match connection error';
+    };
+}
+
+function handleMatchMessage(msg) {
+    switch(msg.type) {
+        case 'game_start':
+            opponentName = msg.opponent;
+            document.getElementById('opponent-label').textContent = opponentName;
+            
+            // Start game with timer for tournament
+            overlay.classList.add('hidden');
+            
+            // Wait 500ms for DOM to fully update, then initialize
+            setTimeout(() => {
+                resize(); 
+                init();
+                
+                // Validate dimensions - retry if invalid
+                if (W < 50 || H < 50) {
+                    console.error('Invalid dimensions, retrying...', W, H);
+                    setTimeout(() => {
+                        resize();
+                        init();
+                        startGame();
+                    }, 300);
+                    return;
+                }
+                
+                startGame();
+            }, 500);
+            
+            function startGame() {
+                // Ensure valid paddle positions
+                if (playerY <= 0 || playerY >= H) playerY = H - 30;
+                if (aiY <= 0 || aiY >= H) aiY = 30;
+                if (pad.w < 10) pad.w = Math.max(60, W * 0.22);
+                if (pad.h < 5) pad.h = Math.max(10, H * 0.02);
+                playerX = playerX || W/2;
+                aiX = aiX || W/2;
+                
+                running = true; paused = false;
+                lastTime = performance.now();
+                animFrame = requestAnimationFrame(loop);
+                
+                // Start timer only AFTER game is running
+                if (tournamentId) {
+                    // Additional 1 second delay to ensure everything is ready
+                    setTimeout(() => {
+                        if (running) startGameTimer();
+                    }, 1000);
+                }
+                
+                console.log('Game ready - W:', W, 'H:', H, 'playerY:', playerY, 'aiY:', aiY, 'pad:', pad.w, pad.h);
+            }
+            break;
+            
+        case 'paddle':
+            // Opponent paddle position
+            opponentPaddleX = msg.x;
+            break;
+            
+        case 'ball':
+            // Sync ball from opponent
+            ball.x = msg.x * W;
+            ball.y = msg.y * H;
+            ball.vx = msg.vx;
+            ball.vy = msg.vy;
+            break;
+            
+        case 'score':
+            pScore = msg.yourScore;
+            aiScore = msg.opponentScore;
+            updateScores();
+            break;
+            
+        case 'opponent_disconnected':
+            endGame('Opponent disconnected - You Win!', true);
+            break;
+    }
+}
+
+function handleLobbyMessage(msg) {
+    const statusEl = document.getElementById('lobbyStatus');
+    switch(msg.type) {
+        case 'queue_update':
+            if (msg.count >= 2) {
+                statusEl.textContent = `🎮 ${msg.count} players ready - matching...`;
+                statusEl.style.color = '#0f0';
+            } else {
+                statusEl.textContent = `⏳ Waiting for opponent (${msg.count}/2 players)`;
+                statusEl.style.color = '#0f8';
+            }
+            break;
+            
+        case 'match_found':
+            // Match found! Start the game
+            document.getElementById('lobbyModal').style.display = 'none';
+            isMultiplayer = true;
+            matchId = msg.matchId;
+            opponentName = msg.opponent;
+            const myPaddle = msg.color; // 'bottom' or 'top'
+            
+            // Setup multiplayer UI
+            canvas.classList.add('mp');
+            document.getElementById('btnResign').style.display = 'block';
+            document.getElementById('btnPause').disabled = true;
+            document.getElementById('opponent-label').textContent = opponentName;
+            document.getElementById('difficultySelect').style.display = 'none';
+            
+            // Connect to match WebSocket
+            connectMatchWebSocket(matchId, myPaddle);
+            break;
+            
+        case 'error':
+            alert(msg.message || 'Matchmaking error');
+            cancelMatchmaking();
+            break;
+    }
+};
+})();
+</script>
+</body>
+</html>
