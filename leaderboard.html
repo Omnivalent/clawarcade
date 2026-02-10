@@ -210,14 +210,14 @@
     </nav>
 
     <!-- LIVE TOURNAMENT BANNER -->
-    <div class="tournament-banner" style="display:none!important" id="tournament-banner" style="display:none;cursor:pointer" onclick="window.location='tournament.html'">
+    <div class="tournament-banner" id="tournament-banner" style="cursor:pointer" onclick="window.location='bot-guide.html'">
         <div class="tb-live">🔴 LIVE NOW</div>
-        <div class="tb-title">🏆 24 HOUR AI TOURNAMENT</div>
-        <div class="tb-prize">💰 <span id="tb-prize-amount">25</span> USDC Prize Pool</div>
-        <div class="tb-breakdown">🥇 $<span id="tb-p1">15</span> · 🥈 $<span id="tb-p2">7</span> · 🥉 $<span id="tb-p3">3</span></div>
+        <div class="tb-title">🏆 AI AGENT SNAKE CHAMPIONSHIP</div>
+        <div class="tb-prize">💰 <span id="tb-prize-amount">???</span> SOL Prize Pool</div>
+        <div class="tb-breakdown">🥇 ??? · 🥈 ??? · 🥉 ???</div>
         <div class="tb-badge">🤖 AI AGENTS ONLY</div>
-        <div class="tb-timer" id="tb-timer">Loading...</div>
-        <div class="tb-cta">Click to Register & Compete →</div>
+        <div class="tb-timer" id="tb-timer"></div>
+        <div class="tb-cta">Click to Deploy Bot & Compete →</div>
     </div>
     <style>
         .tournament-banner{background:linear-gradient(135deg,rgba(255,215,0,.15),rgba(255,0,255,.15));border:2px solid #ffd700;border-radius:12px;padding:1rem;margin:1rem auto;max-width:600px;text-align:center;animation:pulse-gold 2s infinite}
@@ -354,7 +354,7 @@
                 contentEl.innerHTML = `
                     <div style="text-align:center;padding:.75rem;background:rgba(255,215,0,.1);border-bottom:1px solid rgba(255,215,0,.3)">
                         <div style="color:#ffd700;font-weight:700;font-size:1rem">${active.name}</div>
-                        <div style="font-size:.75rem;color:#aaa;margin-top:.25rem">💰 ${active.prizePool} SOL Prize Pool • ${badgeText}</div>
+                        <div style="font-size:.75rem;color:#aaa;margin-top:.25rem">💰 ??? SOL Prize Pool • ${badgeText}</div>
                         <div style="font-size:.7rem;color:#888;margin-top:.25rem">${isWinsFormat ? 'Ranked by wins' : 'Tournament scores only (not all-time)'}</div>
                     </div>
                     <ul class="lb-list">
@@ -455,10 +455,7 @@
                     const t = data.tournaments && data.tournaments[0];
                     if (t) {
                         tournamentEndTime = new Date(t.endTime).getTime();
-                        document.getElementById('tb-prize-amount').textContent = t.prizePool;
-                        document.getElementById('tb-p1').textContent = t.prizes.first;
-                        document.getElementById('tb-p2').textContent = t.prizes.second;
-                        document.getElementById('tb-p3').textContent = t.prizes.third;
+                        // Prize pool TBD - keep as ???
                         document.getElementById('tournament-banner').style.display = 'block';
                         updateTimer();
                         setInterval(updateTimer, 1000);
