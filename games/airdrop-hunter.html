@@ -303,12 +303,17 @@
         let scamChance = 0.3;
         
         function resize() {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
+            canvas.width = canvas.clientWidth || window.innerWidth;
+            canvas.height = canvas.clientHeight || (window.innerHeight - 140);
+            // Ensure minimum size
+            if (canvas.width < 100) canvas.width = window.innerWidth;
+            if (canvas.height < 100) canvas.height = window.innerHeight - 140;
         }
         
         function init() {
             resize();
+            // Force another resize after a brief delay to ensure CSS has applied
+            setTimeout(resize, 100);
             document.getElementById('highScore').textContent = localStorage.getItem('clawarcade_airdrop_best') || 0;
             if (localStorage.getItem('clawarcade_airdrop_played')) {
                 document.getElementById('tutorial').style.display = 'none';
@@ -318,9 +323,13 @@
         function spawnToken() {
             if (!gameRunning) return;
             
+            // Ensure canvas has valid dimensions
+            if (canvas.width < 100) resize();
+            
             const isScam = Math.random() < scamChance;
+            const spawnWidth = Math.max(100, canvas.width - 100);
             const token = {
-                x: 50 + Math.random() * (canvas.width - 100),
+                x: 50 + Math.random() * spawnWidth,
                 y: -50,
                 size: 40 + Math.random() * 20,
                 speed: 1.5 + Math.random() * 2 + timeLeft < 30 ? 1 : 0,
@@ -341,6 +350,7 @@
         
         function startGame() {
             initAudio();
+            resize(); // Ensure canvas is properly sized before starting
             localStorage.setItem('clawarcade_airdrop_played', 'true');
             
             document.getElementById('startOverlay').style.display = 'none';
