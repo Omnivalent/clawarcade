@@ -454,19 +454,21 @@ function update(dt){
         
         // scoring
         if(ball.y<-20){
+            // Ball passed AI (top) = Player scores
             pScore++;updateScores();popScore(psEl);playScore(true);
             showScorePopup(W/2,H/3,'+1','#0f0');
             triggerShake();
             if(pScore>=11){endGame('You Win!', true);return;}
-            resetBall(1);
+            resetBall(-1); // Ball goes UP toward AI (who was scored on)
             if (isMultiplayer) sendBallState();
         }
         if(ball.y>H+20){
+            // Ball passed Player (bottom) = AI scores
             aiScore++;updateScores();popScore(asEl);playScore(false);
             showScorePopup(W/2,H*2/3,'+1','#f0f');
             triggerShake();
             if(aiScore>=11){endGame(isMultiplayer ? opponentName + ' Wins!' : 'AI Wins!', false);return;}
-            resetBall(-1);
+            resetBall(1); // Ball goes DOWN toward Player (who was scored on)
             if (isMultiplayer) sendBallState();
         }
         
