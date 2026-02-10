@@ -305,14 +305,22 @@ function resize(){
 window.addEventListener('resize',resize);
 
 function resetBall(dir){
-    ball.x=W/2;ball.y=H/2;
-    const angle=(Math.random()*0.8-0.4);
+    // dir = 1: ball starts at TOP (AI's paddle), goes DOWN toward player
+    // dir = -1: ball starts at BOTTOM (player's paddle), goes UP toward AI
+    ball.x = W/2;
+    // Start near the scorer's paddle, not midline
+    if (dir === 1) {
+        ball.y = aiY + 40; // Start near AI paddle (top)
+    } else {
+        ball.y = playerY - 40; // Start near player paddle (bottom)
+    }
+    const angle = (Math.random() * 0.6 - 0.3); // Slight angle variation
     const diff = DIFFICULTY[currentDifficulty];
     ball.speed = diff.ballSpeed;
-    const spd=ball.speed;
-    ball.vx=Math.sin(angle)*spd*(Math.random()>0.5?1:-1);
-    ball.vy=Math.cos(angle)*spd*dir;
-    ball.trail=[];
+    const spd = ball.speed;
+    ball.vx = Math.sin(angle) * spd * (Math.random() > 0.5 ? 1 : -1);
+    ball.vy = Math.cos(angle) * spd * dir;
+    ball.trail = [];
 }
 
 function init(){
@@ -459,7 +467,7 @@ function update(dt){
             showScorePopup(W/2,H/3,'+1','#0f0');
             triggerShake();
             if(pScore>=11){endGame('You Win!', true);return;}
-            resetBall(-1); // Ball goes UP toward AI (who was scored on)
+            resetBall(-1); // Player scored → ball at player's paddle, goes UP toward AI
             if (isMultiplayer) sendBallState();
         }
         if(ball.y>H+20){
@@ -468,7 +476,7 @@ function update(dt){
             showScorePopup(W/2,H*2/3,'+1','#f0f');
             triggerShake();
             if(aiScore>=11){endGame(isMultiplayer ? opponentName + ' Wins!' : 'AI Wins!', false);return;}
-            resetBall(1); // Ball goes DOWN toward Player (who was scored on)
+            resetBall(1); // AI scored → ball at AI's paddle, goes DOWN toward player
             if (isMultiplayer) sendBallState();
         }
         

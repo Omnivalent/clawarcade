@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Whale Watcher — ClawArcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--cyan:#00f0ff;--mag:#ff2a6d;--grn:#05ffa1;--yel:#f0e010;--void:#06060c;--panel:rgba(12,12,24,0.9);--border:rgba(0,240,255,0.12);--text:#c8c8e0;--dim:rgba(200,200,224,0.4)}
+body{background:var(--void);color:var(--text);font-family:'Rajdhani',sans-serif;overflow:hidden;height:100vh;width:100vw;touch-action:none;user-select:none;-webkit-user-select:none}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);pointer-events:none;z-index:9999}
+.wrap{display:flex;flex-direction:column;height:100vh;max-width:600px;margin:0 auto;padding:0.75rem;gap:0.5rem}
+.g-header{display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border)}
+.g-title{font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:700;letter-spacing:1px}
+.g-title span{color:var(--cyan)}
+.g-back{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--cyan);letter-spacing:1px;text-decoration:none;text-transform:uppercase}
+.hud{display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem}
+.h-item{text-align:center;padding:0.4rem;background:var(--panel);border:1px solid var(--border)}
+.h-val{font-family:'Orbitron',monospace;font-size:clamp(0.85rem,3vw,1.1rem);font-weight:700;line-height:1}
+.h-lbl{font-family:'Share Tech Mono',monospace;font-size:0.45rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-top:0.15rem}
+.chart-area{height:80px;position:relative;background:var(--panel);border:1px solid var(--border);overflow:hidden}
+.chart-label{position:absolute;top:4px;left:6px;font-family:'Share Tech Mono',monospace;font-size:0.45rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;z-index:2}
+.chart-price{position:absolute;top:4px;right:6px;font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:var(--grn);z-index:2}
+canvas#priceChart{width:100%;height:100%}
+.feed{flex:1;position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--border);min-height:0}
+.feed-label{position:absolute;top:4px;left:6px;font-family:'Share Tech Mono',monospace;font-size:0.45rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;z-index:2}
+.feed-timer{position:absolute;top:4px;right:6px;font-family:'Orbitron',monospace;font-size:0.65rem;font-weight:700;color:var(--yel);z-index:2}
+.tx-row{position:absolute;left:0;right:0;padding:0.4rem 0.6rem;display:flex;align-items:center;gap:0.5rem;border-bottom:1px solid rgba(0,240,255,0.04);cursor:pointer;transition:background 0.15s,opacity 0.3s;-webkit-tap-highlight-color:transparent;font-family:'Share Tech Mono',monospace;font-size:0.65rem}
+.tx-row:active{background:rgba(0,240,255,0.06)}
+.tx-row.tapped{opacity:0.2;pointer-events:none}
+.tx-icon{font-size:1rem;flex-shrink:0;width:24px;text-align:center}
+.tx-body{flex:1;min-width:0}
+.tx-addr{color:var(--dim);font-size:0.55rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-amount{font-weight:700;font-size:0.7rem}
+.tx-amount.whale{color:var(--cyan);text-shadow:0 0 8px rgba(0,240,255,0.3)}
+.tx-amount.normal{color:var(--dim)}
+.tx-amount.bot-trap{color:var(--mag)}
+.tx-time{font-size:0.5rem;color:var(--dim);flex-shrink:0}
+.combo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',monospace;font-size:2rem;font-weight:900;pointer-events:none;z-index:100;opacity:0;transition:all 0.4s}
+.combo.show{opacity:1;transform:translate(-50%,-60%)}
+.combo.good{color:var(--grn);text-shadow:0 0 20px rgba(5,255,161,0.5)}
+.combo.bad{color:var(--mag);text-shadow:0 0 20px rgba(255,42,109,0.5)}
+.streak-wrap{padding:0.2rem 0}
+.streak-header{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:0.15rem}
+.streak-bar{height:5px;background:rgba(255,255,255,0.05);border:1px solid var(--border);overflow:hidden}
+.streak-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--grn));transition:width 0.3s}
+.overlay{position:fixed;inset:0;background:rgba(6,6,12,0.92);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.overlay.hidden{display:none}
+.o-box{text-align:center;padding:2rem;max-width:380px;width:90%}
+.o-box h2{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;margin-bottom:0.5rem;color:var(--cyan)}
+.o-box p{font-size:0.88rem;color:var(--dim);line-height:1.7;margin-bottom:1.5rem}
+.o-box .big-score{font-family:'Orbitron',monospace;font-size:2.2rem;font-weight:900;color:var(--grn);margin:0.8rem 0}
+.o-box .big-score.neg{color:var(--mag)}
+.o-btn{padding:0.8rem 2.5rem;font-family:'Orbitron',monospace;font-size:0.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:var(--cyan);color:var(--void);border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));transition:all 0.3s}
+.o-btn:hover{box-shadow:0 0 20px rgba(0,240,255,0.4)}
+.stat-row{display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:0.65rem}
+.stat-row .lbl{color:var(--dim)}.stat-row .val{font-weight:700}
+.stat-row .val.g{color:var(--grn)}.stat-row .val.r{color:var(--mag)}.stat-row .val.c{color:var(--cyan)}
+@media(max-width:400px){.wrap{padding:0.5rem}.tx-row{font-size:0.55rem;padding:0.3rem 0.4rem}.chart-area{height:60px}}
+</style>
+</head>
+<body>
+<div class="overlay" id="startScreen">
+<div class="o-box">
+<h2>🐋 WHALE WATCHER</h2>
+<p>Transactions scroll through the feed. Tap <span style="color:var(--cyan)">whale transactions</span> (large amounts) to front-run them for profit. Avoid tapping <span style="color:var(--mag)">bot traps</span> — they'll drain your portfolio. Build combos for multipliers!</p>
+<button class="o-btn" id="startBtn">Start Watching</button>
+</div>
+</div>
+<div class="overlay hidden" id="endScreen">
+<div class="o-box">
+<h2 style="color:var(--yel)">SESSION OVER</h2>
+<div class="big-score" id="endScore">$0</div>
+<div id="endStats"></div>
+<br>
+<button class="o-btn" id="restartBtn">Watch Again</button>
+</div>
+</div>
+<div class="combo" id="comboPopup"></div>
+<div class="wrap">
+<div class="g-header">
+<div class="g-title">🐋 <span>WHALE</span> WATCHER</div>
+<a href="../index.html" class="g-back">← Arcade</a>
+</div>
+<div class="hud">
+<div class="h-item"><div class="h-val" id="portfolio" style="color:var(--grn)">$10,000</div><div class="h-lbl">Portfolio</div></div>
+<div class="h-item"><div class="h-val" id="whalesCaught" style="color:var(--cyan)">0</div><div class="h-lbl">Whales Caught</div></div>
+<div class="h-item"><div class="h-val" id="comboCount" style="color:var(--yel)">x1</div><div class="h-lbl">Combo</div></div>
+</div>
+<div class="streak-wrap">
+<div class="streak-header"><span>Accuracy</span><span id="accText">0%</span></div>
+<div class="streak-bar"><div class="streak-fill" id="accFill" style="width:0%"></div></div>
+</div>
+<div class="chart-area">
+<div class="chart-label">◆ SOL/USD</div>
+<div class="chart-price" id="chartPrice">$104.50</div>
+<canvas id="priceChart"></canvas>
+</div>
+<div class="feed" id="feed">
+<div class="feed-label">◆ Live Transaction Feed</div>
+<div class="feed-timer" id="timer">60s</div>
+</div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const GAME_DURATION = 60;
+const SCROLL_SPEED = 0.6;
+const SPAWN_MIN = 400;
+const SPAWN_MAX = 1200;
+const ROW_HEIGHT = 42;
+let game = {};
+const WALLETS = ['0x7a25...e3f1','0xdead...beef','0x1337...0420','0xabc0...9def','0x5678...fedc','0xface...b00c','0xc0de...cafe','0xbeef...d00d','0x0000...ffff','0x4206...9000','5Q4z...mHf3','DRtX...9pK2','Gh7Y...wL4q','9vBn...2cXp','3kRt...8mZw','JfLx...4bNy'];
+const TOKENS = ['SOL','ETH','BONK','WIF','JUP','RAY','ORCA','PYTH','JTO','RENDER','DRIFT'];
+function randF(a,b){return Math.random()*(b-a)+a}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function fmt(n){return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+n.toFixed(0)}
+function genTx(){
+const r = Math.random();
+let type, amount, icon;
+if(r < 0.12){ type = 'whale'; amount = randF(500000, 8000000); icon = '🐋'; }
+else if(r < 0.22){ type = 'bot-trap'; amount = randF(200000, 3000000); icon = '🤖'; }
+else { type = 'normal'; amount = randF(50, 200000); icon = randF(0,1) < 0.5 ? '📤' : '📥'; }
+return { type, amount, icon, from: pick(WALLETS), token: pick(TOKENS), time: Math.floor(randF(1,30))+'s ago', y: 0, tapped: false, el: null };
+}
+function createTxEl(tx){
+const div = document.createElement('div');
+div.className = 'tx-row';
+div.innerHTML = `<div class="tx-icon">${tx.icon}</div><div class="tx-body"><div class="tx-addr">${tx.from} → ${pick(WALLETS)}</div><div class="tx-amount ${tx.type}">${fmt(tx.amount)} ${tx.token}</div></div><div class="tx-time">${tx.time}</div>`;
+div.addEventListener('click', () => tapTx(tx));
+div.addEventListener('touchend', (e) => { e.preventDefault(); tapTx(tx); });
+tx.el = div;
+return div;
+}
+function tapTx(tx){
+if(tx.tapped || !game.running) return;
+tx.tapped = true;
+tx.el.classList.add('tapped');
+if(tx.type === 'whale'){
+const profit = Math.floor(tx.amount * randF(0.005, 0.02) * game.combo);
+game.portfolio += profit;
+game.whales++;
+game.combo = Math.min(game.combo + 1, 10);
+game.hits++;
+showCombo(`+${fmt(profit)}`, 'good');
+flashPrice(true);
+} else if(tx.type === 'bot-trap'){
+const loss = Math.floor(randF(500, 3000) * game.combo);
+game.portfolio -= loss;
+game.combo = 1;
+game.traps++;
+showCombo(`-${fmt(loss)}`, 'bad');
+flashPrice(false);
+} else {
+const loss = Math.floor(randF(50, 200));
+game.portfolio -= loss;
+game.combo = Math.max(1, game.combo - 1);
+game.misses++;
+showCombo('MISS', 'bad');
+}
+game.totalTaps++;
+updateHUD();
+}
+function showCombo(text, type){
+const el = $('comboPopup');
+el.textContent = text;
+el.className = `combo show ${type}`;
+setTimeout(() => el.className = 'combo', 600);
+}
+function flashPrice(up){
+const el = $('chartPrice');
+const change = randF(0.5, 3.0);
+game.price += up ? change : -change;
+el.textContent = '$' + game.price.toFixed(2);
+el.style.color = up ? 'var(--grn)' : 'var(--mag)';
+setTimeout(() => el.style.color = game.price >= 104.50 ? 'var(--grn)' : 'var(--mag)', 500);
+game.priceHistory.push(game.price);
+drawChart();
+}
+function drawChart(){
+const canvas = $('priceChart');
+const ctx = canvas.getContext('2d');
+const rect = canvas.parentElement.getBoundingClientRect();
+canvas.width = rect.width * 2;
+canvas.height = rect.height * 2;
+ctx.scale(2, 2);
+const w = rect.width, h = rect.height;
+ctx.clearRect(0, 0, w, h);
+const data = game.priceHistory.slice(-80);
+if(data.length < 2) return;
+const min = Math.min(...data) - 1;
+const max = Math.max(...data) + 1;
+const range = max - min || 1;
+ctx.beginPath();
+ctx.strokeStyle = game.price >= 104.50 ? '#05ffa1' : '#ff2a6d';
+ctx.lineWidth = 1.5;
+for(let i = 0; i < data.length; i++){
+const x = (i / (data.length - 1)) * w;
+const y = h - 16 - ((data[i] - min) / range) * (h - 24);
+if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+}
+ctx.stroke();
+const gradient = ctx.createLinearGradient(0, 0, 0, h);
+gradient.addColorStop(0, game.price >= 104.50 ? 'rgba(5,255,161,0.1)' : 'rgba(255,42,109,0.1)');
+gradient.addColorStop(1, 'transparent');
+ctx.lineTo(w, h);
+ctx.lineTo(0, h);
+ctx.closePath();
+ctx.fillStyle = gradient;
+ctx.fill();
+}
+function updateHUD(){
+$('portfolio').textContent = fmt(game.portfolio);
+$('portfolio').style.color = game.portfolio >= 10000 ? 'var(--grn)' : 'var(--mag)';
+$('whalesCaught').textContent = game.whales;
+$('comboCount').textContent = 'x' + game.combo;
+$('comboCount').style.color = game.combo >= 5 ? 'var(--grn)' : game.combo >= 3 ? 'var(--yel)' : 'var(--cyan)';
+const acc = game.totalTaps > 0 ? Math.round((game.hits / game.totalTaps) * 100) : 0;
+$('accText').textContent = acc + '%';
+$('accFill').style.width = acc + '%';
+}
+function gameLoop(){
+if(!game.running) return;
+const feed = $('feed');
+const feedH = feed.getBoundingClientRect().height;
+game.txs.forEach(tx => {
+tx.y -= SCROLL_SPEED;
+if(tx.el) tx.el.style.top = tx.y + 'px';
+if(tx.y < -ROW_HEIGHT && tx.el && tx.el.parentNode){
+if(tx.type === 'whale' && !tx.tapped){ game.missedWhales++; }
+tx.el.remove();
+tx.el = null;
+}
+});
+game.txs = game.txs.filter(tx => tx.el !== null);
+requestAnimationFrame(gameLoop);
+}
+function spawnLoop(){
+if(!game.running) return;
+const tx = genTx();
+const feed = $('feed');
+const feedH = feed.getBoundingClientRect().height;
+tx.y = feedH + 10;
+const el = createTxEl(tx);
+el.style.top = tx.y + 'px';
+feed.appendChild(el);
+game.txs.push(tx);
+if(Math.random() < 0.3){
+game.price += randF(-0.8, 0.8);
+game.priceHistory.push(game.price);
+$('chartPrice').textContent = '$' + game.price.toFixed(2);
+drawChart();
+}
+const delay = randF(SPAWN_MIN, SPAWN_MAX - game.elapsed * 5);
+game.spawnTimeout = setTimeout(spawnLoop, Math.max(200, delay));
+}
+function timerTick(){
+if(!game.running) return;
+game.elapsed++;
+const remaining = GAME_DURATION - game.elapsed;
+$('timer').textContent = remaining + 's';
+$('timer').style.color = remaining <= 10 ? 'var(--mag)' : 'var(--yel)';
+if(remaining <= 0){ endGame(); return; }
+game.timerInterval = setTimeout(timerTick, 1000);
+}
+function endGame(){
+game.running = false;
+clearTimeout(game.spawnTimeout);
+clearTimeout(game.timerInterval);
+const pnl = game.portfolio - 10000;
+const scoreEl = $('endScore');
+scoreEl.textContent = fmt(game.portfolio);
+scoreEl.className = 'big-score' + (pnl < 0 ? ' neg' : '');
+const acc = game.totalTaps > 0 ? Math.round((game.hits / game.totalTaps) * 100) : 0;
+$('endStats').innerHTML = `
+<div class="stat-row"><span class="lbl">P&L</span><span class="val ${pnl>=0?'g':'r'}">${pnl>=0?'+':''}${fmt(pnl)}</span></div>
+<div class="stat-row"><span class="lbl">Whales Caught</span><span class="val c">${game.whales}</span></div>
+<div class="stat-row"><span class="lbl">Whales Missed</span><span class="val r">${game.missedWhales}</span></div>
+<div class="stat-row"><span class="lbl">Bot Traps Hit</span><span class="val r">${game.traps}</span></div>
+<div class="stat-row"><span class="lbl">Accuracy</span><span class="val c">${acc}%</span></div>
+<div class="stat-row"><span class="lbl">Best Combo</span><span class="val g">x${game.combo}</span></div>
+<div class="stat-row"><span class="lbl">SOL Price</span><span class="val ${game.price>=104.50?'g':'r'}">$${game.price.toFixed(2)}</span></div>
+`;
+$('endScreen').classList.remove('hidden');
+}
+function startGame(){
+game = { portfolio: 10000, whales: 0, combo: 1, hits: 0, misses: 0, traps: 0, totalTaps: 0, missedWhales: 0, txs: [], running: true, elapsed: 0, price: 104.50, priceHistory: [104.50], spawnTimeout: null, timerInterval: null };
+$('feed').querySelectorAll('.tx-row').forEach(e => e.remove());
+$('startScreen').classList.add('hidden');
+$('endScreen').classList.add('hidden');
+updateHUD();
+drawChart();
+gameLoop();
+spawnLoop();
+timerTick();
+}
+$('startBtn').addEventListener('click', startGame);
+$('restartBtn').addEventListener('click', startGame);
+window.addEventListener('resize', () => { if(game.priceHistory) drawChart(); });
+</script>
+</body>
+</html>

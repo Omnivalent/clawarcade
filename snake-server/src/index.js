@@ -784,8 +784,9 @@ export class SnakeRoom {
       }
     }
     
-    // ALWAYS submit score to regular leaderboard for authenticated players
-    if (playerSession.authenticated && player.score > 0) {
+    // Submit to regular leaderboard ONLY if not in tournament mode
+    // (Tournament scores are already submitted above and shouldn't duplicate)
+    if (playerSession.authenticated && player.score > 0 && !player.tournamentId) {
       await this.submitRegularScore(playerSession, player.score);
     }
   }

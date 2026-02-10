@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Block Builder — ClawArcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--cyan:#00f0ff;--mag:#ff2a6d;--grn:#05ffa1;--yel:#f0e010;--void:#06060c;--panel:rgba(12,12,24,0.9);--border:rgba(0,240,255,0.12);--text:#c8c8e0;--dim:rgba(200,200,224,0.4)}
+body{background:var(--void);color:var(--text);font-family:'Rajdhani',sans-serif;overflow:hidden;height:100vh;width:100vw;touch-action:none;user-select:none;-webkit-user-select:none}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);pointer-events:none;z-index:9999}
+.wrap{display:flex;flex-direction:column;height:100vh;max-width:500px;margin:0 auto;padding:0.75rem;gap:0.5rem}
+.g-header{display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border)}
+.g-title{font-family:'Orbitron',monospace;font-size:0.8rem;font-weight:700;letter-spacing:1px}
+.g-title span{color:var(--grn)}
+.g-back{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--cyan);letter-spacing:1px;text-decoration:none;text-transform:uppercase}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem}
+.h-item{text-align:center;padding:0.3rem;background:var(--panel);border:1px solid var(--border)}
+.h-val{font-family:'Orbitron',monospace;font-size:clamp(0.65rem,2.5vw,0.85rem);font-weight:700;line-height:1}
+.h-lbl{font-family:'Share Tech Mono',monospace;font-size:0.4rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-top:0.1rem}
+.space-wrap{padding:0.2rem 0}
+.space-header{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+.space-bar{height:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);overflow:hidden;position:relative}
+.space-fill{height:100%;transition:width 0.3s;position:absolute;left:0;top:0}
+.space-fill.ok{background:linear-gradient(90deg,var(--cyan),var(--grn))}
+.space-fill.warn{background:linear-gradient(90deg,var(--yel),var(--mag))}
+.space-fill.full{background:var(--mag)}
+.space-target{position:absolute;top:0;bottom:0;width:2px;background:var(--yel);z-index:2}
+.block-area{flex:1;display:flex;gap:0.5rem;min-height:0}
+.current-block{flex:1;background:var(--panel);border:1px solid var(--border);position:relative;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.current-block::-webkit-scrollbar{display:none}
+.block-label{position:sticky;top:0;left:0;right:0;padding:4px 6px;font-family:'Share Tech Mono',monospace;font-size:0.45rem;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;background:rgba(12,12,24,0.95);z-index:2;border-bottom:1px solid var(--border)}
+.block-tx{padding:0.35rem 0.5rem;border-bottom:1px solid rgba(0,240,255,0.04);display:flex;align-items:center;gap:0.4rem;font-family:'Share Tech Mono',monospace;font-size:0.55rem;animation:slideIn 0.3s ease-out}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.block-tx .bt-size{flex-shrink:0;width:28px;height:14px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:0.4rem;font-weight:700}
+.block-tx .bt-size.s1{border-color:rgba(0,240,255,0.4);color:var(--cyan);width:20px}
+.block-tx .bt-size.s2{border-color:rgba(5,255,161,0.4);color:var(--grn);width:28px}
+.block-tx .bt-size.s3{border-color:rgba(240,224,16,0.4);color:var(--yel);width:36px}
+.block-tx .bt-size.s4{border-color:rgba(255,42,109,0.4);color:var(--mag);width:44px}
+.block-tx .bt-info{flex:1;min-width:0}
+.block-tx .bt-type{font-size:0.5rem;color:var(--dim)}
+.block-tx .bt-fee{font-weight:700;color:var(--grn);font-size:0.6rem}
+.queue{width:45%;background:var(--panel);border:1px solid var(--border);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.queue::-webkit-scrollbar{display:none}
+.queue-label{position:sticky;top:0;padding:4px 6px;font-family:'Share Tech Mono',monospace;font-size:0.45rem;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;background:rgba(12,12,24,0.95);z-index:2;border-bottom:1px solid var(--border)}
+.q-tx{padding:0.4rem 0.5rem;border-bottom:1px solid rgba(0,240,255,0.04);cursor:pointer;transition:background 0.15s;-webkit-tap-highlight-color:transparent}
+.q-tx:active{background:rgba(0,240,255,0.06)}
+.q-tx.added{opacity:0.2;pointer-events:none}
+.q-header{display:flex;justify-content:space-between;align-items:center}
+.q-type{font-family:'Share Tech Mono',monospace;font-size:0.5rem;letter-spacing:1px;text-transform:uppercase}
+.q-type.swap{color:var(--cyan)}.q-type.stake{color:var(--grn)}.q-type.nft{color:var(--yel)}.q-type.defi{color:var(--mag)}
+.q-fee{font-family:'Orbitron',monospace;font-size:0.6rem;font-weight:700;color:var(--grn)}
+.q-meta{font-family:'Share Tech Mono',monospace;font-size:0.45rem;color:var(--dim);margin-top:0.1rem}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem}
+.ctrl-btn{padding:0.55rem;font-family:'Orbitron',monospace;font-size:0.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid;background:transparent;cursor:pointer;transition:all 0.2s;-webkit-tap-highlight-color:transparent}
+.ctrl-btn:active{transform:scale(0.96)}
+.ctrl-btn.seal{color:var(--grn);border-color:rgba(5,255,161,0.3)}
+.ctrl-btn.seal:hover{background:rgba(5,255,161,0.08);box-shadow:0 0 10px rgba(5,255,161,0.2)}
+.ctrl-btn.skip{color:var(--yel);border-color:rgba(240,224,16,0.3)}
+.ctrl-btn.skip:hover{background:rgba(240,224,16,0.08);box-shadow:0 0 10px rgba(240,224,16,0.2)}
+.ctrl-btn:disabled{opacity:0.25;cursor:not-allowed}
+.overlay{position:fixed;inset:0;background:rgba(6,6,12,0.92);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.overlay.hidden{display:none}
+.o-box{text-align:center;padding:2rem;max-width:380px;width:90%}
+.o-box h2{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;margin-bottom:0.5rem;color:var(--grn)}
+.o-box p{font-size:0.85rem;color:var(--dim);line-height:1.7;margin-bottom:1.5rem}
+.o-box .big{font-family:'Orbitron',monospace;font-size:2rem;font-weight:900;color:var(--grn);margin:0.8rem 0}
+.o-btn{padding:0.8rem 2.5rem;font-family:'Orbitron',monospace;font-size:0.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:var(--cyan);color:var(--void);border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));transition:all 0.3s}
+.o-btn:hover{box-shadow:0 0 20px rgba(0,240,255,0.4)}
+.sr{display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:0.65rem}
+.sr .l{color:var(--dim)}.sr .v{font-weight:700;color:var(--cyan)}
+.bonus-pop{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',monospace;font-weight:900;pointer-events:none;z-index:100;opacity:0;transition:all 0.5s;text-align:center}
+.bonus-pop.show{opacity:1;transform:translate(-50%,-60%)}
+.bonus-pop .bp-title{font-size:0.8rem;color:var(--yel);letter-spacing:2px}
+.bonus-pop .bp-val{font-size:1.8rem;color:var(--grn);text-shadow:0 0 20px rgba(5,255,161,0.5)}
+@media(max-width:400px){.wrap{padding:0.5rem;gap:0.3rem}.hud{grid-template-columns:repeat(2,1fr)}.block-tx,.q-tx{font-size:0.5rem;padding:0.3rem 0.4rem}}
+</style>
+</head>
+<body>
+<div class="overlay" id="startScreen">
+<div class="o-box">
+<h2>⛏️ BLOCK BUILDER</h2>
+<p>You're a block producer. Transactions arrive in the queue — tap them to add to your block. Fill blocks efficiently to maximize gas fees.<br><br><span style="color:var(--grn)">Seal blocks</span> when they're full enough. <span style="color:var(--yel)">Skip</span> bad transactions. Hit the <span style="color:var(--cyan)">target fill zone</span> for bonus rewards!</p>
+<button class="o-btn" id="startBtn">Start Building</button>
+</div>
+</div>
+<div class="overlay hidden" id="endScreen">
+<div class="o-box">
+<h2 style="color:var(--yel)">CHAIN COMPLETE</h2>
+<div class="big" id="endScore">0 Gwei</div>
+<div id="endStats"></div>
+<br>
+<button class="o-btn" id="restartBtn">Build Again</button>
+</div>
+</div>
+<div class="bonus-pop" id="bonusPop">
+<div class="bp-title">PERFECT BLOCK</div>
+<div class="bp-val" id="bonusVal">+500</div>
+</div>
+<div class="wrap">
+<div class="g-header">
+<div class="g-title">⛏️ <span>BLOCK</span> BUILDER</div>
+<a href="../index.html" class="g-back">← Arcade</a>
+</div>
+<div class="hud">
+<div class="h-item"><div class="h-val" style="color:var(--grn)" id="totalFees">0</div><div class="h-lbl">Total Gwei</div></div>
+<div class="h-item"><div class="h-val" style="color:var(--cyan)" id="blocksSealed">0/10</div><div class="h-lbl">Blocks</div></div>
+<div class="h-item"><div class="h-val" style="color:var(--yel)" id="efficiency">0%</div><div class="h-lbl">Efficiency</div></div>
+<div class="h-item"><div class="h-val" style="color:var(--mag)" id="blockTimer">30s</div><div class="h-lbl">Time Left</div></div>
+</div>
+<div class="space-wrap">
+<div class="space-header"><span>Block Space</span><span id="spaceText">0 / 30 Gas</span></div>
+<div class="space-bar">
+<div class="space-fill ok" id="spaceFill" style="width:0%"></div>
+<div class="space-target" id="spaceTarget" style="left:80%"></div>
+</div>
+</div>
+<div class="block-area">
+<div class="current-block" id="currentBlock">
+<div class="block-label">◆ Current Block #<span id="blockId">1</span></div>
+</div>
+<div class="queue" id="queue">
+<div class="queue-label">◆ Pending TXs</div>
+</div>
+</div>
+<div class="controls">
+<button class="ctrl-btn seal" id="sealBtn">✓ Seal Block</button>
+<button class="ctrl-btn skip" id="skipBtn">✗ Clear Block</button>
+</div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+function randF(a,b){return Math.random()*(b-a)+a}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+const TX_TEMPLATES = [
+{type:'swap',label:'SWAP',sizes:[1,2,3],feeRange:[5,50],cls:'swap'},
+{type:'stake',label:'STAKE',sizes:[2,3],feeRange:[10,80],cls:'stake'},
+{type:'nft',label:'NFT MINT',sizes:[3,4],feeRange:[15,120],cls:'nft'},
+{type:'defi',label:'DEFI',sizes:[1,2,3,4],feeRange:[8,200],cls:'defi'},
+];
+const BLOCK_CAPACITY = 30;
+const TOTAL_BLOCKS = 10;
+const BLOCK_TIME = 30;
+const TARGET_FILL = 0.8;
+let game = {};
+function genQueueTx(){
+const tmpl = pick(TX_TEMPLATES);
+const size = pick(tmpl.sizes);
+const fee = Math.floor(randF(tmpl.feeRange[0], tmpl.feeRange[1]) * (size * 0.6));
+const addr = '0x' + Math.random().toString(16).slice(2,6) + '...' + Math.random().toString(16).slice(2,6);
+return { type: tmpl.type, label: tmpl.label, cls: tmpl.cls, size, fee, addr, added: false };
+}
+function renderQueueTx(tx){
+const div = document.createElement('div');
+div.className = 'q-tx';
+div.innerHTML = `<div class="q-header"><span class="q-type ${tx.cls}">${tx.label}</span><span class="q-fee">${tx.fee} gwei</span></div><div class="q-meta">${tx.addr} · Size: ${tx.size} gas</div>`;
+div.addEventListener('click', () => addTxToBlock(tx, div));
+div.addEventListener('touchend', (e) => { e.preventDefault(); addTxToBlock(tx, div); });
+return div;
+}
+function addTxToBlock(tx, el){
+if(tx.added || !game.running) return;
+if(game.blockUsed + tx.size > BLOCK_CAPACITY){ showBonus('BLOCK FULL', 'var(--mag)'); return; }
+tx.added = true;
+el.classList.add('added');
+game.blockUsed += tx.size;
+game.blockFees += tx.fee;
+game.blockTxCount++;
+const row = document.createElement('div');
+row.className = 'block-tx';
+const sizeClass = tx.size <= 1 ? 's1' : tx.size <= 2 ? 's2' : tx.size <= 3 ? 's3' : 's4';
+row.innerHTML = `<div class="bt-size ${sizeClass}">${tx.size}</div><div class="bt-info"><div class="bt-type">${tx.label} · ${tx.addr}</div><div class="bt-fee">${tx.fee} gwei</div></div>`;
+$('currentBlock').appendChild(row);
+$('currentBlock').scrollTop = $('currentBlock').scrollHeight;
+updateSpaceBar();
+updateHUD();
+}
+function updateSpaceBar(){
+const pct = (game.blockUsed / BLOCK_CAPACITY) * 100;
+const fill = $('spaceFill');
+fill.style.width = pct + '%';
+fill.className = 'space-fill ' + (pct >= 95 ? 'full' : pct >= 75 ? 'warn' : 'ok');
+$('spaceText').textContent = `${game.blockUsed} / ${BLOCK_CAPACITY} Gas`;
+}
+function sealBlock(){
+if(!game.running || game.blockTxCount === 0) return;
+const fillPct = game.blockUsed / BLOCK_CAPACITY;
+let bonus = 0;
+let bonusText = '';
+if(fillPct >= 0.95){ bonus = Math.floor(game.blockFees * 0.5); bonusText = 'PERFECT! +' + bonus; game.perfectBlocks++; }
+else if(fillPct >= TARGET_FILL){ bonus = Math.floor(game.blockFees * 0.2); bonusText = 'GOOD! +' + bonus; }
+else if(fillPct < 0.4){ bonus = -Math.floor(game.blockFees * 0.3); bonusText = 'WASTEFUL ' + bonus; }
+const totalForBlock = game.blockFees + bonus;
+game.totalFees += totalForBlock;
+game.totalEfficiency += fillPct;
+game.blocksCompleted++;
+if(bonusText) showBonus(bonusText, bonus >= 0 ? 'var(--grn)' : 'var(--mag)');
+if(game.blocksCompleted >= TOTAL_BLOCKS){ endGame(); return; }
+game.blockUsed = 0;
+game.blockFees = 0;
+game.blockTxCount = 0;
+game.timer = BLOCK_TIME;
+$('currentBlock').querySelectorAll('.block-tx').forEach(e => e.remove());
+$('blockId').textContent = game.blocksCompleted + 1;
+refreshQueue();
+updateSpaceBar();
+updateHUD();
+}
+function clearBlock(){
+if(!game.running) return;
+game.blockUsed = 0;
+game.blockFees = 0;
+game.blockTxCount = 0;
+game.skips++;
+$('currentBlock').querySelectorAll('.block-tx').forEach(e => e.remove());
+$('queue').querySelectorAll('.q-tx.added').forEach(e => e.classList.remove('added'));
+game.queueTxs.forEach(tx => tx.added = false);
+updateSpaceBar();
+updateHUD();
+}
+function refreshQueue(){
+const queue = $('queue');
+queue.querySelectorAll('.q-tx').forEach(e => e.remove());
+game.queueTxs = [];
+const count = Math.floor(randF(5, 9));
+for(let i = 0; i < count; i++){
+const tx = genQueueTx();
+game.queueTxs.push(tx);
+queue.appendChild(renderQueueTx(tx));
+}
+}
+function showBonus(text, color){
+const el = $('bonusPop');
+$('bonusVal').textContent = text;
+$('bonusVal').style.color = color;
+el.className = 'bonus-pop show';
+setTimeout(() => el.className = 'bonus-pop', 800);
+}
+function updateHUD(){
+$('totalFees').textContent = game.totalFees.toLocaleString();
+$('blocksSealed').textContent = game.blocksCompleted + '/' + TOTAL_BLOCKS;
+const avgEff = game.blocksCompleted > 0 ? Math.round((game.totalEfficiency / game.blocksCompleted) * 100) : 0;
+$('efficiency').textContent = avgEff + '%';
+}
+function timerTick(){
+if(!game.running) return;
+game.timer--;
+$('blockTimer').textContent = game.timer + 's';
+$('blockTimer').style.color = game.timer <= 5 ? 'var(--mag)' : game.timer <= 10 ? 'var(--yel)' : 'var(--mag)';
+if(game.timer <= 0){
+if(game.blockTxCount > 0){ showBonus('TIME UP!', 'var(--mag)'); sealBlock(); }
+else { game.timer = BLOCK_TIME; game.blocksCompleted++; game.totalEfficiency += 0; if(game.blocksCompleted >= TOTAL_BLOCKS){ endGame(); return; } $('blockId').textContent = game.blocksCompleted + 1; refreshQueue(); updateHUD(); }
+return;
+}
+if(game.timer % 8 === 0 && game.queueTxs.length < 12){
+const tx = genQueueTx();
+game.queueTxs.push(tx);
+$('queue').appendChild(renderQueueTx(tx));
+}
+game.timerInterval = setTimeout(timerTick, 1000);
+}
+function endGame(){
+game.running = false;
+clearTimeout(game.timerInterval);
+const avgEff = game.blocksCompleted > 0 ? Math.round((game.totalEfficiency / game.blocksCompleted) * 100) : 0;
+$('endScore').textContent = game.totalFees.toLocaleString() + ' Gwei';
+$('endStats').innerHTML = `
+<div class="sr"><span class="l">Blocks Produced</span><span class="v">${game.blocksCompleted}</span></div>
+<div class="sr"><span class="l">Perfect Blocks</span><span class="v">${game.perfectBlocks}</span></div>
+<div class="sr"><span class="l">Average Efficiency</span><span class="v">${avgEff}%</span></div>
+<div class="sr"><span class="l">Block Clears Used</span><span class="v">${game.skips}</span></div>
+`;
+$('endScreen').classList.remove('hidden');
+}
+function startGame(){
+game = { totalFees: 0, blocksCompleted: 0, totalEfficiency: 0, blockUsed: 0, blockFees: 0, blockTxCount: 0, timer: BLOCK_TIME, running: true, queueTxs: [], perfectBlocks: 0, skips: 0, timerInterval: null };
+$('currentBlock').querySelectorAll('.block-tx').forEach(e => e.remove());
+$('blockId').textContent = '1';
+$('startScreen').classList.add('hidden');
+$('endScreen').classList.add('hidden');
+refreshQueue();
+updateSpaceBar();
+updateHUD();
+$('spaceTarget').style.left = (TARGET_FILL * 100) + '%';
+timerTick();
+}
+$('startBtn').addEventListener('click', startGame);
+$('restartBtn').addEventListener('click', startGame);
+$('sealBtn').addEventListener('click', sealBlock);
+$('skipBtn').addEventListener('click', clearBlock);
+</script>
+</body>
+</html>
