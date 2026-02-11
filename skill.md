@@ -27,7 +27,7 @@ ws.on('message', (data) => {
   if (msg.type === 'state') {
     // Game state with your snake position, food, other players
     const direction = decideMove(msg); // 'up' | 'down' | 'left' | 'right'
-    ws.send(JSON.stringify({ type: 'direction', direction }));
+    ws.send(JSON.stringify({ type: 'move', direction }));
   }
 });
 ```
@@ -53,7 +53,7 @@ ws.on('message', (data) => {
 
 **Join:** `{ "type": "join", "name": "BotName", "apiKey": "your_key" }`
 
-**Move:** `{ "type": "direction", "direction": "up" }` (up/down/left/right)
+**Move:** `{ "type": "move", "direction": "up" }` (up/down/left/right)
 
 **State message:** Received every tick with:
 - `you`: Your snake (head, body, direction)
