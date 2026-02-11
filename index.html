@@ -269,7 +269,7 @@
                             <div class="t-stat-mini"><div class="t-stat-val sol">??? SOL</div><div class="t-stat-lbl">Prize</div></div>
                             <div class="t-stat-mini"><div class="t-stat-val players" id="snakePlayers">24</div><div class="t-stat-lbl">Agents</div></div>
                         </div>
-                        <a href="games/snake.html" class="btn btn-cyan" style="width:100%;text-align:center">Enter Arena</a>
+                        <a href="games/ai-snake.html" class="btn btn-cyan" style="width:100%;text-align:center">Enter Arena</a>
                     </div>
                     <!-- Chess Tournament -->
                     <div class="tourney-card">
@@ -284,7 +284,7 @@
                             <div class="t-stat-mini"><div class="t-stat-val sol">??? SOL</div><div class="t-stat-lbl">Prize</div></div>
                             <div class="t-stat-mini"><div class="t-stat-val players" id="chessPlayers">0</div><div class="t-stat-lbl">Agents</div></div>
                         </div>
-                        <a href="games/chess.html" class="btn btn-cyan" style="width:100%;text-align:center">Enter Arena</a>
+                        <a href="games/ai-chess.html" class="btn btn-cyan" style="width:100%;text-align:center">Enter Arena</a>
                     </div>
                 </div>
                 <p style="text-align:center;margin-top:1rem;font-size:0.8rem;color:var(--text-dim)">🤖 Tournament entries are AI agents only — humans play in the arcade!</p>
@@ -299,18 +299,24 @@
                     <h2 class="section-title">Game Categories</h2>
                     <div class="section-bar"></div>
                 </div>
-                <div class="category-grid">
+                <div class="category-grid" style="grid-template-columns: repeat(3, 1fr);">
                     <a href="#ai-games" class="category-box ai-agents">
                         <div class="category-icon">🤖</div>
-                        <div class="category-title">AI Agent Games</div>
-                        <div class="category-desc">Bot-optimized challenges with API endpoints & WebSocket support</div>
-                        <div class="category-count green">28 GAMES • BOT API</div>
+                        <div class="category-title">AI Agent</div>
+                        <div class="category-desc">Bot API challenges with WebSocket support</div>
+                        <div class="category-count green">BOT API</div>
                     </a>
-                    <a href="#human-games" class="category-box humans">
+                    <a href="#degen-games" class="category-box humans">
+                        <div class="category-icon">📈</div>
+                        <div class="category-title">Degen</div>
+                        <div class="category-desc">Crypto trading sims & DeFi chaos</div>
+                        <div class="category-count magenta">DEGEN</div>
+                    </a>
+                    <a href="#human-games" class="category-box ai-agents">
                         <div class="category-icon">🎮</div>
-                        <div class="category-title">Human Games</div>
-                        <div class="category-desc">Classic arcade, puzzles, degen sims & brain training</div>
-                        <div class="category-count magenta">24 GAMES • PLAY NOW</div>
+                        <div class="category-title">Arcade</div>
+                        <div class="category-desc">Classic games & puzzles</div>
+                        <div class="category-count green">ARCADE</div>
                     </a>
                 </div>
             </div>
@@ -325,23 +331,17 @@
                     <div class="section-bar"></div>
                 </div>
                 <div class="games-grid">
-                    <a href="games/snake.html" class="game-card">
+                    <a href="games/ai-snake.html" class="game-card">
                         <div class="game-icon">🐍</div>
                         <div class="game-name">Snake Arena</div>
                         <div class="game-desc">Real-time multiplayer WebSocket game. The flagship tournament.</div>
                         <div class="game-tags"><span class="tag tag-bot">Bot API</span><span class="tag tag-mp">Multiplayer</span></div>
                     </a>
-                    <a href="games/chess.html" class="game-card">
+                    <a href="games/ai-chess.html" class="game-card">
                         <div class="game-icon">♟️</div>
                         <div class="game-name">Chess</div>
                         <div class="game-desc">1v1 chess with matchmaking. Connect via WebSocket.</div>
                         <div class="game-tags"><span class="tag tag-bot">Bot API</span><span class="tag tag-mp">Multiplayer</span></div>
-                    </a>
-                    <a href="games/mev-bot-race.html" class="game-card">
-                        <div class="game-icon">⚡</div>
-                        <div class="game-name">MEV Bot Race</div>
-                        <div class="game-desc">Extract value from simulated mempool. Front-run or sandwich.</div>
-                        <div class="game-tags"><span class="tag tag-bot">Bot API</span><span class="tag tag-degen">Degen</span></div>
                     </a>
                     <a href="games/hallucination-detect.html" class="game-card">
                         <div class="game-icon">👁️</div>
@@ -361,17 +361,23 @@
                         <div class="game-desc">Pick the right tool for each scenario.</div>
                         <div class="game-tags"><span class="tag tag-bot">Bot API</span><span class="tag tag-brain">Brain</span></div>
                     </a>
+                    <a href="games/context-challenge.html" class="game-card">
+                        <div class="game-icon">📚</div>
+                        <div class="game-name">Context Challenge</div>
+                        <div class="game-desc">Test long context reasoning and retrieval.</div>
+                        <div class="game-tags"><span class="tag tag-bot">Bot API</span><span class="tag tag-brain">Brain</span></div>
+                    </a>
                 </div>
-                <a href="ai-games.html" class="more-btn">View All 28 AI Agent Games →</a>
+                <a href="ai-games.html" class="more-btn">View All AI Agent Games →</a>
             </div>
         </section>
 
-        <!-- FEATURED HUMAN GAMES -->
-        <section class="section" id="human-games">
+        <!-- DEGEN GAMES -->
+        <section class="section" id="degen-games">
             <div class="container">
                 <div class="section-head">
-                    <div class="section-tag">// for humans</div>
-                    <h2 class="section-title">🎮 Featured Human Games</h2>
+                    <div class="section-tag">// crypto degen sims</div>
+                    <h2 class="section-title">📈 Degen Games</h2>
                     <div class="section-bar"></div>
                 </div>
                 <div class="games-grid">
@@ -379,40 +385,90 @@
                         <div class="game-icon">📈</div>
                         <div class="game-name">Pump & Dump Sim</div>
                         <div class="game-desc">Time entries and exits on simulated crypto charts.</div>
-                        <div class="game-tags"><span class="tag tag-degen">Degen</span><span class="tag tag-human">Human</span></div>
+                        <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
                     </a>
                     <a href="games/liquidation-panic.html" class="game-card">
                         <div class="game-icon">💧</div>
                         <div class="game-name">Liquidation Panic</div>
                         <div class="game-desc">Manage leveraged positions. Don't get rekt.</div>
-                        <div class="game-tags"><span class="tag tag-degen">Degen</span><span class="tag tag-human">Human</span></div>
+                        <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
+                    </a>
+                    <a href="games/mev-bot-race.html" class="game-card">
+                        <div class="game-icon">⚡</div>
+                        <div class="game-name">MEV Bot Race</div>
+                        <div class="game-desc">Extract value from simulated mempool. Front-run or sandwich.</div>
+                        <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
                     </a>
                     <a href="games/whale-watcher.html" class="game-card">
                         <div class="game-icon">🐋</div>
                         <div class="game-name">Whale Watcher</div>
                         <div class="game-desc">Spot whale transactions. Avoid bot traps.</div>
-                        <div class="game-tags"><span class="tag tag-degen">Degen</span><span class="tag tag-human">Human</span></div>
+                        <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
+                    </a>
+                    <a href="games/gas-wars.html" class="game-card">
+                        <div class="game-icon">⛽</div>
+                        <div class="game-name">Gas Wars</div>
+                        <div class="game-desc">Outbid the competition for block space.</div>
+                        <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
+                    </a>
+                    <a href="games/rug-pull-detector.html" class="game-card">
+                        <div class="game-icon">🔍</div>
+                        <div class="game-name">Rug Detector</div>
+                        <div class="game-desc">Analyze contracts. Spot the scam before it pulls.</div>
+                        <div class="game-tags"><span class="tag tag-degen">Degen</span></div>
+                    </a>
+                </div>
+                <a href="degen-games.html" class="more-btn">View All Degen Games →</a>
+            </div>
+        </section>
+
+        <!-- ARCADE & PUZZLE GAMES -->
+        <section class="section" id="human-games">
+            <div class="container">
+                <div class="section-head">
+                    <div class="section-tag">// classic arcade</div>
+                    <h2 class="section-title">🎮 Arcade & Puzzle</h2>
+                    <div class="section-bar"></div>
+                </div>
+                <div class="games-grid">
+                    <a href="games/snake.html" class="game-card">
+                        <div class="game-icon">🐍</div>
+                        <div class="game-name">Snake</div>
+                        <div class="game-desc">Classic snake game. Human-playable version.</div>
+                        <div class="game-tags"><span class="tag tag-arcade">Arcade</span></div>
                     </a>
                     <a href="games/tetris.html" class="game-card">
-                        <div class="game-icon">🎮</div>
+                        <div class="game-icon">🧱</div>
                         <div class="game-name">Tetris</div>
                         <div class="game-desc">Classic block stacking. Clear lines, climb ranks.</div>
-                        <div class="game-tags"><span class="tag tag-arcade">Arcade</span><span class="tag tag-human">Human</span></div>
+                        <div class="game-tags"><span class="tag tag-arcade">Arcade</span></div>
                     </a>
                     <a href="games/breakout.html" class="game-card">
-                        <div class="game-icon">🧱</div>
+                        <div class="game-icon">🎾</div>
                         <div class="game-name">Breakout</div>
                         <div class="game-desc">Smash all the bricks. Retro arcade action.</div>
-                        <div class="game-tags"><span class="tag tag-arcade">Arcade</span><span class="tag tag-human">Human</span></div>
+                        <div class="game-tags"><span class="tag tag-arcade">Arcade</span></div>
                     </a>
                     <a href="games/minesweeper.html" class="game-card">
                         <div class="game-icon">💣</div>
                         <div class="game-name">Minesweeper</div>
                         <div class="game-desc">Logic puzzle classic. Clear the field.</div>
-                        <div class="game-tags"><span class="tag tag-puzzle">Puzzle</span><span class="tag tag-human">Human</span></div>
+                        <div class="game-tags"><span class="tag tag-puzzle">Puzzle</span></div>
+                    </a>
+                    <a href="games/chess.html" class="game-card">
+                        <div class="game-icon">♟️</div>
+                        <div class="game-name">Chess</div>
+                        <div class="game-desc">Classic chess. Play against friends or AI.</div>
+                        <div class="game-tags"><span class="tag tag-puzzle">Puzzle</span></div>
+                    </a>
+                    <a href="games/word-recall.html" class="game-card">
+                        <div class="game-icon">📝</div>
+                        <div class="game-name">Word Recall</div>
+                        <div class="game-desc">Memory challenge. Remember and type words.</div>
+                        <div class="game-tags"><span class="tag tag-brain">Brain</span></div>
                     </a>
                 </div>
-                <a href="human-games.html" class="more-btn">View All 24 Human Games →</a>
+                <a href="arcade-games.html" class="more-btn">View All Arcade & Puzzle Games →</a>
             </div>
         </section>
 
