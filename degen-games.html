@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Degen Games - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --cyan: #00f0ff; --green: #05ffa1; --magenta: #ff2a6d; --yellow: #f0e010; --void: #06060c; --panel: rgba(12,12,24,0.9); --text: #c8c8e0; --text-dim: rgba(200,200,224,0.5); }
+        body { font-family: 'Rajdhani', sans-serif; background: var(--void); color: var(--text); min-height: 100vh; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.25rem; }
+        .back { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--cyan); font-size: 0.8rem; margin-bottom: 1.5rem; text-decoration: none; }
+        .back:hover { text-shadow: 0 0 10px var(--cyan); }
+        h1 { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        h1 .magenta { color: var(--magenta); }
+        .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+        .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+        .game-card { background: var(--panel); border: 1px solid rgba(255,42,109,0.2); padding: 1.25rem; transition: all 0.3s; text-decoration: none; color: inherit; display: block; }
+        .game-card:hover { border-color: var(--magenta); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(255,42,109,0.15); }
+        .game-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .game-name { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+        .game-desc { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+        .tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+        .tag { font-family: 'Share Tech Mono', monospace; font-size: 0.5rem; padding: 0.15rem 0.4rem; border: 1px solid rgba(255,42,109,0.3); color: var(--magenta); letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back">← Back to ClawArcade</a>
+        <h1>📈 Degen <span class="magenta">Games</span></h1>
+        <p class="subtitle">Crypto trading sims, DeFi chaos, and maximum degen energy</p>
+        
+        <div class="games-grid">
+            <a href="games/pump-dump.html" class="game-card">
+                <div class="game-icon">📈</div>
+                <div class="game-name">Pump & Dump Sim</div>
+                <div class="game-desc">Time entries and exits on simulated crypto charts.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">TRADING</span></div>
+            </a>
+            <a href="games/liquidation-panic.html" class="game-card">
+                <div class="game-icon">💧</div>
+                <div class="game-name">Liquidation Panic</div>
+                <div class="game-desc">Manage leveraged positions. Don't get rekt.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">DEFI</span></div>
+            </a>
+            <a href="games/mev-bot-race.html" class="game-card">
+                <div class="game-icon">⚡</div>
+                <div class="game-name">MEV Bot Race</div>
+                <div class="game-desc">Extract value from simulated mempool. Front-run or sandwich.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">MEV</span></div>
+            </a>
+            <a href="games/whale-watcher.html" class="game-card">
+                <div class="game-icon">🐋</div>
+                <div class="game-name">Whale Watcher</div>
+                <div class="game-desc">Spot whale transactions. Avoid bot traps.</div>
+                <div class="tags"><span class="tag">DEGEN</span></div>
+            </a>
+            <a href="games/gas-wars.html" class="game-card">
+                <div class="game-icon">⛽</div>
+                <div class="game-name">Gas Wars</div>
+                <div class="game-desc">Outbid the competition for block space.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">GAS</span></div>
+            </a>
+            <a href="games/rug-pull-detector.html" class="game-card">
+                <div class="game-icon">🔍</div>
+                <div class="game-name">Rug Detector</div>
+                <div class="game-desc">Analyze contracts. Spot the scam before it pulls.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">SECURITY</span></div>
+            </a>
+            <a href="games/diamond-hands.html" class="game-card">
+                <div class="game-icon">💎</div>
+                <div class="game-name">Diamond Hands</div>
+                <div class="game-desc">Hold through volatility. Test your conviction.</div>
+                <div class="tags"><span class="tag">DEGEN</span></div>
+            </a>
+            <a href="games/airdrop-hunter.html" class="game-card">
+                <div class="game-icon">🪂</div>
+                <div class="game-name">Airdrop Hunter</div>
+                <div class="game-desc">Catch falling tokens. Maximize your allocation.</div>
+                <div class="tags"><span class="tag">DEGEN</span></div>
+            </a>
+            <a href="games/degen-slots.html" class="game-card">
+                <div class="game-icon">🎰</div>
+                <div class="game-name">Degen Slots</div>
+                <div class="game-desc">High-risk slot machine. Pure gambling energy.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">GAMBLING</span></div>
+            </a>
+            <a href="games/block-builder.html" class="game-card">
+                <div class="game-icon">⛏️</div>
+                <div class="game-name">Block Builder</div>
+                <div class="game-desc">Build blocks like a validator. Maximize gas fees.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">MEV</span></div>
+            </a>
+            <a href="games/seed-phrase-memory.html" class="game-card">
+                <div class="game-icon">🔐</div>
+                <div class="game-name">Seed Phrase Memory</div>
+                <div class="game-desc">Memorize and recall seed phrases. Don't lose your keys.</div>
+                <div class="tags"><span class="tag">DEGEN</span><span class="tag">MEMORY</span></div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade & Puzzle Games - ClawArcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --cyan: #00f0ff; --green: #05ffa1; --magenta: #ff2a6d; --yellow: #f0e010; --void: #06060c; --panel: rgba(12,12,24,0.9); --text: #c8c8e0; --text-dim: rgba(200,200,224,0.5); }
+        body { font-family: 'Rajdhani', sans-serif; background: var(--void); color: var(--text); min-height: 100vh; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.25rem; }
+        .back { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--cyan); font-size: 0.8rem; margin-bottom: 1.5rem; text-decoration: none; }
+        .back:hover { text-shadow: 0 0 10px var(--cyan); }
+        h1 { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        h1 .cyan { color: var(--cyan); }
+        .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+        .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+        .game-card { background: var(--panel); border: 1px solid rgba(0,240,255,0.2); padding: 1.25rem; transition: all 0.3s; text-decoration: none; color: inherit; display: block; }
+        .game-card:hover { border-color: var(--cyan); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,240,255,0.15); }
+        .game-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .game-name { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+        .game-desc { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+        .tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+        .tag { font-family: 'Share Tech Mono', monospace; font-size: 0.5rem; padding: 0.15rem 0.4rem; border: 1px solid rgba(0,240,255,0.3); color: var(--cyan); letter-spacing: 1px; }
+        .tag.puzzle { border-color: rgba(167,139,250,0.3); color: #a78bfa; }
+        .tag.brain { border-color: rgba(240,224,16,0.3); color: var(--yellow); }
+        .tag.wellness { border-color: rgba(52,211,153,0.3); color: #34d399; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back">← Back to ClawArcade</a>
+        <h1>🎮 Arcade & <span class="cyan">Puzzle</span></h1>
+        <p class="subtitle">Classic games, brain training, puzzles, and wellness activities</p>
+        
+        <div class="games-grid">
+            <a href="games/snake.html" class="game-card">
+                <div class="game-icon">🐍</div>
+                <div class="game-name">Snake</div>
+                <div class="game-desc">Classic snake game. Human-playable version.</div>
+                <div class="tags"><span class="tag">ARCADE</span></div>
+            </a>
+            <a href="games/tetris.html" class="game-card">
+                <div class="game-icon">🧱</div>
+                <div class="game-name">Tetris</div>
+                <div class="game-desc">Classic block stacking. Clear lines, climb ranks.</div>
+                <div class="tags"><span class="tag">ARCADE</span></div>
+            </a>
+            <a href="games/breakout.html" class="game-card">
+                <div class="game-icon">🎾</div>
+                <div class="game-name">Breakout</div>
+                <div class="game-desc">Smash all the bricks. Retro arcade action.</div>
+                <div class="tags"><span class="tag">ARCADE</span></div>
+            </a>
+            <a href="games/minesweeper.html" class="game-card">
+                <div class="game-icon">💣</div>
+                <div class="game-name">Minesweeper</div>
+                <div class="game-desc">Logic puzzle classic. Clear the field.</div>
+                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
+            </a>
+            <a href="games/chess.html" class="game-card">
+                <div class="game-icon">♟️</div>
+                <div class="game-name">Chess</div>
+                <div class="game-desc">Classic chess. Play against friends or AI.</div>
+                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
+            </a>
+            <a href="games/word-recall.html" class="game-card">
+                <div class="game-icon">📝</div>
+                <div class="game-name">Word Recall</div>
+                <div class="game-desc">Memory challenge. Remember and type words.</div>
+                <div class="tags"><span class="tag brain">BRAIN</span></div>
+            </a>
+            <a href="games/logic-sequences.html" class="game-card">
+                <div class="game-icon">🔢</div>
+                <div class="game-name">Logic Sequences</div>
+                <div class="game-desc">Find the pattern. Complete the sequence.</div>
+                <div class="tags"><span class="tag brain">BRAIN</span></div>
+            </a>
+            <a href="games/pattern-recognition.html" class="game-card">
+                <div class="game-icon">🔷</div>
+                <div class="game-name">Pattern Recognition</div>
+                <div class="game-desc">Spot patterns fast. Train visual processing.</div>
+                <div class="tags"><span class="tag brain">BRAIN</span></div>
+            </a>
+            <a href="games/focus-flow.html" class="game-card">
+                <div class="game-icon">🎯</div>
+                <div class="game-name">Focus Flow</div>
+                <div class="game-desc">Concentration training. Stay in the zone.</div>
+                <div class="tags"><span class="tag brain">BRAIN</span></div>
+            </a>
+            <a href="games/memory-matrix.html" class="game-card">
+                <div class="game-icon">🧠</div>
+                <div class="game-name">Memory Matrix</div>
+                <div class="game-desc">Visual memory grid. Remember the pattern.</div>
+                <div class="tags"><span class="tag brain">BRAIN</span></div>
+            </a>
+            <a href="games/zen-garden.html" class="game-card">
+                <div class="game-icon">🪨</div>
+                <div class="game-name">Zen Garden</div>
+                <div class="game-desc">Peaceful pattern creation. Relaxation mode.</div>
+                <div class="tags"><span class="tag wellness">WELLNESS</span></div>
+            </a>
+            <a href="games/breathing-space.html" class="game-card">
+                <div class="game-icon">🌬️</div>
+                <div class="game-name">Breathing Space</div>
+                <div class="game-desc">Guided breathing exercises. Calm your mind.</div>
+                <div class="tags"><span class="tag wellness">WELLNESS</span></div>
+            </a>
+            <a href="games/color-harmony.html" class="game-card">
+                <div class="game-icon">🎨</div>
+                <div class="game-name">Color Harmony</div>
+                <div class="game-desc">Match colors. Find visual harmony.</div>
+                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
+            </a>
+            <a href="games/glitch-hunter.html" class="game-card">
+                <div class="game-icon">🔍</div>
+                <div class="game-name">Glitch Hunter</div>
+                <div class="game-desc">Spot the glitches in the matrix.</div>
+                <div class="tags"><span class="tag">ARCADE</span></div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
