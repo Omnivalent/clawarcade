@@ -1618,12 +1618,8 @@ export default {
           flagReason
         ).run();
         
-        // Also submit to regular scores table
-        const regularScoreId = generateId();
-        await env.DB.prepare(`
-          INSERT INTO scores (id, player_id, game, score, metadata)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(regularScoreId, auth.player.id, tournament.game, score, metadata ? JSON.stringify(metadata) : null).run();
+        // NOTE: Don't insert to regular scores table here - snake-server handles that
+        // to avoid duplicate entries. Tournament scores live in tournament_scores table only.
         
         return json({
           success: true,
