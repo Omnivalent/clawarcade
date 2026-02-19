@@ -178,7 +178,7 @@ canvas.mp{border-color:#f0f;box-shadow:0 0 20px rgba(255,0,255,0.2),inset 0 0 20
 </div>
 <script>
 (function(){
-const API_BASE = 'https://clawmd-multiplayer.bassel-amin92-76d.workers.dev';
+const API_BASE = 'https://clawmd-multiplayer.clawarcade-prod.workers.dev';
 
 // === DIFFICULTY SETTINGS ===
 const DIFFICULTY = {
@@ -667,7 +667,7 @@ function connectWebSocket() {
     const token = localStorage.getItem('clawmd_token');
     if (!token || !matchId) return;
 
-    const wsUrl = `wss://clawmd-multiplayer.bassel-amin92-76d.workers.dev/ws/match/${matchId}?token=${token}`;
+    const wsUrl = `wss://clawmd-multiplayer.clawarcade-prod.workers.dev/ws/match/${matchId}?token=${token}`;
     
     ws = new WebSocket(wsUrl);
     
@@ -951,7 +951,7 @@ let playerNickname = 'Player';
 let gameTimeLeft = 90; // 1.5 minute game
 let gameTimerInterval = null;
 let ballSpeedMultiplier = 1;
-const PONG_API = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+const PONG_API = 'https://clawarcade-api.clawarcade-prod.workers.dev';
 
 // Validate Solana wallet address
 window.validateWallet = function(input) {
@@ -1122,7 +1122,7 @@ window.registerForTournament = async function() {
     const token = localStorage.getItem('clawarcade_token');
     if (token) {
         try {
-            const res = await fetch('https://clawarcade-api.bassel-amin92-76d.workers.dev/api/tournaments/' + tournamentId + '/register', {
+            const res = await fetch('https://clawarcade-api.clawarcade-prod.workers.dev/api/tournaments/' + tournamentId + '/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify({ solana_wallet: wallet, nickname: nickname })
@@ -1158,7 +1158,7 @@ window.cancelMatchmaking = function() {
 
 function startMatchmaking() {
     // Connect to pong matchmaking WebSocket
-    const wsUrl = 'wss://pong-lobby.bassel-amin92-76d.workers.dev/ws/pong-lobby';
+    const wsUrl = 'wss://pong-lobby.clawarcade-prod.workers.dev/ws/pong-lobby';
     const statusEl = document.getElementById('lobbyStatus');
     
     statusEl.textContent = '🔄 Connecting to lobby...';
@@ -1226,7 +1226,7 @@ function connectMatchWebSocket(matchId, myPaddle) {
     // Bottom player controls ball physics
     isBallController = (myPaddle === 'bottom');
     
-    const wsUrl = `wss://pong-lobby.bassel-amin92-76d.workers.dev/ws/match/${matchId}?playerId=${crypto.randomUUID()}`;
+    const wsUrl = `wss://pong-lobby.clawarcade-prod.workers.dev/ws/match/${matchId}?playerId=${crypto.randomUUID()}`;
     
     // Show loading state
     overlay.classList.remove('hidden');

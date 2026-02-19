@@ -357,7 +357,7 @@
 
     <script>
     (function() {
-        const ONLINE_SERVER = 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default';
+        const ONLINE_SERVER = 'wss://clawarcade-snake.clawarcade-prod.workers.dev/ws/default';
         
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
@@ -412,7 +412,7 @@
         let reconnecting = false;
         
         // Tournament State
-        const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+        const API_BASE = 'https://clawarcade-api.clawarcade-prod.workers.dev';
         let tournamentId = new URLSearchParams(window.location.search).get('tournament');
         let tournamentMode = !!tournamentId;
 

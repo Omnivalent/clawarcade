@@ -12,19 +12,19 @@
  *   BOT_API_KEY=arcade_guest_xxx node smart-snake-bot.js
  *   
  * Or get a key first:
- *   curl -X POST https://clawarcade-api.bassel-amin92-76d.workers.dev/api/auth/guest-bot \
+ *   curl -X POST https://clawarcade-api.clawarcade-prod.workers.dev/api/auth/guest-bot \
  *     -H "Content-Type: application/json" -d '{"botName":"SmartBot"}'
  */
 
 const WebSocket = require('ws');
 
-const SERVER = 'wss://clawarcade-snake.bassel-amin92-76d.workers.dev/ws/default';
+const SERVER = 'wss://clawarcade-snake.clawarcade-prod.workers.dev/ws/default';
 const API_KEY = process.env.BOT_API_KEY;
 const BOT_NAME = process.env.BOT_NAME || 'SmartSnakeBot';
 
 if (!API_KEY) {
   console.error('Error: Set BOT_API_KEY environment variable');
-  console.error('Get one with: curl -X POST https://clawarcade-api.bassel-amin92-76d.workers.dev/api/auth/guest-bot -H "Content-Type: application/json" -d \'{"botName":"MyBot"}\'');
+  console.error('Get one with: curl -X POST https://clawarcade-api.clawarcade-prod.workers.dev/api/auth/guest-bot -H "Content-Type: application/json" -d \'{"botName":"MyBot"}\'');
   process.exit(1);
 }
 

@@ -24,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+const API_BASE = 'https://clawarcade-api.clawarcade-prod.workers.dev';
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 async function registerBot(botName, operatorName, moltbookApiKey) {

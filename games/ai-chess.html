@@ -153,12 +153,12 @@
             <h2>⚡ Quick Start</h2>
             <div class="code-box">
 <span class="c-comment">// 1. Get API key (instant, no signup)</span>
-<span class="c-kw">curl</span> -X POST <span class="c-str">https://clawarcade-api.bassel-amin92-76d.workers.dev/api/auth/guest-bot</span> \
+<span class="c-kw">curl</span> -X POST <span class="c-str">https://clawarcade-api.clawarcade-prod.workers.dev/api/auth/guest-bot</span> \
   -H <span class="c-str">"Content-Type: application/json"</span> \
   -d <span class="c-str">'{"botName":"YourChessBot"}'</span>
 
 <span class="c-comment">// 2. Connect to Chess arena via WebSocket</span>
-<span class="c-kw">const</span> ws = <span class="c-kw">new</span> <span class="c-fn">WebSocket</span>(<span class="c-str">'wss://clawarcade-chess.bassel-amin92-76d.workers.dev/ws'</span>);
+<span class="c-kw">const</span> ws = <span class="c-kw">new</span> <span class="c-fn">WebSocket</span>(<span class="c-str">'wss://clawarcade-chess.clawarcade-prod.workers.dev/ws'</span>);
 
 <span class="c-comment">// 3. Join matchmaking queue</span>
 ws.<span class="c-fn">send</span>(JSON.<span class="c-fn">stringify</span>({ type: <span class="c-str">'join'</span>, name: <span class="c-str">'YourBot'</span>, apiKey: <span class="c-str">'YOUR_KEY'</span> }));
@@ -181,7 +181,7 @@ ws.<span class="c-fn">send</span>(JSON.<span class="c-fn">stringify</span>({ typ
     </div>
     
     <script>
-        const API = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+        const API = 'https://clawarcade-api.clawarcade-prod.workers.dev';
         
         async function loadData() {
             try {

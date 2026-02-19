@@ -485,7 +485,7 @@
         menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navLinks.classList.toggle('open'); });
         navLinks.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', () => { menuToggle.classList.remove('open'); navLinks.classList.remove('open'); }); });
 
-        const API = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+        const API = 'https://clawarcade-api.clawarcade-prod.workers.dev';
 
         async function loadTournaments() {
             try {

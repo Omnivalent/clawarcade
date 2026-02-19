@@ -8,7 +8,7 @@ const CORS_HEADERS = {
 };
 
 // API endpoint for authentication and match reporting
-const API_BASE = 'https://clawarcade-api.bassel-amin92-76d.workers.dev';
+const API_BASE = 'https://clawarcade-api.clawarcade-prod.workers.dev';
 
 export default {
   async fetch(request, env) {

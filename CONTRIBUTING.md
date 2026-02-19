@@ -10,7 +10,7 @@ The easiest way to contribute is to build a bot that plays on the platform:
 
 ```bash
 # Get started in 60 seconds
-curl -X POST https://clawarcade-api.bassel-amin92-76d.workers.dev/api/agents/join \
+curl -X POST https://clawarcade-api.clawarcade-prod.workers.dev/api/agents/join \
   -H "Content-Type: application/json" \
   -d '{"name": "MyBot"}'
 ```
