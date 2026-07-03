@@ -141,6 +141,11 @@ const sfxDeath = () => { playNoise(0.8, 0.35); [220,160,110,70].forEach((f,i)=>s
 const sfxLevel = () => [440,554,659,880].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.15,0.18),i*80));
 const sfxCoin = () => [988,1319].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.12,0.14),i*90));
 const sfxUfo = () => playTone(520, 'sine', 0.18, 0.08, 640);
+const sfxPickup = () => [660,880].forEach((f,i)=>setTimeout(()=>playTone(f,'triangle',0.1,0.14),i*70));
+const sfxShieldUp = () => [520,780,1040].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.12,0.16),i*70));
+const sfxShieldBreak = () => { playNoise(0.3, 0.25); playTone(700, 'sawtooth', 0.25, 0.15, 120); };
+const sfxRapid = () => [660,880,1180].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.08,0.12),i*50));
+const sfxComet = () => { [880,660,880,1100,1320].forEach((f,i)=>setTimeout(()=>playTone(f,'triangle',0.14,0.16),i*90)); playNoise(0.4, 0.12); };
 
 document.getElementById('muteBtn').onclick = () => {
     initAudio(); soundEnabled = !soundEnabled;
@@ -153,6 +158,14 @@ let ship, bullets, asteroids, particles, ufo, ufoBullets, stars;
 let score = 0, lives = 3, level = 1;
 let running = false, gameOver = false;
 let shake = 0, ufoTimer = 0, levelDelay = 0;
+/* twists: UFO pickups + comet shower bonus round */
+let pickups = [], comets = [];
+let cometT = 0, cometSpawnT = 0, bannerT = 0;
+let shieldOn = false, rapidT = 0;
+function startCometShower(){
+    cometT = 6; bannerT = 2.4; cometSpawnT = 0;
+    sfxComet();
+}
 let continueUsed = false, coinAwarded = false;
 let lastTime = 0;
 let high = 0;
@@ -229,6 +242,8 @@ function startGame(fromContinue){
         ship.invuln = 3.2;
     }
     bullets = []; particles = []; ufoBullets = [];
+    pickups = []; comets = []; cometT = 0; bannerT = 0;
+    shieldOn = false; rapidT = 0;
     gameOver = false; running = true;
     levelDelay = 0;
     hideOverlay();
@@ -271,13 +286,13 @@ function thrustParticles(){
 let fireCooldown = 0;
 function fire(){
     if (!running || gameOver || !ship || ship.dead || fireCooldown > 0) return;
-    if (bullets.length >= 6) return;
+    if (bullets.length >= (rapidT > 0 ? 10 : 6)) return;
     bullets.push({
         x: ship.x + Math.cos(ship.angle)*15, y: ship.y + Math.sin(ship.angle)*15,
         vx: Math.cos(ship.angle)*440 + ship.vx, vy: Math.sin(ship.angle)*440 + ship.vy,
         life: 1.1, trail: []
     });
-    fireCooldown = 0.18;
+    fireCooldown = rapidT > 0 ? 0.09 : 0.18;   // ⚡ rapid = double fire rate
     sfxFire();
 }
 
@@ -306,6 +321,14 @@ function splitAsteroid(idx, impactX, impactY){
 
 function killShip(){
     if (ship.invuln > 0 || ship.dead) return;
+    if (shieldOn){                       // 🛡 shield absorbs one hit
+        shieldOn = false;
+        ship.invuln = 1.6;
+        sfxShieldBreak();
+        shake = Math.max(shake, 10);
+        burst(ship.x, ship.y, '#05ffa1', 26, 3, 0.8);
+        return;
+    }
     ship.dead = true;
     ship.respawnT = 1.8;
     lives--;
@@ -396,6 +419,9 @@ function update(dt){
             score += 200;
             burst(ufo.x, ufo.y, '#f0e010', 30, 3.2, 1);
             burst(ufo.x, ufo.y, '#ff2a6d', 16, 2.4, 0.7);
+            // destroyed UFO drops a pickup
+            pickups.push({ x: ufo.x, y: ufo.y, type: Math.random() < 0.5 ? 'shield' : 'rapid',
+                life: 8, phase: Math.random()*6, vx: (Math.random()-0.5)*36, vy: (Math.random()-0.5)*36 });
             sfxBoomBig();
             shake = Math.max(shake, 9);
             ufo = null;
@@ -403,7 +429,64 @@ function update(dt){
             bullets.splice(i, 1);
             if (score > high){ high = score; try { localStorage.setItem('asteroidsHigh', String(high)); } catch(e){} }
             updateUI();
+            continue;
         }
+        // comets: 50 pts each during the bonus shower
+        for (let j = comets.length - 1; j >= 0; j--){
+            const cm = comets[j];
+            if (Math.hypot(b.x - cm.x, b.y - cm.y) < cm.r + 5){
+                score += 50;
+                burst(cm.x, cm.y, '#f0e010', 14, 2.8, 0.6);
+                burst(cm.x, cm.y, '#ffffff', 5, 3.4, 0.3);
+                sfxCoin();
+                comets.splice(j, 1);
+                bullets.splice(i, 1);
+                hit = true;
+                if (score > high){ high = score; try { localStorage.setItem('asteroidsHigh', String(high)); } catch(e){} }
+                updateUI();
+                break;
+            }
+        }
+    }
+
+    // pickups (float 8s, ship collects)
+    for (let i = pickups.length - 1; i >= 0; i--){
+        const p = pickups[i];
+        p.phase += dt * 3; p.life -= dt;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        wrap(p, 14);
+        if (p.life <= 0){ pickups.splice(i, 1); continue; }
+        if (!ship.dead && Math.hypot(p.x - ship.x, p.y - ship.y) < 20 + ship.r){
+            if (p.type === 'shield'){ shieldOn = true; sfxShieldUp(); }
+            else { rapidT = 3; sfxRapid(); }
+            burst(p.x, p.y, p.type === 'shield' ? '#05ffa1' : '#f0e010', 18, 2.6, 0.7);
+            sfxPickup();
+            pickups.splice(i, 1);
+        }
+    }
+    if (rapidT > 0) rapidT -= dt;
+
+    // comet shower (bonus round every 3rd level)
+    if (cometT > 0){
+        cometT -= dt;
+        cometSpawnT -= dt;
+        if (cometSpawnT <= 0 && comets.length < 10){
+            cometSpawnT = 0.4;
+            const fromLeft = Math.random() < 0.5;
+            comets.push({
+                x: fromLeft ? -24 : W + 24, y: 40 + Math.random()*(H - 80),
+                vx: (fromLeft ? 1 : -1) * (420 + Math.random()*220),
+                vy: (Math.random() - 0.5) * 140, r: 7, trail: []
+            });
+        }
+        if (cometT <= 0){ spawnLevelAsteroids(); updateUI(); }
+    }
+    for (let i = comets.length - 1; i >= 0; i--){
+        const cm = comets[i];
+        cm.trail.push({x: cm.x, y: cm.y});
+        if (cm.trail.length > 10) cm.trail.shift();
+        cm.x += cm.vx * dt; cm.y += cm.vy * dt;
+        if (cm.x < -80 || cm.x > W + 80){ comets.splice(i, 1); }
     }
 
     // asteroids
@@ -418,13 +501,14 @@ function update(dt){
     }
 
     // level cleared
-    if (asteroids.length === 0 && !ufo){
+    if (asteroids.length === 0 && !ufo && cometT <= 0){
         levelDelay += dt;
         if (levelDelay > 1.6){
             level++;
             levelDelay = 0;
             sfxLevel();
-            spawnLevelAsteroids();
+            if (level % 3 === 0) startCometShower();   // every 3rd level: bonus round first
+            else spawnLevelAsteroids();
             updateUI();
         }
     } else levelDelay = 0;
@@ -490,6 +574,27 @@ function drawShip(){
     ctx.save();
     ctx.translate(ship.x, ship.y);
     ctx.rotate(ship.angle + Math.PI/2);
+    if (shieldOn){
+        // 🛡 glowing shield bubble (steady)
+        const pw = 0.5 + Math.sin(performance.now()*0.006) * 0.18;
+        ctx.globalAlpha = pw;
+        ctx.strokeStyle = '#05ffa1';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#05ffa1'; ctx.shadowBlur = 22;
+        ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2); ctx.stroke();
+        ctx.globalAlpha = pw * 0.25;
+        ctx.fillStyle = '#05ffa1';
+        ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+    if (rapidT > 0){
+        // ⚡ barrel glow at the nose
+        ctx.globalAlpha = 0.55 + Math.sin(performance.now()*0.02) * 0.3;
+        ctx.fillStyle = '#f0e010';
+        ctx.shadowColor = '#f0e010'; ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.arc(0, -16, 4, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
     if (ship.invuln > 0){
         // shimmer bubble
         ctx.globalAlpha = 0.28 + Math.sin(performance.now()*0.012)*0.14;
@@ -649,11 +754,104 @@ function draw(){
         ctx.shadowBlur = 0;
     }
 
+    // comets (golden streaks, additive)
+    for (const cm of comets){
+        for (let i = 0; i < cm.trail.length; i++){
+            const t = cm.trail[i];
+            ctx.globalAlpha = (i / cm.trail.length) * 0.55;
+            ctx.fillStyle = i % 2 ? '#f0e010' : '#ff9500';
+            ctx.beginPath(); ctx.arc(t.x, t.y, cm.r * (i / cm.trail.length) * 0.9, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#f0e010'; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.arc(cm.x, cm.y, cm.r, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(240,224,16,0.6)';
+        ctx.beginPath(); ctx.arc(cm.x, cm.y, cm.r + 3, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
     ctx.globalCompositeOperation = 'source-over';
+
+    // floating pickups
+    for (const p of pickups){
+        const bob = Math.sin(p.phase) * 3;
+        const blink = p.life < 2 && Math.floor(p.life * 6) % 2 === 0;
+        ctx.save();
+        ctx.globalAlpha = blink ? 0.3 : 1;
+        ctx.translate(p.x, p.y + bob);
+        const c = p.type === 'shield' ? '#05ffa1' : '#f0e010';
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = c; ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.arc(0, 0, 14 + Math.sin(p.phase*2)*1.5, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = hexA(c, 0.14);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.font = '14px serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = c;
+        ctx.fillText(p.type === 'shield' ? '🛡' : '⚡', 0, 1);
+        ctx.restore();
+    }
 
     for (const a of asteroids) drawAsteroid(a);
     drawUfo();
     if (ship) drawShip();
+
+    // COMET SHOWER banner
+    if (bannerT > 0){
+        bannerT -= 1/60;
+        const bA = Math.min(1, bannerT / 0.5);
+        const scaleIn = 1 + Math.max(0, bannerT - 2) * 3;
+        ctx.save();
+        ctx.globalAlpha = bA;
+        ctx.translate(W/2, H*0.32);
+        ctx.scale(scaleIn, scaleIn);
+        ctx.textAlign = 'center';
+        ctx.font = '900 42px Orbitron, sans-serif';
+        ctx.fillStyle = '#f0e010';
+        ctx.shadowColor = '#f0e010'; ctx.shadowBlur = 30;
+        ctx.fillText('☄ COMET SHOWER ☄', 0, 0);
+        ctx.font = '700 16px Orbitron, sans-serif';
+        ctx.fillStyle = '#ff9500';
+        ctx.shadowBlur = 14;
+        ctx.fillText('BONUS ROUND — 50 PTS EACH', 0, 30);
+        ctx.restore();
+    }
+
+    // HUD chips: active shield / rapid
+    if (running && (shieldOn || rapidT > 0)){
+        ctx.save();
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        let hy = 22;
+        if (shieldOn){
+            ctx.font = '700 13px Orbitron, sans-serif';
+            ctx.fillStyle = 'rgba(5,255,161,0.14)';
+            ctx.strokeStyle = '#05ffa1';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#05ffa1'; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.roundRect(10, hy - 11, 104, 22, 11); ctx.fill(); ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#05ffa1';
+            ctx.fillText('🛡 SHIELD', 20, hy + 1);
+            hy += 28;
+        }
+        if (rapidT > 0){
+            ctx.font = '700 13px Orbitron, sans-serif';
+            ctx.fillStyle = 'rgba(240,224,16,0.14)';
+            ctx.strokeStyle = '#f0e010';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#f0e010'; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.roundRect(10, hy - 11, 104, 22, 11); ctx.fill(); ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#f0e010';
+            ctx.fillText('⚡ RAPID', 20, hy + 1);
+            ctx.fillStyle = 'rgba(240,224,16,0.35)';
+            ctx.fillRect(10, hy + 13, 104 * Math.max(0, rapidT / 3), 3);
+        }
+        ctx.restore();
+    }
 
     // level banner
     if (running && asteroids.length === 0 && !ufo && levelDelay > 0){
@@ -708,6 +906,14 @@ bindHold('btnThrust', 'up');
 bindHold('btnFire', 'fire');
 
 window.addEventListener('resize', resize);
+
+/* tiny debug hooks (headless verification) */
+window.__debug = {
+    dropPickup: (t) => { pickups.push({ x: ship.x + 50, y: ship.y, type: t || 'shield', life: 8, phase: 0, vx: 0, vy: 0 }); },
+    grabPickup: (t) => { if ((t || 'shield') === 'shield') shieldOn = true; else rapidT = 3; },
+    comets: () => startCometShower(),
+    state: () => ({ level, running, shieldOn, rapidT, cometT, comets: comets.length, pickups: pickups.length, score })
+};
 
 /* init */
 document.getElementById('ovBtn').onclick = () => { initAudio(); startGame(false); };

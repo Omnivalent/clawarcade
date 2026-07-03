@@ -117,6 +117,9 @@ function playWin() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => pl
 function playGameOver() { [400, 300, 200, 100].forEach((f, i) => setTimeout(() => playTone(f, 'sawtooth', 0.18, 0.22), i * 130)); }
 function playLevelUp() { [440, 554, 659, 880].forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.18, 0.22), i * 90)); }
 function playClick() { playTone(600, 'sine', 0.06, 0.12); }
+function playBomb() { playTone(90, 'sawtooth', 0.35, 0.3); playTone(55, 'square', 0.45, 0.22); }
+function playShift() { playTone(240, 'triangle', 0.14, 0.14); setTimeout(() => playTone(300, 'triangle', 0.12, 0.12), 80); }
+function playFever() { [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.12, 0.18), i * 70)); }
 
 document.getElementById('btnMute').onclick = () => {
     initAudio(); soundEnabled = !soundEnabled;
@@ -136,6 +139,12 @@ let combo = 0, borderPhase = 0, animFrame = null;
 let bgParticles = [];
 let padFlash = 0;
 const colors = ['#f0f', '#0ff', '#0f0', '#ff0', '#f80', '#f44', '#88f', '#4f4'];
+// twists: special bricks (bomb / shifter) + fever mode
+let shiftTimer = 0, shiftDir = 1, shimmer = 0;
+let rings = [];                          // bomb shockwave rings
+let breakTimes = [], feverT = 0, feverPierce = 0;
+let brickCols = 0, brickBW = 0, brickBH = 0;
+const SHIFT_FRAMES = 600, SHIMMER_FRAMES = 60;   // shift every ~10s, telegraph last 1s
 
 // ---- visual helpers: color math + cached sprites (gradients baked once) ----
 function hexToRgb(hex) {
@@ -152,8 +161,8 @@ function rgba(hex, a) { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},
 
 const tileCache = new Map();
 const GLOW_PAD = 12;
-function getBrickTile(color, w, h, damaged) {
-    const key = color + '|' + Math.round(w) + 'x' + Math.round(h) + (damaged ? '|d' : '');
+function getBrickTile(color, w, h, damaged, kind) {
+    const key = color + '|' + Math.round(w) + 'x' + Math.round(h) + (damaged ? '|d' : '') + '|' + (kind || '');
     let tile = tileCache.get(key);
     if (tile) return tile;
     w = Math.round(w); h = Math.round(h);
@@ -203,6 +212,25 @@ function getBrickTile(color, w, h, damaged) {
         c.stroke();
         c.strokeStyle = 'rgba(255,255,255,0.18)';
         c.beginPath(); c.moveTo(x + w * 0.29, y + 1); c.lineTo(x + w * 0.43, y + h * 0.46); c.stroke();
+    }
+    // special-brick icons baked into the same beveled tile
+    if (kind === 'bomb') {
+        c.fillStyle = 'rgba(0,0,0,0.45)';
+        c.beginPath(); c.arc(x + w / 2, y + h / 2, Math.min(h * 0.42, 9), 0, Math.PI * 2); c.fill();
+        c.font = Math.floor(h * 0.72) + 'px serif';
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText('💥', x + w / 2, y + h / 2 + 1);
+    } else if (kind === 'shift') {
+        c.fillStyle = 'rgba(0,0,0,0.45)';
+        c.beginPath(); c.arc(x + w / 2, y + h / 2, Math.min(h * 0.42, 9), 0, Math.PI * 2); c.fill();
+        c.font = Math.floor(h * 0.66) + 'px serif';
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText('🔒', x + w / 2, y + h / 2 + 1);
+        // side arrows hinting sideways motion
+        c.fillStyle = 'rgba(255,255,255,0.55)';
+        c.font = 'bold ' + Math.floor(h * 0.45) + 'px Orbitron, sans-serif';
+        c.fillText('‹', x + w * 0.16, y + h / 2 + 1);
+        c.fillText('›', x + w * 0.84, y + h / 2 + 1);
     }
     c.restore();
     tile = {cv, cw, ch};
@@ -279,10 +307,29 @@ function makeBricks() {
     const cols = Math.min(cfg.cols, Math.floor(W / 42));
     const rows = cfg.rows;
     const bw = W / cols - 3, bh = Math.max(16, H * 0.032);
+    brickCols = cols; brickBW = bw; brickBH = bh;
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        const tough = Math.random() < cfg.toughChance;
-        bricks.push({x: c * (bw + 3) + 2, y: r * (bh + 3) + 12, w: bw, h: bh, color: colors[r % colors.length], baseColor: colors[r % colors.length], alive: true, row: r, hits: tough ? 2 : 1, tough});
+        // ~10% special bricks: 💥 bomb / 🔒 shifter
+        const roll = Math.random();
+        const kind = roll < 0.05 ? 'bomb' : roll < 0.10 ? 'shift' : '';
+        const tough = !kind && Math.random() < cfg.toughChance;
+        const col = kind === 'bomb' ? '#f80' : kind === 'shift' ? '#4df' : colors[r % colors.length];
+        bricks.push({x: c * (bw + 3) + 2, y: r * (bh + 3) + 12, w: bw, h: bh, color: col, baseColor: col, alive: true, row: r, col: c, kind, hits: tough ? 2 : 1, tough});
     }
+    // guarantee at least one of each special on decent-size boards
+    if (bricks.length >= 8) {
+        for (const k of ['bomb', 'shift']) {
+            if (!bricks.some(b => b.kind === k)) {
+                const plain = bricks.filter(b => !b.kind);
+                if (plain.length) {
+                    const b = plain[Math.floor(Math.random() * plain.length)];
+                    b.kind = k; b.tough = false; b.hits = 1;
+                    b.color = b.baseColor = k === 'bomb' ? '#f80' : '#4df';
+                }
+            }
+        }
+    }
+    shiftTimer = 0; shimmer = 0;
 }
 
 function makeBall() {
@@ -295,6 +342,7 @@ function init() {
     const cfg = getLevelConfig(level);
     padX = W / 2; padW = W * cfg.paddleWidth;
     balls = [makeBall()]; powerups = []; particles = [];
+    rings = []; breakTimes = []; feverT = 0; feverPierce = 0; shiftDir = 1;
     makeBricks(); updateUI();
 }
 
@@ -316,6 +364,7 @@ function showCombo(x, y, text, color) {
 }
 
 function addParticles(x, y, color, count) {
+    if (particles.length > 260) return;   // 60fps particle cap
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2, spd = 2 + Math.random() * 5;
         particles.push({x, y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, life: 22 + Math.random() * 18, color, size: 2 + Math.random() * 4});
@@ -327,11 +376,77 @@ function spawnPowerup(x, y) {
     powerups.push({x, y, type: Math.random() < 0.5 ? 'wide' : 'multi', vy: 2.2, r: 10});
 }
 
+// ---- twists: brick destruction pipeline (bomb chains + fever tracking) ----
+function destroyBrick(br) {
+    if (!br.alive) return;
+    br.alive = false; combo++;
+    score += 10 * combo;
+    spawnPowerup(br.x + br.w / 2, br.y + br.h / 2);
+    addParticles(br.x + br.w / 2, br.y + br.h / 2, br.color, 12);
+    if (combo > 1) showCombo(br.x + br.w / 2, br.y + br.h / 2, 'x' + combo + '!', br.color);
+    if (combo >= 5) triggerShake();
+    trackFever();
+    if (br.kind === 'bomb') explodeBomb(br);
+}
+function explodeBomb(br) {
+    rings.push({x: br.x + br.w / 2, y: br.y + br.h / 2, r: 6, max: (brickBW + 3) * 1.9, alpha: 1});
+    triggerShake();
+    playBomb();
+    addParticles(br.x + br.w / 2, br.y + br.h / 2, '#f80', 18);
+    addParticles(br.x + br.w / 2, br.y + br.h / 2, '#ff0', 10);
+    for (const o of bricks) {   // 3x3 neighborhood (chains through other bombs)
+        if (!o.alive || o === br) continue;
+        if (Math.abs(o.row - br.row) <= 1 && Math.abs(o.col - br.col) <= 1) {
+            o.hits = 0;
+            destroyBrick(o);
+        }
+    }
+}
+function trackFever() {
+    const tNow = performance.now();
+    breakTimes.push(tNow);
+    breakTimes = breakTimes.filter(t => tNow - t < 3000);
+    if (breakTimes.length >= 6 && feverT <= 0) {
+        feverT = 300; feverPierce = 1; breakTimes = [];   // 5s @60fps, 1 pierce
+        showCombo(W / 2 - 60, H * 0.4, '🔥 FEVER!', '#f80');
+        playFever();
+        triggerShake();
+    }
+}
+function cellOccupied(row, col) { return bricks.some(b => b.alive && b.row === row && b.col === col); }
+function doShift() {
+    let moved = false;
+    for (const b of bricks) {
+        if (!b.alive || b.kind !== 'shift') continue;
+        const nc = b.col + shiftDir;
+        if (nc >= 0 && nc < brickCols && !cellOccupied(b.row, nc)) {
+            b.col = nc;
+            b.x = nc * (brickBW + 3) + 2;
+            moved = true;
+        }
+    }
+    shiftDir *= -1;
+    if (moved) playShift();
+}
+
 function update() {
     if (paused) return;
     const padY = H - 30;
     const cfg = getLevelConfig(level);
-    
+
+    // shifter bricks: telegraphed sideways slide every ~10s
+    if (bricks.some(b => b.alive && b.kind === 'shift')) {
+        shiftTimer++;
+        shimmer = shiftTimer > SHIFT_FRAMES - SHIMMER_FRAMES ? (shiftTimer - (SHIFT_FRAMES - SHIMMER_FRAMES)) / SHIMMER_FRAMES : 0;
+        if (shiftTimer >= SHIFT_FRAMES) { shiftTimer = 0; shimmer = 0; doShift(); }
+    } else { shiftTimer = 0; shimmer = 0; }
+
+    // fever countdown
+    if (feverT > 0) { feverT--; if (feverT <= 0) feverPierce = 0; }
+
+    // bomb shockwave rings
+    rings = rings.filter(rg => { rg.r += (rg.max - rg.r) * 0.16 + 2; rg.alpha *= 0.88; return rg.alpha > 0.04; });
+
     // powerups
     for (let i = powerups.length - 1; i >= 0; i--) {
         const p = powerups[i]; p.y += p.vy;
@@ -376,18 +491,16 @@ function update() {
             if (!br.alive) continue;
             if (b.x + b.r > br.x && b.x - b.r < br.x + br.w && b.y + b.r > br.y && b.y - b.r < br.y + br.h) {
                 br.hits--;
-                if (br.hits <= 0) {
-                    br.alive = false; combo++;
-                    const pts = 10 * combo;
-                    score += pts;
-                    spawnPowerup(br.x + br.w / 2, br.y + br.h / 2);
-                    addParticles(br.x + br.w / 2, br.y + br.h / 2, br.color, 15);
-                    if (combo > 1) showCombo(br.x + br.w / 2, br.y + br.h / 2, 'x' + combo + '!', br.color);
-                    if (combo >= 5) triggerShake();
+                const destroyed = br.hits <= 0;
+                if (destroyed) {
+                    destroyBrick(br);
                 } else {
                     br.color = '#888'; addParticles(br.x + br.w / 2, br.y + br.h / 2, '#fff', 8);
                 }
-                b.vy *= -1; playBrickHit(br.row); updateUI(); popScore();
+                // fever: ignited ball passes through one brick without bouncing
+                if (destroyed && feverT > 0 && feverPierce > 0) feverPierce--;
+                else b.vy *= -1;
+                playBrickHit(br.row); updateUI(); popScore();
                 break;
             }
         }
@@ -444,8 +557,15 @@ function draw() {
     for (const b of bricks) {
         if (!b.alive) continue;
         const damaged = b.tough && b.hits === 1;
-        const tile = getBrickTile(b.baseColor || b.color, b.w, b.h, damaged);
+        const tile = getBrickTile(b.baseColor || b.color, b.w, b.h, damaged, b.kind);
         ctx.drawImage(tile.cv, b.x - GLOW_PAD, b.y - GLOW_PAD, tile.cw, tile.ch);
+        // shifter telegraph: shimmer sweep right before the slide
+        if (b.kind === 'shift' && shimmer > 0) {
+            ctx.globalAlpha = shimmer * (0.28 + 0.3 * Math.abs(Math.sin(now * 0.02)));
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            ctx.globalAlpha = 1;
+        }
         if (b.tough && b.hits === 2) {
             ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.font = 'bold 11px Orbitron, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText('2', b.x + b.w / 2, b.y + b.h / 2 + 1);
@@ -465,9 +585,34 @@ function draw() {
     }
     ctx.shadowBlur = 0;
     
-    // balls: glowing orb sprite + fading afterimage trail
+    // bomb shockwave rings
+    for (const rg of rings) {
+        ctx.globalAlpha = rg.alpha;
+        ctx.strokeStyle = '#fa0';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#f80'; ctx.shadowBlur = 20;
+        ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = rg.alpha * 0.5;
+        ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r * 0.75, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+    // balls: glowing orb sprite + fading afterimage trail (flame trail in fever)
     for (const b of balls) {
         const sprite = getBallSprite(b.r);
+        if (feverT > 0) {
+            for (let i = 0; i < b.trail.length; i++) {
+                const t = b.trail[i], f = i / b.trail.length;
+                ctx.globalAlpha = f * 0.55;
+                ctx.fillStyle = i % 2 ? '#f80' : '#fc0';
+                ctx.beginPath();
+                ctx.arc(t.x + (Math.random() - 0.5) * 3, t.y + (Math.random() - 0.5) * 3, b.r * (0.35 + f * 0.9), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.shadowColor = '#f80'; ctx.shadowBlur = 22;
+        }
         for (let i = 0; i < b.trail.length; i++) {
             const t = b.trail[i], f = i / b.trail.length;
             ctx.globalAlpha = f * f * 0.5;
@@ -476,6 +621,7 @@ function draw() {
         }
         ctx.globalAlpha = 1;
         ctx.drawImage(sprite.cv, b.x - b.r - sprite.pad, b.y - b.r - sprite.pad, sprite.s, sprite.s);
+        ctx.shadowBlur = 0;
     }
 
     // paddle: metallic neon gradient, glow, hover bob + hit flash
@@ -525,10 +671,27 @@ function draw() {
     });
     ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     
+    // fever mode: screen edge glow
+    if (feverT > 0) {
+        const fa = Math.min(1, feverT / 60) * (0.45 + 0.18 * Math.sin(now * 0.015));
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,140,0,${fa})`;
+        ctx.lineWidth = 9;
+        ctx.shadowColor = '#f80'; ctx.shadowBlur = 32;
+        ctx.strokeRect(3, 3, W - 6, H - 6);
+        ctx.font = 'bold 12px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(255,180,0,${fa + 0.2})`;
+        ctx.shadowBlur = 12;
+        ctx.fillText('🔥 FEVER ' + Math.ceil(feverT / 60) + 's', W / 2, H - 8);
+        ctx.restore();
+    }
+
     // Animated border glow
     borderPhase += 0.035;
     const glow = 18 + Math.sin(borderPhase) * 10;
-    canvas.style.boxShadow = `0 0 ${glow}px rgba(255,0,255,${0.3 + Math.sin(borderPhase) * 0.12}), 0 0 ${glow * 2}px rgba(255,0,255,0.1), inset 0 0 ${glow}px rgba(255,0,255,0.06)`;
+    const bc = feverT > 0 ? '255,140,0' : '255,0,255';
+    canvas.style.boxShadow = `0 0 ${glow}px rgba(${bc},${0.3 + Math.sin(borderPhase) * 0.12}), 0 0 ${glow * 2}px rgba(${bc},0.1), inset 0 0 ${glow}px rgba(${bc},0.06)`;
 }
 
 function loop(now) {
@@ -578,6 +741,23 @@ document.getElementById('btnReset').onclick = () => {
     overlay.classList.remove('hidden');
     document.getElementById('overlayTitle').textContent = '💎 NEON BREAKOUT';
     document.getElementById('overlayMsg').textContent = 'Touch & drag to move paddle.\nBreak all bricks! Catch power-ups!';
+};
+
+// tiny debug hooks (headless verification)
+window.__debug = {
+    fever: () => { feverT = 300; feverPierce = 1; playFever(); },
+    bomb: () => {
+        const b = bricks.find(x => x.alive && x.kind === 'bomb') || bricks.find(x => x.alive);
+        if (b) { b.kind = 'bomb'; b.hits = 0; destroyBrick(b); updateUI(); }
+    },
+    shift: () => doShift(),
+    shimmer: () => { shiftTimer = SHIFT_FRAMES - SHIMMER_FRAMES + 5; },
+    state: () => ({
+        running, feverT, feverPierce, rings: rings.length, shiftTimer,
+        bombs: bricks.filter(b => b.alive && b.kind === 'bomb').length,
+        shifters: bricks.filter(b => b.alive && b.kind === 'shift').length,
+        alive: bricks.filter(b => b.alive).length, score, level
+    })
 };
 
 resize();
