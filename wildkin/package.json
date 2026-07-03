@@ -1,0 +1,19 @@
+{
+  "name": "wildkin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Wildkin - browser isometric creature-sanctuary game (vertical slice). Creatures evolve based on how you raise and use them.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3",
+    "vite": "^6.3.5"
+  }
+}

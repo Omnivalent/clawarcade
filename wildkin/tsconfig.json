@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    // Modern browser target — Vite handles the bundling.
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+
+    // Strict type-checking keeps the codebase honest as it grows.
+    "strict": true,
+    "noUnusedLocals": false,
+    "noFallthroughCasesInSwitch": true,
+
+    // Lets us `import data from './config/foo.json'` — the whole game is
+    // data-driven, so JSON imports are used everywhere.
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "useDefineForClassFields": true,
+
+    // Vite provides the actual output; tsc is only used for type-checking.
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

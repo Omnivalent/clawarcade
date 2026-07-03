@@ -1,0 +1,38 @@
+{
+  "_comment": "Evolution-by-use — CORE HOOK #2, the identity of the game. Every creature tracks three activity counters: `mining` (+1 per harvest tick while working), `exploring` (+exploringPerTile per tile walked — kept below 1 so idle wandering alone doesn't out-race the activities the player directs), `sanctuary` (+1 per sanctuaryTickSeconds spent resting; doubled when resting near decor). When ANY counter reaches `threshold`, the creature evolves, and the branch it takes is whichever counter is HIGHEST at that moment. Each branch swaps the sprite to a next-stage placeholder form and applies stat multipliers. Add branches or tune thresholds here freely.",
+
+  "threshold": 25,
+  "exploringPerTile": 0.5,
+  "sanctuaryTickSeconds": 3,
+  "maxStage": 2,
+
+  "branches": {
+    "mining": {
+      "id": "forgekin",
+      "name": "Forgekin",
+      "description": "Hardened by honest labor. Works much faster.",
+      "shape": "square",
+      "color": "#e67e22",
+      "sizeMult": 1.35,
+      "stats": { "workSpeedMult": 1.6, "moveSpeedMult": 1.0, "resonanceBonus": 0 }
+    },
+    "exploring": {
+      "id": "swiftkin",
+      "name": "Swiftkin",
+      "description": "Shaped by wandering. Moves far faster.",
+      "shape": "triangle",
+      "color": "#5dade2",
+      "sizeMult": 1.25,
+      "stats": { "workSpeedMult": 1.0, "moveSpeedMult": 1.7, "resonanceBonus": 0 }
+    },
+    "sanctuary": {
+      "id": "bloomkin",
+      "name": "Bloomkin",
+      "description": "Grown serene. Resonance is stronger around it.",
+      "shape": "star",
+      "color": "#af7ac5",
+      "sizeMult": 1.3,
+      "stats": { "workSpeedMult": 1.1, "moveSpeedMult": 1.1, "resonanceBonus": 0.5 }
+    }
+  }
+}

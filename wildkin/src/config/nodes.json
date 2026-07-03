@@ -1,0 +1,51 @@
+{
+  "_comment": "Resource definitions + resource node definitions. `resources` drives the HUD counters. Each node type says: what resource it yields, how much it can hold (`capacity`), how fast it refills (`regenPerSecond`), how often a working creature harvests (`workIntervalMs`) and how much per harvest (`yieldPerTick`). Nodes with `buildable: true` also appear in the Build menu with the given `cost`.",
+
+  "resources": [
+    { "id": "wood", "name": "Wood", "color": "#b07c4f", "icon": "🪵" },
+    { "id": "stone", "name": "Stone", "color": "#9aa5ad", "icon": "🪨" },
+    { "id": "herbs", "name": "Herbs", "color": "#e588b8", "icon": "🌿" }
+  ],
+
+  "nodeTypes": {
+    "tree": {
+      "name": "Wisp Tree",
+      "resource": "wood",
+      "capacity": 10,
+      "regenPerSecond": 0.25,
+      "workIntervalMs": 2000,
+      "yieldPerTick": 1,
+      "activity": "mining",
+      "color": "#2e8b57",
+      "trunkColor": "#7a5230",
+      "buildable": true,
+      "cost": { "herbs": 4 }
+    },
+    "rock": {
+      "name": "Moon Rock",
+      "resource": "stone",
+      "capacity": 8,
+      "regenPerSecond": 0.2,
+      "workIntervalMs": 2400,
+      "yieldPerTick": 1,
+      "activity": "mining",
+      "color": "#8d99a6",
+      "trunkColor": "#5c6670",
+      "buildable": true,
+      "cost": { "stone": 6 }
+    },
+    "flower": {
+      "name": "Dream Bloom",
+      "resource": "herbs",
+      "capacity": 6,
+      "regenPerSecond": 0.3,
+      "workIntervalMs": 1800,
+      "yieldPerTick": 1,
+      "activity": "mining",
+      "color": "#e588b8",
+      "trunkColor": "#4d8a4d",
+      "buildable": true,
+      "cost": { "herbs": 2 }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "_comment": "All creature definitions live here — logic code never hardcodes a species. `species` defines the archetypes (placeholder shape + color now, real art later: swap `shape`/`color` for a spritesheet key when art lands). `startingCreatures` is who you begin a fresh sanctuary with. `speed` is walking speed in pixels/second. `wanderRadius` is how far (in tiles) a creature roams from where it's standing when idle.",
+
+  "species": {
+    "glimmer": {
+      "name": "Glimmer",
+      "shape": "circle",
+      "color": "#4fd8c4",
+      "size": 26,
+      "speed": 70,
+      "wanderRadius": 4,
+      "flavor": "A gentle orb-like spirit drawn to calm places."
+    },
+    "thorn": {
+      "name": "Thorn",
+      "shape": "triangle",
+      "color": "#8ecf4d",
+      "size": 28,
+      "speed": 85,
+      "wanderRadius": 5,
+      "flavor": "Restless and leaf-quick — never sits still for long."
+    },
+    "cinder": {
+      "name": "Cinder",
+      "shape": "square",
+      "color": "#f2924a",
+      "size": 25,
+      "speed": 60,
+      "wanderRadius": 3,
+      "flavor": "Stubborn little ember that loves hard work."
+    }
+  },
+
+  "startingCreatures": [
+    { "species": "glimmer", "name": "Pip", "tile": [9, 9] },
+    { "species": "thorn", "name": "Moss", "tile": [11, 11] },
+    { "species": "cinder", "name": "Ember", "tile": [9, 12] },
+    { "species": "glimmer", "name": "Lumen", "tile": [12, 8] }
+  ],
+
+  "maxCreaturesMobile": 3
+}

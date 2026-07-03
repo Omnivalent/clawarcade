@@ -1,0 +1,72 @@
+{
+  "_comment": "The world map. Each string in `layout` is one row of tiles, one character per tile. The characters map to entries in `tileTypes` below. Edit the strings to reshape the world — just keep every row the same length. `startingNodes` are the resource nodes present when a brand-new game starts (coordinates are [column, row], zero-based, matching the layout strings).",
+
+  "tileTypes": {
+    "g": {
+      "id": "grass",
+      "name": "Grass",
+      "color": "#4d9e57",
+      "edgeColor": "#3a7c43",
+      "walkable": true,
+      "buildable": true
+    },
+    "d": {
+      "id": "dirt",
+      "name": "Dirt",
+      "color": "#9a7148",
+      "edgeColor": "#7b5836",
+      "walkable": true,
+      "buildable": true
+    },
+    "w": {
+      "id": "water",
+      "name": "Water",
+      "color": "#3d7fc4",
+      "edgeColor": "#2d6299",
+      "walkable": false,
+      "buildable": false
+    },
+    "p": {
+      "id": "path",
+      "name": "Path",
+      "color": "#c9b38a",
+      "edgeColor": "#a8946e",
+      "walkable": true,
+      "buildable": false
+    }
+  },
+
+  "layout": [
+    "gggggggggggggggggggg",
+    "gggggggggggggggggggg",
+    "gggggggggggggggggggg",
+    "ggggggggggggggwwgggg",
+    "gggggggggggggwwwwggg",
+    "ggggggggggpggwwwwggg",
+    "ggggggggggpgggwwgggg",
+    "ggggggggggpggggggggg",
+    "ggggggggggpggggggggg",
+    "ggggggggggpggggggggg",
+    "ggppppppppppppppppgg",
+    "ggggggggggpggggggggg",
+    "gggddddgggpggggggggg",
+    "gggddddgggpggggggggg",
+    "gggddddgggpggggggggg",
+    "gggddddgggpggggggggg",
+    "gggggggggggggggggggg",
+    "gggggggggggggggggggg",
+    "gggggggggggggggggggg",
+    "gggggggggggggggggggg"
+  ],
+
+  "startingNodes": [
+    { "type": "tree", "tile": [4, 4] },
+    { "type": "tree", "tile": [6, 8] },
+    { "type": "tree", "tile": [15, 14] },
+    { "type": "tree", "tile": [12, 12] },
+    { "type": "rock", "tile": [5, 13] },
+    { "type": "rock", "tile": [16, 6] },
+    { "type": "flower", "tile": [8, 3] },
+    { "type": "flower", "tile": [13, 16] }
+  ]
+}
