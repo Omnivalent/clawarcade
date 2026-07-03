@@ -116,6 +116,7 @@
             </button>
         </div>
     </div>
+    <script src="../js/human-check.js"></script>
 <script>
 (function(){
 const dpr = window.devicePixelRatio || 1;
@@ -207,6 +208,9 @@ let lockDelay, lockTimer, lockMoves;
 let bag = [];
 let particles = [];
 let bgParticles = [];
+let dropTrails = [];
+let rowFlashes = [];
+let bgGradCache = null, hueGradCache = null, wellShadeCanvas = null;
 let shakeTime = 0;
 let borderPhase = 0;
 let animFrame;
@@ -289,6 +293,33 @@ function resize() {
     no.style.right = (ar.right - cr.right + 6) + 'px';
     no.style.left = 'auto';
     
+    // Flush cell sprite cache (cell size changed) and rebuild cached gradients
+    for (const k in cellSpriteCache) delete cellSpriteCache[k];
+    bgGradCache = ctx.createRadialGradient(canvasW / 2, canvasH / 2, 0, canvasW / 2, canvasH / 2, canvasW * 0.8);
+    bgGradCache.addColorStop(0, '#0a0a1a');
+    bgGradCache.addColorStop(1, '#050510');
+    hueGradCache = ctx.createLinearGradient(0, 0, canvasW, canvasH);
+    hueGradCache.addColorStop(0, '#00e5ff');
+    hueGradCache.addColorStop(0.5, '#050510');
+    hueGradCache.addColorStop(1, '#ff00ff');
+    // Pre-render the well's inner shadow so it reads as a 3D pit
+    wellShadeCanvas = document.createElement('canvas');
+    wellShadeCanvas.width = Math.max(1, Math.ceil(canvasW * dpr));
+    wellShadeCanvas.height = Math.max(1, Math.ceil(canvasH * dpr));
+    const wc = wellShadeCanvas.getContext('2d');
+    wc.scale(dpr, dpr);
+    const edge = Math.min(canvasW * 0.14, BS * 1.6);
+    const mkShade = (x0, y0, x1, y1) => {
+        const g = wc.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, 'rgba(0,0,0,0.55)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        return g;
+    };
+    wc.fillStyle = mkShade(0, 0, edge, 0); wc.fillRect(0, 0, edge, canvasH);
+    wc.fillStyle = mkShade(canvasW, 0, canvasW - edge, 0); wc.fillRect(canvasW - edge, 0, edge, canvasH);
+    wc.fillStyle = mkShade(0, 0, 0, edge); wc.fillRect(0, 0, canvasW, edge);
+    wc.fillStyle = mkShade(0, canvasH, 0, canvasH - edge); wc.fillRect(0, canvasH - edge, canvasW, edge);
+
     initBgParticles();
     drawSmall(nctx, nextCanvas, next);
     drawSmall(hctx, holdCanvas, holdPiece);
@@ -298,7 +329,7 @@ function init() {
     board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
     score = 0; linesCleared = 0; level = 1; paused = false; gameOver = false;
     holdPiece = null; holdUsed = false; combo = 0;
-    particles = []; shakeTime = 0; bag = [];
+    particles = []; dropTrails = []; rowFlashes = []; shakeTime = 0; bag = [];
     next = makePiece(); spawn();
     updateUI(); resize();
     document.getElementById('pauseOverlay').classList.add('hidden');
@@ -373,6 +404,7 @@ function clearLines() {
     const tspin = isTSpin();
     
     rows.forEach(r => {
+        rowFlashes.push({y: r * BS, life: 1});
         for (let c = 0; c < COLS; c++) {
             const col = board[r][c];
             if (col) addParticles(c * BS + BS / 2, r * BS + BS / 2, col, 8);
@@ -482,7 +514,9 @@ function softDrop() {
 }
 function hardDrop() {
     if (paused || gameOver) return;
+    const trailY = cy;
     while (!collides(current.shape, cx, cy + 1)) { cy++; score += 2; }
+    if (cy > trailY) dropTrails.push({shape: current.shape.map(r => [...r]), x: cx, y0: trailY, y1: cy, color: current.color, life: 1});
     playDrop();
     updateUI();
     merge();
@@ -577,6 +611,8 @@ function loop(now) {
     mainCanvas.style.boxShadow = `0 0 ${glow}px rgba(0,229,255,${0.3 + Math.sin(borderPhase) * 0.15}), 0 0 ${glow * 2}px rgba(0,229,255,0.1), inset 0 0 ${glow}px rgba(0,229,255,0.06)`;
     
     particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.vx *= 0.98; p.life--; return p.life > 0; });
+    dropTrails = dropTrails.filter(t => (t.life -= dt / 170) > 0);
+    rowFlashes = rowFlashes.filter(f => (f.life -= dt / 260) > 0);
     
     // Update bg particles
     bgParticles.forEach(p => {
@@ -595,13 +631,18 @@ function autoTick() {
 function draw() {
     const w = canvasW, h = canvasH;
     
-    // Dark gradient background
-    const bgGrad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w*0.8);
-    bgGrad.addColorStop(0, '#0a0a1a');
-    bgGrad.addColorStop(1, '#050510');
-    ctx.fillStyle = bgGrad;
+    // Dark gradient background (cached on resize)
+    ctx.fillStyle = bgGradCache || '#050510';
     ctx.fillRect(0, 0, w, h);
-    
+
+    // Slow animated hue-shift wash behind the well
+    if (hueGradCache) {
+        ctx.globalAlpha = 0.05 + 0.04 * Math.sin(borderPhase * 0.35);
+        ctx.fillStyle = hueGradCache;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 1;
+    }
+
     // Animated background particles
     bgParticles.forEach(p => {
         ctx.fillStyle = `rgba(0,229,255,${p.opacity})`;
@@ -618,24 +659,45 @@ function draw() {
     
     // Placed blocks
     board.forEach((row, r) => row.forEach((v, c) => { if (v) drawBlock(ctx, c * BS, r * BS, BS, v); }));
-    
+
+    // Hard-drop light trails
+    dropTrails.forEach(t => {
+        ctx.globalAlpha = t.life * 0.4;
+        for (let tc = 0; tc < t.shape[0].length; tc++) {
+            let top = -1;
+            for (let tr = 0; tr < t.shape.length; tr++) if (t.shape[tr][tc]) { top = tr; break; }
+            if (top < 0) continue;
+            const px = (t.x + tc) * BS, py0 = Math.max(0, (t.y0 + top) * BS), py1 = (t.y1 + top) * BS;
+            if (py1 <= py0) continue;
+            const g = ctx.createLinearGradient(0, py0, 0, py1);
+            g.addColorStop(0, 'rgba(255,255,255,0)');
+            g.addColorStop(0.7, t.color);
+            g.addColorStop(1, '#ffffff');
+            ctx.fillStyle = g;
+            ctx.fillRect(px + BS * 0.15, py0, BS * 0.7, py1 - py0);
+        }
+        ctx.globalAlpha = 1;
+    });
+
     // Current piece
     if (current && !gameOver) {
-        // Ghost piece
+        // Ghost piece: translucent wireframe outline
         const gy = ghostY();
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = current.color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([Math.max(3, BS * 0.18), Math.max(2, BS * 0.12)]);
+        ctx.shadowColor = current.color;
+        ctx.shadowBlur = 6;
         current.shape.forEach((row, r) => row.forEach((v, c) => {
             if (v && gy + r >= 0) {
-                ctx.strokeStyle = current.color;
-                ctx.lineWidth = 2;
-                ctx.shadowColor = current.color;
-                ctx.shadowBlur = 6;
-                ctx.strokeRect((cx + c) * BS + 2, (gy + r) * BS + 2, BS - 4, BS - 4);
-                ctx.shadowBlur = 0;
+                ctx.strokeRect((cx + c) * BS + 2.5, (gy + r) * BS + 2.5, BS - 5, BS - 5);
             }
         }));
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
-        
+
         // Active piece
         current.shape.forEach((row, r) => row.forEach((v, c) => {
             if (v && cy + r >= 0) drawBlock(ctx, (cx + c) * BS, (cy + r) * BS, BS, current.color);
@@ -652,41 +714,124 @@ function draw() {
         ctx.shadowBlur = 0;
     });
     ctx.globalAlpha = 1;
+
+    // Line-clear flash bands
+    rowFlashes.forEach(f => {
+        ctx.globalAlpha = f.life * 0.75;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, f.y, w, BS);
+        ctx.globalAlpha = f.life * 0.35;
+        ctx.fillStyle = '#00e5ff';
+        ctx.fillRect(0, f.y - 2, w, BS + 4);
+    });
+    ctx.globalAlpha = 1;
+
+    // Well inner shadow: reads as a 3D pit (pre-rendered on resize)
+    if (wellShadeCanvas) ctx.drawImage(wellShadeCanvas, 0, 0, w, h);
 }
 
-function drawBlock(c, x, y, s, color) {
-    // Outer glow
-    const key = Object.keys(COLORS).find(k => COLORS[k] === color) || 'I';
-    const glowColor = GLOW_COLORS[key] || 'rgba(0,229,255,';
-    
-    const grad = c.createRadialGradient(x + s/2, y + s/2, 0, x + s/2, y + s/2, s);
-    grad.addColorStop(0, glowColor + '0.4)');
-    grad.addColorStop(1, glowColor + '0)');
-    c.fillStyle = grad;
-    c.fillRect(x - s*0.2, y - s*0.2, s * 1.4, s * 1.4);
-    
-    // Block
-    c.fillStyle = color;
-    c.shadowColor = color;
-    c.shadowBlur = 12;
-    c.fillRect(x + 1, y + 1, s - 2, s - 2);
-    c.shadowBlur = 0;
-    
-    // Inner gradient for 3D effect
-    const innerGrad = c.createLinearGradient(x, y, x, y + s);
-    innerGrad.addColorStop(0, 'rgba(255,255,255,0.25)');
-    innerGrad.addColorStop(0.5, 'rgba(255,255,255,0)');
-    innerGrad.addColorStop(1, 'rgba(0,0,0,0.2)');
-    c.fillStyle = innerGrad;
-    c.fillRect(x + 2, y + 2, s - 4, s - 4);
-    
-    // Highlight
-    c.fillStyle = 'rgba(255,255,255,0.15)';
-    c.fillRect(x + 3, y + 3, s - 6, (s - 6) * 0.35);
+// === 3D beveled glossy cell renderer ===
+// Each unique color+size tile is rendered ONCE to an offscreen sprite
+// (glow + bevels + gloss + specular), then stamped with drawImage —
+// no gradients are created per cell per frame.
+const cellSpriteCache = {};
+
+function shadeColor(hex, pct) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    if (pct >= 0) { r += (255 - r) * pct; g += (255 - g) * pct; b += (255 - b) * pct; }
+    else { r *= 1 + pct; g *= 1 + pct; b *= 1 + pct; }
+    return 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ')';
 }
+
+function makeCellSprite(color, s) {
+    const pad = Math.ceil(s * 0.35);
+    const full = s + pad * 2;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.ceil(full * dpr));
+    cv.height = Math.max(1, Math.ceil(full * dpr));
+    const c = cv.getContext('2d');
+    c.scale(dpr, dpr);
+    const x = pad, y = pad;
+    const key = Object.keys(COLORS).find(k => COLORS[k] === color);
+    const glowColor = (key && GLOW_COLORS[key]) || 'rgba(0,229,255,';
+
+    // Soft neon glow halo
+    const glow = c.createRadialGradient(x + s / 2, y + s / 2, s * 0.2, x + s / 2, y + s / 2, s * 0.95);
+    glow.addColorStop(0, glowColor + '0.45)');
+    glow.addColorStop(1, glowColor + '0)');
+    c.fillStyle = glow;
+    c.fillRect(0, 0, full, full);
+
+    const b = Math.max(2, s * 0.16); // bevel width
+    // Base face: diagonal gradient (lit top-left, dark bottom-right)
+    const face = c.createLinearGradient(x, y, x + s, y + s);
+    face.addColorStop(0, shadeColor(color, 0.3));
+    face.addColorStop(0.5, color);
+    face.addColorStop(1, shadeColor(color, -0.35));
+    c.fillStyle = face;
+    c.fillRect(x + 1, y + 1, s - 2, s - 2);
+
+    // Top bevel (light)
+    c.fillStyle = 'rgba(255,255,255,0.45)';
+    c.beginPath();
+    c.moveTo(x + 1, y + 1); c.lineTo(x + s - 1, y + 1);
+    c.lineTo(x + s - 1 - b, y + 1 + b); c.lineTo(x + 1 + b, y + 1 + b);
+    c.closePath(); c.fill();
+    // Left bevel (light)
+    c.fillStyle = 'rgba(255,255,255,0.26)';
+    c.beginPath();
+    c.moveTo(x + 1, y + 1); c.lineTo(x + 1 + b, y + 1 + b);
+    c.lineTo(x + 1 + b, y + s - 1 - b); c.lineTo(x + 1, y + s - 1);
+    c.closePath(); c.fill();
+    // Bottom bevel (dark)
+    c.fillStyle = 'rgba(0,0,0,0.45)';
+    c.beginPath();
+    c.moveTo(x + 1, y + s - 1); c.lineTo(x + 1 + b, y + s - 1 - b);
+    c.lineTo(x + s - 1 - b, y + s - 1 - b); c.lineTo(x + s - 1, y + s - 1);
+    c.closePath(); c.fill();
+    // Right bevel (dark)
+    c.fillStyle = 'rgba(0,0,0,0.3)';
+    c.beginPath();
+    c.moveTo(x + s - 1, y + 1); c.lineTo(x + s - 1, y + s - 1);
+    c.lineTo(x + s - 1 - b, y + s - 1 - b); c.lineTo(x + s - 1 - b, y + 1 + b);
+    c.closePath(); c.fill();
+
+    // Inner face gloss (vertical sheen)
+    const inX = x + 1 + b, inY = y + 1 + b, inS = s - 2 - b * 2;
+    if (inS > 0) {
+        const gloss = c.createLinearGradient(inX, inY, inX, inY + inS);
+        gloss.addColorStop(0, 'rgba(255,255,255,0.30)');
+        gloss.addColorStop(0.45, 'rgba(255,255,255,0.04)');
+        gloss.addColorStop(1, 'rgba(0,0,0,0.22)');
+        c.fillStyle = gloss;
+        c.fillRect(inX, inY, inS, inS);
+        // Specular highlight blob (top-left of face)
+        const spec = c.createRadialGradient(inX + inS * 0.3, inY + inS * 0.26, 0, inX + inS * 0.3, inY + inS * 0.26, inS * 0.55);
+        spec.addColorStop(0, 'rgba(255,255,255,0.55)');
+        spec.addColorStop(1, 'rgba(255,255,255,0)');
+        c.fillStyle = spec;
+        c.beginPath();
+        c.ellipse(inX + inS * 0.32, inY + inS * 0.26, inS * 0.36, inS * 0.2, -0.5, 0, Math.PI * 2);
+        c.fill();
+    }
+    return {canvas: cv, pad, full};
+}
+
+function drawCell(c, x, y, s, color, alpha) {
+    const key = color + '|' + s;
+    let sp = cellSpriteCache[key];
+    if (!sp) sp = cellSpriteCache[key] = makeCellSprite(color, s);
+    if (alpha !== undefined && alpha < 1) c.globalAlpha = alpha;
+    c.drawImage(sp.canvas, x - sp.pad, y - sp.pad, sp.full, sp.full);
+    if (alpha !== undefined && alpha < 1) c.globalAlpha = 1;
+}
+
+function drawBlock(c, x, y, s, color) { drawCell(c, x, y, s, color); }
 
 function drawSmall(c, canvas, piece) {
     const nw = parseInt(canvas.style.width), nh = parseInt(canvas.style.height);
+    if (!nw || !nh) return; // canvas not sized yet (first resize pending)
     c.fillStyle = '#050510';
     c.fillRect(0, 0, nw, nh);
     if (!piece) return;
@@ -694,15 +839,7 @@ function drawSmall(c, canvas, piece) {
     const ox = Math.floor((4 - piece.shape[0].length) / 2);
     const oy = Math.floor((4 - piece.shape.length) / 2);
     piece.shape.forEach((row, r) => row.forEach((v, col) => {
-        if (v) {
-            c.fillStyle = piece.color;
-            c.shadowColor = piece.color;
-            c.shadowBlur = 8;
-            c.fillRect((ox + col) * nbs + 2, (oy + r) * nbs + 2, nbs - 4, nbs - 4);
-            c.shadowBlur = 0;
-            c.fillStyle = 'rgba(255,255,255,0.15)';
-            c.fillRect((ox + col) * nbs + 3, (oy + r) * nbs + 3, nbs - 6, (nbs - 6) * 0.3);
-        }
+        if (v) drawCell(c, (ox + col) * nbs, (oy + r) * nbs, nbs, piece.color);
     }));
 }
 

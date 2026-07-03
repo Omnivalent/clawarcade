@@ -3,7 +3,6 @@
 <head>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta name="referrer" content="no-referrer">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -39,6 +38,7 @@ canvas{position:absolute}
 <div id="cycles">Cycles: <span id="cyc">0</span></div>
 <div id="instruction">Tap Start and follow the circle</div>
 <button class="btn" id="startBtn" onclick="toggle()">Start</button>
+    <script src="../js/human-check.js"></script>
 <script>
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),phaseEl=document.getElementById('phase'),cycEl=document.getElementById('cyc'),startBtn=document.getElementById('startBtn'),instrEl=document.getElementById('instruction');
 const patterns={box:{phases:[['Inhale',4],['Hold',4],['Exhale',4],['Hold',4]],color:['#00d4aa','#0088aa','#006688','#0088aa']},relax:{phases:[['Inhale',4],['Hold',7],['Exhale',8]],color:['#00d4aa','#7b68ee','#4a90d9']},calm:{phases:[['Inhale',5],['Exhale',5]],color:['#00d4aa','#20b2aa']}};

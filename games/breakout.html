@@ -86,6 +86,7 @@ canvas{display:block;border:3px solid #f0f;border-radius:6px;box-shadow:0 0 30px
 <p id="overlayMsg">Touch & drag to move paddle.<br>Break all bricks! Catch power-ups!</p>
 <button id="btnStart">▶ START</button>
 </div>
+    <script src="../js/human-check.js"></script>
 <script>
 (function(){
 const dpr = window.devicePixelRatio || 1;
@@ -133,17 +134,122 @@ let score = 0, lives = 3, level = 1, padX, padW, padH = 14;
 let balls = [], bricks = [], powerups = [], particles = [];
 let combo = 0, borderPhase = 0, animFrame = null;
 let bgParticles = [];
+let padFlash = 0;
 const colors = ['#f0f', '#0ff', '#0f0', '#ff0', '#f80', '#f44', '#88f', '#4f4'];
+
+// ---- visual helpers: color math + cached sprites (gradients baked once) ----
+function hexToRgb(hex) {
+    let h = hex.replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function shade(hex, f) { // f > 0 toward white, f < 0 toward black
+    const [r, g, b] = hexToRgb(hex);
+    const m = c => Math.round(f >= 0 ? c + (255 - c) * f : c * (1 + f));
+    return `rgb(${m(r)},${m(g)},${m(b)})`;
+}
+function rgba(hex, a) { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+
+const tileCache = new Map();
+const GLOW_PAD = 12;
+function getBrickTile(color, w, h, damaged) {
+    const key = color + '|' + Math.round(w) + 'x' + Math.round(h) + (damaged ? '|d' : '');
+    let tile = tileCache.get(key);
+    if (tile) return tile;
+    w = Math.round(w); h = Math.round(h);
+    const cw = w + GLOW_PAD * 2, ch = h + GLOW_PAD * 2;
+    const cv = document.createElement('canvas');
+    cv.width = cw * dpr; cv.height = ch * dpr;
+    const c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const x = GLOW_PAD, y = GLOW_PAD, rad = Math.min(4, h / 4);
+    const dim = damaged ? -0.35 : 0;
+    // soft neon glow baked in
+    c.shadowColor = color; c.shadowBlur = damaged ? 6 : 12;
+    c.fillStyle = shade(color, -0.15 + dim);
+    c.beginPath(); c.roundRect(x, y, w, h, rad); c.fill();
+    c.shadowBlur = 0;
+    // inner body gradient (glossy top -> deep bottom)
+    const g = c.createLinearGradient(x, y, x, y + h);
+    g.addColorStop(0, shade(color, 0.45 + dim));
+    g.addColorStop(0.45, shade(color, 0.05 + dim));
+    g.addColorStop(0.55, shade(color, -0.25 + dim));
+    g.addColorStop(1, shade(color, -0.5 + dim));
+    c.fillStyle = g;
+    c.beginPath(); c.roundRect(x, y, w, h, rad); c.fill();
+    // specular streak (diagonal gloss across upper half)
+    c.save();
+    c.beginPath(); c.roundRect(x, y, w, h, rad); c.clip();
+    const sp = c.createLinearGradient(x, y, x + w * 0.55, y + h);
+    sp.addColorStop(0, 'rgba(255,255,255,0)');
+    sp.addColorStop(0.35, damaged ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.4)');
+    sp.addColorStop(0.55, 'rgba(255,255,255,0)');
+    c.fillStyle = sp;
+    c.fillRect(x, y, w, h * 0.6);
+    // bevel: light top-left
+    c.strokeStyle = 'rgba(255,255,255,' + (damaged ? 0.25 : 0.55) + ')';
+    c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(x + 1, y + h - 2); c.lineTo(x + 1, y + 1); c.lineTo(x + w - 2, y + 1); c.stroke();
+    // bevel: dark bottom-right
+    c.strokeStyle = 'rgba(0,0,0,0.5)';
+    c.beginPath(); c.moveTo(x + 1.5, y + h - 1); c.lineTo(x + w - 1, y + h - 1); c.lineTo(x + w - 1, y + 1.5); c.stroke();
+    if (damaged) {
+        // cracks
+        c.strokeStyle = 'rgba(0,0,0,0.65)'; c.lineWidth = 1.2;
+        c.beginPath();
+        c.moveTo(x + w * 0.28, y); c.lineTo(x + w * 0.42, y + h * 0.45); c.lineTo(x + w * 0.3, y + h * 0.75); c.lineTo(x + w * 0.44, y + h);
+        c.moveTo(x + w * 0.42, y + h * 0.45); c.lineTo(x + w * 0.62, y + h * 0.55); c.lineTo(x + w * 0.72, y + h * 0.3);
+        c.moveTo(x + w * 0.62, y + h * 0.55); c.lineTo(x + w * 0.68, y + h * 0.85);
+        c.stroke();
+        c.strokeStyle = 'rgba(255,255,255,0.18)';
+        c.beginPath(); c.moveTo(x + w * 0.29, y + 1); c.lineTo(x + w * 0.43, y + h * 0.46); c.stroke();
+    }
+    c.restore();
+    tile = {cv, cw, ch};
+    tileCache.set(key, tile);
+    return tile;
+}
+
+let ballSprite = null, ballSpriteR = 0;
+function getBallSprite(r) {
+    if (ballSprite && ballSpriteR === r) return ballSprite;
+    const pad = 14, s = (r + pad) * 2;
+    const cv = document.createElement('canvas');
+    cv.width = s * dpr; cv.height = s * dpr;
+    const c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cx = r + pad, cy = r + pad;
+    // outer halo
+    const halo = c.createRadialGradient(cx, cy, r * 0.4, cx, cy, r + pad);
+    halo.addColorStop(0, 'rgba(0,255,255,0.55)');
+    halo.addColorStop(0.5, 'rgba(0,255,255,0.15)');
+    halo.addColorStop(1, 'rgba(0,255,255,0)');
+    c.fillStyle = halo;
+    c.fillRect(0, 0, s, s);
+    // orb body
+    const g = c.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.35, '#aef7ff');
+    g.addColorStop(0.75, '#0ff');
+    g.addColorStop(1, '#0899b8');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+    ballSprite = {cv, s, pad};
+    ballSpriteR = r;
+    return ballSprite;
+}
 
 function initBgParticles() {
     bgParticles = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 40; i++) {
         bgParticles.push({
             x: Math.random() * W,
             y: Math.random() * H,
-            size: 1 + Math.random() * 2,
-            speed: 0.2 + Math.random() * 0.4,
-            opacity: 0.1 + Math.random() * 0.2
+            size: 0.6 + Math.random() * 1.8,
+            speed: 0.15 + Math.random() * 0.5,
+            opacity: 0.1 + Math.random() * 0.35,
+            twinkle: Math.random() * Math.PI * 2,
+            hue: Math.random() < 0.5 ? '180,100%' : '300,100%'
         });
     }
 }
@@ -175,7 +281,7 @@ function makeBricks() {
     const bw = W / cols - 3, bh = Math.max(16, H * 0.032);
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
         const tough = Math.random() < cfg.toughChance;
-        bricks.push({x: c * (bw + 3) + 2, y: r * (bh + 3) + 12, w: bw, h: bh, color: colors[r % colors.length], alive: true, row: r, hits: tough ? 2 : 1, tough});
+        bricks.push({x: c * (bw + 3) + 2, y: r * (bh + 3) + 12, w: bw, h: bh, color: colors[r % colors.length], baseColor: colors[r % colors.length], alive: true, row: r, hits: tough ? 2 : 1, tough});
     }
 }
 
@@ -261,7 +367,7 @@ function update() {
                 b.speed = Math.min(13, b.speed + 0.12);
                 b.vx = hit * b.speed * 0.85;
                 b.vy = -Math.sqrt(b.speed * b.speed - b.vx * b.vx);
-                combo = 0; playPaddleHit(); addParticles(b.x, b.y, '#f0f', 8);
+                combo = 0; padFlash = 1; playPaddleHit(); addParticles(b.x, b.y, '#f0f', 8);
             }
         }
         
@@ -311,44 +417,42 @@ function update() {
 }
 
 function draw() {
-    // Dark gradient background
-    const bgGrad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W*0.8);
-    bgGrad.addColorStop(0, '#0a0a1a');
-    bgGrad.addColorStop(1, '#050510');
+    const now = performance.now();
+    // Slow-shifting dark gradient background
+    const drift = Math.sin(now * 0.00012);
+    const bgGrad = ctx.createRadialGradient(W / 2 + drift * W * 0.15, H * 0.35, 0, W / 2, H / 2, W * 0.85);
+    bgGrad.addColorStop(0, `hsl(${248 + drift * 18},46%,8%)`);
+    bgGrad.addColorStop(0.6, '#080816');
+    bgGrad.addColorStop(1, '#04040e');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
-    
-    // Animated background particles
+
+    // Animated twinkling starfield
     bgParticles.forEach(p => {
         p.y -= p.speed;
         if (p.y < 0) { p.y = H; p.x = Math.random() * W; }
-        ctx.fillStyle = `rgba(255,0,255,${p.opacity})`;
+        const tw = 0.6 + 0.4 * Math.sin(now * 0.003 + p.twinkle);
+        ctx.fillStyle = `hsla(${p.hue},80%,${p.opacity * tw})`;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size * tw, 0, Math.PI * 2);
         ctx.fill();
     });
-    
+
     const padY = H - 30;
-    
-    // bricks with enhanced glow
+
+    // bricks: 3D-beveled glossy tiles (cached sprites w/ baked glow)
     for (const b of bricks) {
         if (!b.alive) continue;
-        ctx.shadowColor = b.color; ctx.shadowBlur = 12;
-        if (b.tough && b.hits === 1) {
-            ctx.fillStyle = '#666'; ctx.fillRect(b.x, b.y, b.w, b.h);
-            ctx.strokeStyle = '#444'; ctx.lineWidth = 2; ctx.beginPath();
-            ctx.moveTo(b.x + b.w * 0.3, b.y); ctx.lineTo(b.x + b.w * 0.5, b.y + b.h * 0.5); ctx.lineTo(b.x + b.w * 0.7, b.y + b.h); ctx.stroke();
-        } else {
-            ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h);
-        }
-        // Highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(b.x, b.y, b.w, b.h * 0.38);
+        const damaged = b.tough && b.hits === 1;
+        const tile = getBrickTile(b.baseColor || b.color, b.w, b.h, damaged);
+        ctx.drawImage(tile.cv, b.x - GLOW_PAD, b.y - GLOW_PAD, tile.cw, tile.ch);
         if (b.tough && b.hits === 2) {
-            ctx.fillStyle = '#000'; ctx.font = 'bold 11px Orbitron, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.font = 'bold 11px Orbitron, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('2', b.x + b.w / 2, b.y + b.h / 2 + 1);
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
             ctx.fillText('2', b.x + b.w / 2, b.y + b.h / 2);
         }
     }
-    ctx.shadowBlur = 0;
     
     // powerups with pulse effect
     for (const p of powerups) {
@@ -361,33 +465,56 @@ function draw() {
     }
     ctx.shadowBlur = 0;
     
-    // balls with enhanced trails
+    // balls: glowing orb sprite + fading afterimage trail
     for (const b of balls) {
+        const sprite = getBallSprite(b.r);
         for (let i = 0; i < b.trail.length; i++) {
-            const t = b.trail[i], a = (i / b.trail.length) * 0.45;
-            ctx.beginPath(); ctx.arc(t.x, t.y, b.r * (i / b.trail.length), 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(0,255,255,${a})`; ctx.fill();
+            const t = b.trail[i], f = i / b.trail.length;
+            ctx.globalAlpha = f * f * 0.5;
+            const sz = sprite.s * (0.35 + f * 0.65);
+            ctx.drawImage(sprite.cv, t.x - sz / 2, t.y - sz / 2, sz, sz);
         }
-        ctx.shadowColor = '#0ff'; ctx.shadowBlur = 18;
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fillStyle = '#0ff'; ctx.fill();
-        // Highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.beginPath(); ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.drawImage(sprite.cv, b.x - b.r - sprite.pad, b.y - b.r - sprite.pad, sprite.s, sprite.s);
     }
-    
-    // paddle with gradient
-    ctx.shadowColor = '#f0f'; ctx.shadowBlur = 16;
-    const padGrad = ctx.createLinearGradient(padX - padW / 2, padY - padH / 2, padX + padW / 2, padY + padH / 2);
-    padGrad.addColorStop(0, '#f0f');
-    padGrad.addColorStop(1, '#a0f');
+
+    // paddle: metallic neon gradient, glow, hover bob + hit flash
+    const bob = Math.sin(now * 0.004) * 1.5;
+    const pY = padY + bob;
+    ctx.shadowColor = '#f0f'; ctx.shadowBlur = 16 + padFlash * 22;
+    const padGrad = ctx.createLinearGradient(0, pY - padH / 2, 0, pY + padH / 2);
+    padGrad.addColorStop(0, '#ffb0ff');
+    padGrad.addColorStop(0.25, '#f0f');
+    padGrad.addColorStop(0.55, '#8a00c8');
+    padGrad.addColorStop(0.8, '#b040f0');
+    padGrad.addColorStop(1, '#5a0090');
     ctx.fillStyle = padGrad;
     ctx.beginPath();
-    ctx.roundRect(padX - padW / 2, padY - padH / 2, padW, padH, 7);
+    ctx.roundRect(padX - padW / 2, pY - padH / 2, padW, padH, 7);
     ctx.fill();
-    // Paddle highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.fillRect(padX - padW / 2 + 3, padY - padH / 2 + 2, padW - 6, padH * 0.35);
     ctx.shadowBlur = 0;
+    // specular streak along the top
+    const spec = ctx.createLinearGradient(padX - padW / 2, 0, padX + padW / 2, 0);
+    spec.addColorStop(0, 'rgba(255,255,255,0.05)');
+    spec.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+    spec.addColorStop(1, 'rgba(255,255,255,0.05)');
+    ctx.fillStyle = spec;
+    ctx.beginPath();
+    ctx.roundRect(padX - padW / 2 + 3, pY - padH / 2 + 2, padW - 6, padH * 0.32, 4);
+    ctx.fill();
+    // neon edge + hit flash overlay
+    ctx.strokeStyle = `rgba(255,160,255,${0.5 + padFlash * 0.5})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(padX - padW / 2, pY - padH / 2, padW, padH, 7);
+    ctx.stroke();
+    if (padFlash > 0.02) {
+        ctx.fillStyle = `rgba(255,255,255,${padFlash * 0.55})`;
+        ctx.beginPath();
+        ctx.roundRect(padX - padW / 2, pY - padH / 2, padW, padH, 7);
+        ctx.fill();
+        padFlash *= 0.85;
+    } else padFlash = 0;
     
     // particles
     particles.forEach(p => {
