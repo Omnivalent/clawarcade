@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
+import biomesConfig from '../config/biomes.json';
 import creaturesConfig from '../config/creatures.json';
 import decorConfig from '../config/decor.json';
 import evolutionConfig from '../config/evolution.json';
-import mapConfig from '../config/map.json';
 import { TILE_H, TILE_W } from '../core/iso';
 import type { DecorDef, EvolutionBranchDef, NodeTypeDef, SpeciesDef, TileTypeDef } from '../types';
 import nodesConfig from '../config/nodes.json';
@@ -43,22 +43,38 @@ export class BootScene extends Phaser.Scene {
   }
 
   // --------------------------------------------------------------------------
-  // Tiles: the classic isometric diamond, one texture per tile type.
+  // Tiles: the classic isometric diamond. Two textures per tile type — the
+  // main shade and a slightly darker variant (`-b`) that the WorldScene
+  // scatters deterministically, so big fields of one terrain don't look flat.
   // --------------------------------------------------------------------------
   private makeTileTextures(): void {
     const g = this.add.graphics();
-    const types = mapConfig.tileTypes as Record<string, TileTypeDef>;
+    const types = biomesConfig.tileTypes as Record<string, TileTypeDef>;
+
+    /** Multiply an 0xRRGGBB color's brightness (0.92 = 8% darker). */
+    const shade = (hex: string, mult: number): number => {
+      const c = Phaser.Display.Color.HexStringToColor(hex);
+      return Phaser.Display.Color.GetColor(
+        Math.round(c.red * mult),
+        Math.round(c.green * mult),
+        Math.round(c.blue * mult),
+      );
+    };
 
     for (const def of Object.values(types)) {
-      g.clear();
-      const fill = Phaser.Display.Color.HexStringToColor(def.color).color;
       const edge = Phaser.Display.Color.HexStringToColor(def.edgeColor).color;
-      g.fillStyle(fill, 1);
-      g.lineStyle(1.5, edge, 1);
-      this.diamondPath(g, TILE_W / 2, TILE_H / 2, TILE_W, TILE_H);
-      g.fillPath();
-      g.strokePath();
-      g.generateTexture(`tile-${def.id}`, TILE_W, TILE_H);
+      for (const [suffix, mult] of [
+        ['', 1],
+        ['-b', 0.92],
+      ] as const) {
+        g.clear();
+        g.fillStyle(shade(def.color, mult), 1);
+        g.lineStyle(1.5, edge, 1);
+        this.diamondPath(g, TILE_W / 2, TILE_H / 2, TILE_W, TILE_H);
+        g.fillPath();
+        g.strokePath();
+        g.generateTexture(`tile-${def.id}${suffix}`, TILE_W, TILE_H);
+      }
     }
 
     // Hover highlight: just the outline.

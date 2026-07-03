@@ -272,7 +272,7 @@ export class UIScene extends Phaser.Scene {
     }
     const s = this.s;
     const pw = 340 * s;
-    const ph = 240 * s;
+    const ph = 250 * s;
     const px = (W - pw) / 2;
     const py = (H - ph) / 2;
 
@@ -286,12 +286,24 @@ export class UIScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: '#e8f6f0',
     });
-    const label = this.add.text(px + 16 * s, py + 46 * s, 'Interface mode', {
+    // Which generated land this sanctuary lives on (set by WorldScene).
+    const world = this.registry.get('wk-world') as { name: string; seed: number } | undefined;
+    const landLine = this.add.text(
+      px + 16 * s,
+      py + 36 * s,
+      world ? `Land: ${world.name} · seed ${world.seed}` : '',
+      {
+        fontSize: `${11.5 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        color: '#7fa89b',
+      },
+    );
+    const label = this.add.text(px + 16 * s, py + 56 * s, 'Interface mode', {
       fontSize: `${13 * s}px`,
       fontFamily: 'Segoe UI, sans-serif',
       color: '#9ab8ae',
     });
-    this.settingsPanel.add([title, label]);
+    this.settingsPanel.add([title, landLine, label]);
 
     // Auto / Desktop / Phone selector. Rebuilds the HUD immediately.
     const modes: { key: UIMode; label: string }[] = [
@@ -304,7 +316,7 @@ export class UIScene extends Phaser.Scene {
       const active = getUIModeSetting() === m.key;
       this.makeButton(
         px + 16 * s + i * (bw + 8 * s),
-        py + 70 * s,
+        py + 80 * s,
         bw,
         40 * s,
         m.label,
@@ -319,15 +331,17 @@ export class UIScene extends Phaser.Scene {
     });
 
     // Reset needs two taps so nobody wipes their sanctuary by accident.
+    // A reset also rolls a brand-new random landscape (new biome + seed).
     this.resetArmed = false;
-    this.makeButton(px + 16 * s, py + 128 * s, pw - 32 * s, 40 * s, '🗑 Reset sanctuary', () => {
+    this.makeButton(px + 16 * s, py + 136 * s, pw - 32 * s, 40 * s, '🗑 Reset — start a new land', () => {
       if (!this.resetArmed) {
         this.resetArmed = true;
-        this.toast('Tap "Reset sanctuary" again to erase your save');
+        this.toast('Tap again to erase this sanctuary and travel to a new land');
         return;
       }
       SaveManager.clear();
-      window.location.reload();
+      // Drop any ?biome/?seed overrides so the new land is truly random.
+      window.location.href = window.location.pathname;
     }, this.settingsPanel);
 
     this.makeButton(px + 16 * s, py + ph - 52 * s, pw - 32 * s, 38 * s, 'Close', () =>

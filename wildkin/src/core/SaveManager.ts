@@ -11,8 +11,8 @@ import type { SaveData } from '../types';
  */
 
 const SAVE_KEY = 'wildkin-save';
-/** Bump this if the save format ever changes incompatibly; old saves are then discarded instead of crashing the game. */
-const SAVE_VERSION = 1;
+/** Bump this if the save format ever changes incompatibly; old saves are then discarded instead of crashing the game. (v2: added generated-world biome + seed.) */
+const SAVE_VERSION = 2;
 
 export function save(data: Omit<SaveData, 'version'>): void {
   try {

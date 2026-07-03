@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:site": "npm run build && node -e \"const fs=require('fs');fs.rmSync('../games/wildkin',{recursive:true,force:true});fs.cpSync('dist','../games/wildkin',{recursive:true});console.log('Copied dist -> ../games/wildkin — commit and deploy the site as usual.');\""
   },
   "dependencies": {
     "phaser": "^3.90.0"

@@ -65,7 +65,7 @@ JSON — no code changes needed.
 
 | File | What it controls |
 |---|---|
-| `src/config/map.json` | Tile types, the 20×20 map layout (drawn as text!), starting nodes |
+| `src/config/biomes.json` | Tile types, the four biomes, and terrain-generation knobs |
 | `src/config/creatures.json` | Species (shape/color/speed), starting creatures, mobile creature cap |
 | `src/config/nodes.json` | Resources (HUD counters), node yields, capacities, regen rates, build costs |
 | `src/config/decor.json` | Decor items + costs |
@@ -73,8 +73,25 @@ JSON — no code changes needed.
 | `src/config/evolution.json` | Evolution threshold, branch forms, stat changes |
 
 Want a new resonance combo? Add one object to `resonance.json`. Want
-evolution to take longer? Raise `threshold` in `evolution.json`. Want to
-reshape the island? Edit the strings in `map.json`.
+evolution to take longer? Raise `threshold` in `evolution.json`. Want a new
+landscape type? Add tiles + a biome entry to `biomes.json`.
+
+## 🌍 Generated landscapes
+
+There is no fixed map. Every new sanctuary **generates its own terrain** from
+a random seed and one of four biomes:
+
+- **Verdant Meadow** — grass, earth, calm ponds
+- **Ember Dunes** — sand, red clay, one precious oasis
+- **Frostreach** — snowfields, ice sheets, meltwater
+- **Whispermire** — moss, mud, dark pools, boardwalks
+
+The seed is stored in your save, so refreshing always brings back *your* land
+exactly. **Reset** (⚙ settings) travels to a brand-new random land.
+
+Preview any land via the URL, handy for testing:
+`?fresh=1&biome=frost&seed=42` (fresh = ignore the save this visit;
+biome = verdant / dunes / frost / mire; seed = any number).
 
 ## 🗂 Code tour (for the next developer / future art pass)
 
@@ -89,6 +106,7 @@ src/
     SaveManager.ts         localStorage save/load
     device.ts              Phone detection, UI-mode setting, performance caps
   systems/
+    MapGenerator.ts        Seeded procedural landscape generation (biomes)
     Pathfinder.ts          BFS pathfinding on the tile grid
     CameraController.ts    Drag-pan, wheel-zoom, pinch-zoom, tap detection
     ResonanceSystem.ts     Pure resonance-recipe matching logic

@@ -1,5 +1,5 @@
 {
-  "_comment": "All creature definitions live here — logic code never hardcodes a species. `species` defines the archetypes (placeholder shape + color now, real art later: swap `shape`/`color` for a spritesheet key when art lands). `startingCreatures` is who you begin a fresh sanctuary with. `speed` is walking speed in pixels/second. `wanderRadius` is how far (in tiles) a creature roams from where it's standing when idle.",
+  "_comment": "All creature definitions live here — logic code never hardcodes a species. `species` defines the archetypes (placeholder shape + color now, real art later: swap `shape`/`color` for a spritesheet key when art lands). `startingCreatures` is who you begin a fresh sanctuary with — spawn positions come from the landscape generator (near the center of whatever land was rolled), so there are no fixed coordinates here. `speed` is walking speed in pixels/second. `wanderRadius` is how far (in tiles) a creature roams from where it's standing when idle.",
 
   "species": {
     "glimmer": {
@@ -32,10 +32,10 @@
   },
 
   "startingCreatures": [
-    { "species": "glimmer", "name": "Pip", "tile": [9, 9] },
-    { "species": "thorn", "name": "Moss", "tile": [11, 11] },
-    { "species": "cinder", "name": "Ember", "tile": [9, 12] },
-    { "species": "glimmer", "name": "Lumen", "tile": [12, 8] }
+    { "species": "glimmer", "name": "Pip" },
+    { "species": "thorn", "name": "Moss" },
+    { "species": "cinder", "name": "Ember" },
+    { "species": "glimmer", "name": "Lumen" }
   ],
 
   "maxCreaturesMobile": 3

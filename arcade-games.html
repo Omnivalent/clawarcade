@@ -133,6 +133,8 @@
     <script>
         const GAMES = [
             // slug, icon, name, desc, hue, cats, isNew
+            // Slugs ending in '/' link to a directory (games/<slug>/index.html) instead of a single .html file.
+            ['wildkin/', '🌿', 'Wildkin', 'Isometric creature sanctuary — raise them, work them, watch them evolve.', '#22e59a', ['new','chill'], 1],
             ['claw-storm', '🌀', 'Claw Storm', 'Arena survival — auto-fire chaos, warping grid, chain multipliers.', '#00e5f6', ['new','action'], 1],
             ['neon-muncher', '🟡', 'Neon Muncher', 'Chomp the maze, dodge four ghosts, flip the tables with power pellets.', '#ffd23e', ['new','classic'], 1],
             ['neon-racer', '🏎️', 'Neon Racer', 'Pseudo-3D synthwave racing — curves, hills, traffic, checkpoints.', '#22e59a', ['new','action'], 1],
@@ -180,7 +182,7 @@
 
         const grid = document.getElementById('grid');
         grid.innerHTML = GAMES.map(([slug, ico, name, desc, hue, cats, isNew]) => `
-            <a class="card" style="--hue:${hue}" href="games/${slug}.html" data-cats="${cats.join(' ')}">
+            <a class="card" style="--hue:${hue}" href="games/${slug.endsWith('/') ? slug : slug + '.html'}" data-cats="${cats.join(' ')}">
                 <div class="card-top"><div class="card-ico">${ico}</div><h3>${name}</h3></div>
                 <p>${desc}</p>
                 <div class="chips">${isNew ? '<span class="chip new">New</span>' : ''}${cats.filter(c => c !== 'new').map(c => `<span class="chip">${c === 'puzzle' ? 'Puzzle' : c}</span>`).join('')}</div>

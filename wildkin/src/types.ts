@@ -12,7 +12,7 @@ export interface TileCoord {
   ty: number;
 }
 
-/** One tile type from map.json (grass, dirt, water, path…). */
+/** One tile type from the biomes.json registry (grass, sand, snow, murk…). */
 export interface TileTypeDef {
   id: string;
   name: string;
@@ -20,6 +20,31 @@ export interface TileTypeDef {
   edgeColor: string;
   walkable: boolean;
   buildable: boolean;
+}
+
+/** One biome from biomes.json — a landscape "recipe". */
+export interface BiomeDef {
+  name: string;
+  tagline: string;
+  tiles: { base: string; patch: string; liquid: string; trail: string };
+  gen: {
+    liquidBodies: number;
+    liquidSize: [number, number] | number[];
+    patches: number;
+    patchSize: [number, number] | number[];
+    trails: number;
+  };
+  nodes: Record<string, number>;
+}
+
+/** The output of MapGenerator: a fully generated landscape. */
+export interface GeneratedWorld {
+  biomeId: string;
+  seed: number;
+  size: number;
+  layout: string[][]; // [row][col] -> tile type id
+  nodes: { type: string; tx: number; ty: number }[];
+  spawns: TileCoord[];
 }
 
 /** One creature species from creatures.json. */
@@ -137,6 +162,8 @@ export interface SavedDecor {
 /** The whole save file. */
 export interface SaveData {
   version: number;
+  /** Which landscape this sanctuary lives on — biome + seed fully determine the terrain, so we regenerate it identically on load. */
+  world: { biome: string; seed: number };
   inventory: Record<string, number>;
   creatures: SavedCreature[];
   nodes: SavedNode[];

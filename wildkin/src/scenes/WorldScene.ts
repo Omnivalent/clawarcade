@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import creaturesConfig from '../config/creatures.json';
 import decorConfig from '../config/decor.json';
 import evolutionConfig from '../config/evolution.json';
-import mapConfig from '../config/map.json';
 import nodesConfig from '../config/nodes.json';
 import * as GameState from '../core/GameState';
 import { gameEvents } from '../core/GameState';
@@ -14,12 +13,14 @@ import { Creature, type CreatureWorld } from '../entities/Creature';
 import { Decor } from '../entities/Decor';
 import { ResourceNode } from '../entities/ResourceNode';
 import { CameraController } from '../systems/CameraController';
+import { biomeDef, biomeIds, generateWorld, tileTypeDef } from '../systems/MapGenerator';
 import { Pathfinder } from '../systems/Pathfinder';
 import { checkResonance, type DecorPlacement } from '../systems/ResonanceSystem';
 import type {
   BuildItem,
   DecorDef,
   EvolutionBranchDef,
+  GeneratedWorld,
   NodeTypeDef,
   SpeciesDef,
   TileCoord,
@@ -35,7 +36,8 @@ import type {
  * talk through the `gameEvents` bus (see core/GameState.ts).
  */
 export class WorldScene extends Phaser.Scene implements CreatureWorld {
-  // Map data
+  // Map data — the landscape is GENERATED from (biome, seed); see MapGenerator.
+  private world!: GeneratedWorld;
   private mapW = 0;
   private mapH = 0;
   private tiles: TileTypeDef[][] = []; // [row][col]
@@ -69,13 +71,28 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld {
   // ==========================================================================
 
   create(): void {
-    const save = SaveManager.load();
+    // URL overrides for testing/previewing lands:
+    //   ?fresh=1            ignore the save this visit
+    //   ?biome=frost        force a biome for a fresh start
+    //   ?seed=12345         force a seed for a fresh start
+    const params = new URLSearchParams(window.location.search);
+    const save = params.has('fresh') ? null : SaveManager.load();
     GameState.initInventory(save?.inventory);
+
+    // Which land are we on? A save pins it; otherwise roll a random one
+    // (or honor the URL overrides). Same biome+seed => identical terrain.
+    const urlBiome = params.get('biome');
+    const biome =
+      save?.world.biome ??
+      (urlBiome && biomeDef(urlBiome) ? urlBiome : biomeIds()[Math.floor(Math.random() * biomeIds().length)]);
+    const seed =
+      save?.world.seed ?? (Number(params.get('seed')) || Math.floor(Math.random() * 2 ** 31));
+    this.world = generateWorld(biome, seed);
 
     this.buildMap();
     this.pathfinder = new Pathfinder(this.mapW, this.mapH, (tx, ty) => this.isWalkable(tx, ty));
 
-    // Restore a saved sanctuary, or start a fresh one from the config files.
+    // Restore a saved sanctuary, or populate the freshly generated land.
     if (save) {
       this.nextEntityId = save.nextEntityId;
       for (const n of save.nodes) this.spawnNode(n.type, n.tile[0], n.tile[1], n.id, n.amount);
@@ -91,16 +108,26 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld {
         }
       }
     } else {
-      for (const n of mapConfig.startingNodes) {
-        this.spawnNode(n.type, n.tile[0], n.tile[1], this.nextEntityId++);
+      // Node and spawn positions come from the generator (always reachable).
+      for (const n of this.world.nodes) {
+        this.spawnNode(n.type, n.tx, n.ty, this.nextEntityId++);
       }
       // On phones we spawn fewer creatures to keep mid-range devices smooth.
       let starters = creaturesConfig.startingCreatures;
       if (detectPhone()) starters = starters.slice(0, creaturesConfig.maxCreaturesMobile);
-      for (const c of starters) {
-        this.spawnCreature(c.species, c.name, c.tile[0], c.tile[1], this.nextEntityId++);
-      }
+      starters.forEach((c, i) => {
+        const s = this.world.spawns[i % this.world.spawns.length] ?? { tx: 10, ty: 10 };
+        this.spawnCreature(c.species, c.name, s.tx, s.ty, this.nextEntityId++);
+      });
     }
+
+    // Tell the HUD which land this is (settings panel shows it), and greet
+    // the player once the UI scene is up.
+    const bdef = biomeDef(this.world.biomeId)!;
+    this.registry.set('wk-world', { name: bdef.name, biome: this.world.biomeId, seed: this.world.seed });
+    this.time.delayedCall(600, () =>
+      gameEvents.emit('wk-toast', `🌍 ${bdef.name} — ${bdef.tagline}`),
+    );
 
     this.setupCamera();
     this.setupEffects();
@@ -155,19 +182,23 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld {
   // ==========================================================================
 
   private buildMap(): void {
-    const typesByChar = mapConfig.tileTypes as Record<string, TileTypeDef>;
-    const layout = mapConfig.layout;
-    this.mapH = layout.length;
-    this.mapW = layout[0].length;
+    const layout = this.world.layout;
+    this.mapH = this.world.size;
+    this.mapW = this.world.size;
 
     for (let ty = 0; ty < this.mapH; ty++) {
       const row: TileTypeDef[] = [];
       for (let tx = 0; tx < this.mapW; tx++) {
-        const def = typesByChar[layout[ty][tx]] ?? typesByChar['g'];
+        const def = tileTypeDef(layout[ty][tx]);
         row.push(def);
         const pos = tileToWorld(tx, ty);
+        // Deterministic scatter of the darker '-b' shade breaks up big fields
+        // of one terrain (same seed -> same scatter, so it's stable across loads).
+        const alt = ((tx * 73856093) ^ (ty * 19349663) ^ this.world.seed) % 5 === 0;
         // Tiles never overlap entities, so push them far below in draw order.
-        this.add.image(pos.x, pos.y, `tile-${def.id}`).setDepth(pos.y - 100_000);
+        this.add
+          .image(pos.x, pos.y, `tile-${def.id}${alt ? '-b' : ''}`)
+          .setDepth(pos.y - 100_000);
       }
       this.tiles.push(row);
     }
@@ -568,6 +599,7 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld {
 
   private saveNow(): void {
     SaveManager.save({
+      world: { biome: this.world.biomeId, seed: this.world.seed },
       inventory: { ...GameState.inventory },
       creatures: this.creatures.map((c) => ({
         id: c.creatureId,
