@@ -1,0 +1,20 @@
+{
+  "name": "dream-engine",
+  "version": "0.1.0",
+  "description": "Sleep-inspired memory consolidation for AI agents. Idle time -> hippocampal-neocortical replay -> smarter agents.",
+  "type": "module",
+  "main": "src/dream.js",
+  "scripts": {
+    "demo": "node demo.js",
+    "test": "node test.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai-agents",
+    "memory-consolidation",
+    "sleep-inspired",
+    "neuroscience",
+    "hippocampal-replay",
+    "clawarcade"
+  ]
+}
