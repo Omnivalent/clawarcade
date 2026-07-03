@@ -3,183 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcade & Puzzle Games - ClawArcade</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta name="description" content="ClawArcade Game Library — every cabinet in one place. Filter by action, classic, puzzle, degen or chill.">
+    <meta name="theme-color" content="#05060a">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕹️</text></svg>">
+    <title>Game Library — ClawArcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --cyan: #00f0ff; --green: #05ffa1; --magenta: #ff2a6d; --yellow: #f0e010; --void: #06060c; --panel: rgba(12,12,24,0.9); --text: #c8c8e0; --text-dim: rgba(200,200,224,0.5); }
-        body { font-family: 'Rajdhani', sans-serif; background: var(--void); color: var(--text); min-height: 100vh; }
-        .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.25rem; }
-        .back { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--cyan); font-size: 0.8rem; margin-bottom: 1.5rem; text-decoration: none; }
-        .back:hover { text-shadow: 0 0 10px var(--cyan); }
-        h1 { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; margin-bottom: 0.5rem; }
-        h1 .cyan { color: var(--cyan); }
-        .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
-        .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-        .game-card { background: var(--panel); border: 1px solid rgba(0,240,255,0.2); padding: 1.25rem; transition: all 0.3s; text-decoration: none; color: inherit; display: block; }
-        .game-card:hover { border-color: var(--cyan); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,240,255,0.15); }
-        .game-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-        .game-name { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
-        .game-desc { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem; }
-        .tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-        .tag { font-family: 'Share Tech Mono', monospace; font-size: 0.5rem; padding: 0.15rem 0.4rem; border: 1px solid rgba(0,240,255,0.3); color: var(--cyan); letter-spacing: 1px; }
-        .tag.puzzle { border-color: rgba(167,139,250,0.3); color: #a78bfa; }
-        .tag.brain { border-color: rgba(240,224,16,0.3); color: var(--yellow); }
-        .tag.wellness { border-color: rgba(52,211,153,0.3); color: #34d399; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --cyan: #00e5f6; --magenta: #ff2a6d; --gold: #ffd23e; --green: #22e59a;
+            --void: #05060a; --raise: #0b0d16; --panel: #0e111d;
+            --line: rgba(148,163,216,0.10); --line-bright: rgba(0,229,246,0.28);
+            --ink: #eef0fb; --ink-2: #a8aec8; --ink-3: #666d8a;
+            --disp: 'Orbitron', sans-serif; --body: 'Rajdhani', sans-serif;
+            --r: 14px; --pad: clamp(1.25rem, 4vw, 2rem);
+        }
+        body { background: var(--void); color: var(--ink-2); font-family: var(--body); font-size: 1.05rem; line-height: 1.55; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+        a { color: inherit; text-decoration: none; }
+        ::selection { background: rgba(0,229,246,0.25); color: #fff; }
+        .bg-grid { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background: linear-gradient(rgba(0,229,246,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,246,0.022) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: radial-gradient(ellipse 100% 70% at 50% 0%, #000 30%, transparent 100%);
+            -webkit-mask-image: radial-gradient(ellipse 100% 70% at 50% 0%, #000 30%, transparent 100%); }
+        .bg-glow { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background: radial-gradient(ellipse 60% 42% at 50% -6%, rgba(0,229,246,0.10), transparent 65%); }
+        .scanlines { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0.5;
+            background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.055) 3px, rgba(0,0,0,0.055) 5px); }
+        .page { position: relative; z-index: 1; }
+        .wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); }
+
+        .header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--line); background: rgba(5,6,10,0.85); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+        .header .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+        .logo { font-family: var(--disp); font-weight: 900; font-size: 1.02rem; letter-spacing: 0.14em; color: #fff; display: flex; align-items: center; gap: 0.6rem; }
+        .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+        .logo em { font-style: normal; color: var(--cyan); }
+        .back { font-weight: 600; font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); transition: color .25s; }
+        .back:hover { color: var(--cyan); }
+
+        .head { padding: clamp(2.4rem, 6vw, 4rem) 0 1.4rem; text-align: center; }
+        .head h1 { font-family: var(--disp); font-weight: 900; font-size: clamp(1.7rem, 6vw, 2.8rem); letter-spacing: 0.06em; color: #fff; }
+        .head h1 em { font-style: normal; color: var(--cyan); text-shadow: 0 0 18px rgba(0,229,246,0.55); }
+        .head p { margin-top: 0.6rem; color: var(--ink-3); font-size: 1.05rem; }
+        .head p b { color: var(--gold); font-weight: 600; }
+
+        .filters { position: sticky; top: 62px; z-index: 40; display: flex; gap: 0.55rem; justify-content: center; flex-wrap: wrap;
+            padding: 0.9rem var(--pad); background: rgba(5,6,10,0.9); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line); }
+        .pill { font-family: var(--disp); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+            padding: 0.5rem 1.05rem; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--ink-3);
+            cursor: pointer; transition: all .22s; -webkit-tap-highlight-color: transparent; }
+        .pill:hover { color: var(--cyan); border-color: var(--line-bright); }
+        .pill.on { background: var(--cyan); border-color: var(--cyan); color: #041014; box-shadow: 0 0 18px rgba(0,229,246,0.4); }
+        .pill .n { opacity: 0.65; font-weight: 500; margin-left: 0.3rem; }
+
+        .lib { padding: 1.8rem 0 4rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+        .card { position: relative; display: flex; flex-direction: column; gap: 0.7rem;
+            background: linear-gradient(180deg, var(--panel), var(--raise)); border: 1px solid var(--line); border-radius: var(--r);
+            padding: 1.15rem; overflow: hidden; transition: transform .28s, border-color .28s, box-shadow .28s, opacity .3s; }
+        .card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--hue, var(--cyan)), transparent); opacity: 0; transition: opacity .3s; }
+        .card:hover { transform: translateY(-4px); border-color: var(--line-bright); box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+        .card:hover::before { opacity: 1; }
+        .card.hide { display: none; }
+        .card-top { display: flex; align-items: center; gap: 0.8rem; }
+        .card-ico { width: 46px; height: 46px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+            background: linear-gradient(145deg, color-mix(in srgb, var(--hue, var(--cyan)) 16%, transparent), rgba(255,255,255,0.02));
+            border: 1px solid color-mix(in srgb, var(--hue, var(--cyan)) 30%, transparent); }
+        .card h3 { font-family: var(--disp); font-weight: 700; font-size: 0.92rem; letter-spacing: 0.04em; color: var(--ink); }
+        .card p { font-size: 0.95rem; color: var(--ink-3); line-height: 1.4; flex: 1; }
+        .chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .chip { font-weight: 600; font-size: 0.68rem; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.15rem 0.55rem; border-radius: 99px; border: 1px solid var(--line); color: var(--ink-3); }
+        .chip.new { border-color: rgba(255,210,62,0.4); color: var(--gold); background: rgba(255,210,62,0.06); }
+        .empty { text-align: center; color: var(--ink-3); padding: 3rem 0; font-size: 1rem; display: none; }
+
+        .footer { padding: 2.2rem 0 3rem; border-top: 1px solid var(--line); text-align: center; }
+        .footer p { font-weight: 500; font-size: 0.9rem; color: var(--ink-3); }
+        .footer a { color: var(--cyan); }
+
+        @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <a href="index.html" class="back">← Back to ClawArcade</a>
-        <h1>🎮 Arcade & <span class="cyan">Puzzle</span></h1>
-        <p class="subtitle">Classic games, brain training, puzzles, and wellness activities</p>
-        
-        <div class="games-grid">
-            <a href="games/neon-muncher.html" class="game-card">
-                <div class="game-icon">🟡</div>
-                <div class="game-name">Neon Muncher</div>
-                <div class="game-desc">NEW — Chomp the maze, dodge four ghosts.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/neon-racer.html" class="game-card">
-                <div class="game-icon">🏎️</div>
-                <div class="game-name">Neon Racer</div>
-                <div class="game-desc">NEW — Pseudo-3D synthwave racing.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/claw-jump.html" class="game-card">
-                <div class="game-icon">🦘</div>
-                <div class="game-name">Claw Jump</div>
-                <div class="game-desc">NEW — Bounce ever higher, all the way to space.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/cyber-crossing.html" class="game-card">
-                <div class="game-icon">🚦</div>
-                <div class="game-name">Cyber Crossing</div>
-                <div class="game-desc">NEW — Hop through hover-traffic, surf the data-river.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/space-invaders.html" class="game-card">
-                <div class="game-icon">👾</div>
-                <div class="game-name">Claw Invaders</div>
-                <div class="game-desc">NEW — Waves of aliens, bunkers, UFO bounties.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/asteroids.html" class="game-card">
-                <div class="game-icon">☄️</div>
-                <div class="game-name">Neon Asteroids</div>
-                <div class="game-desc">NEW — Thrust, drift and blast glowing rocks.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/pong.html" class="game-card">
-                <div class="game-icon">🏓</div>
-                <div class="game-name">Neon Pong</div>
-                <div class="game-desc">NEW — The original, vs AI. First to 7.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/2048.html" class="game-card">
-                <div class="game-icon">🔢</div>
-                <div class="game-name">2048</div>
-                <div class="game-desc">NEW — Slide and merge to the glowing 2048 tile.</div>
-                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
-            </a>
-            <a href="games/flappy-claw.html" class="game-card">
-                <div class="game-icon">🐤</div>
-                <div class="game-name">Flappy Claw</div>
-                <div class="game-desc">NEW — Tap to fly through neon pipes.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/snake-3d.html" class="game-card">
-                <div class="game-icon">🐍</div>
-                <div class="game-name">Snake 3D</div>
-                <div class="game-desc">First-person 3D snake in a neon arena.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/snake.html" class="game-card">
-                <div class="game-icon">🐍</div>
-                <div class="game-name">Snake</div>
-                <div class="game-desc">Classic snake game. Human-playable version.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/tetris.html" class="game-card">
-                <div class="game-icon">🧱</div>
-                <div class="game-name">Tetris</div>
-                <div class="game-desc">Classic block stacking. Clear lines, climb ranks.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/breakout.html" class="game-card">
-                <div class="game-icon">🎾</div>
-                <div class="game-name">Breakout</div>
-                <div class="game-desc">Smash all the bricks. Retro arcade action.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
-            <a href="games/minesweeper.html" class="game-card">
-                <div class="game-icon">💣</div>
-                <div class="game-name">Minesweeper</div>
-                <div class="game-desc">Logic puzzle classic. Clear the field.</div>
-                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
-            </a>
-            <a href="games/chess.html" class="game-card">
-                <div class="game-icon">♟️</div>
-                <div class="game-name">Chess</div>
-                <div class="game-desc">Classic chess. Play against friends or AI.</div>
-                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
-            </a>
-            <a href="games/word-recall.html" class="game-card">
-                <div class="game-icon">📝</div>
-                <div class="game-name">Word Recall</div>
-                <div class="game-desc">Memory challenge. Remember and type words.</div>
-                <div class="tags"><span class="tag brain">BRAIN</span></div>
-            </a>
-            <a href="games/logic-sequences.html" class="game-card">
-                <div class="game-icon">🔢</div>
-                <div class="game-name">Logic Sequences</div>
-                <div class="game-desc">Find the pattern. Complete the sequence.</div>
-                <div class="tags"><span class="tag brain">BRAIN</span></div>
-            </a>
-            <a href="games/pattern-recognition.html" class="game-card">
-                <div class="game-icon">🔷</div>
-                <div class="game-name">Pattern Recognition</div>
-                <div class="game-desc">Spot patterns fast. Train visual processing.</div>
-                <div class="tags"><span class="tag brain">BRAIN</span></div>
-            </a>
-            <a href="games/focus-flow.html" class="game-card">
-                <div class="game-icon">🎯</div>
-                <div class="game-name">Focus Flow</div>
-                <div class="game-desc">Concentration training. Stay in the zone.</div>
-                <div class="tags"><span class="tag brain">BRAIN</span></div>
-            </a>
-            <a href="games/memory-matrix.html" class="game-card">
-                <div class="game-icon">🧠</div>
-                <div class="game-name">Memory Matrix</div>
-                <div class="game-desc">Visual memory grid. Remember the pattern.</div>
-                <div class="tags"><span class="tag brain">BRAIN</span></div>
-            </a>
-            <a href="games/zen-garden.html" class="game-card">
-                <div class="game-icon">🪨</div>
-                <div class="game-name">Zen Garden</div>
-                <div class="game-desc">Peaceful pattern creation. Relaxation mode.</div>
-                <div class="tags"><span class="tag wellness">WELLNESS</span></div>
-            </a>
-            <a href="games/breathing-space.html" class="game-card">
-                <div class="game-icon">🌬️</div>
-                <div class="game-name">Breathing Space</div>
-                <div class="game-desc">Guided breathing exercises. Calm your mind.</div>
-                <div class="tags"><span class="tag wellness">WELLNESS</span></div>
-            </a>
-            <a href="games/color-harmony.html" class="game-card">
-                <div class="game-icon">🎨</div>
-                <div class="game-name">Color Harmony</div>
-                <div class="game-desc">Match colors. Find visual harmony.</div>
-                <div class="tags"><span class="tag puzzle">PUZZLE</span></div>
-            </a>
-            <a href="games/glitch-hunter.html" class="game-card">
-                <div class="game-icon">🔍</div>
-                <div class="game-name">Glitch Hunter</div>
-                <div class="game-desc">Spot the glitches in the matrix.</div>
-                <div class="tags"><span class="tag">ARCADE</span></div>
-            </a>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+    <div class="scanlines"></div>
+
+    <div class="page">
+        <header class="header">
+            <div class="wrap">
+                <a class="logo" href="index.html"><span class="dot"></span>CLAW<em>ARCADE</em></a>
+                <a class="back" href="index.html">← Home</a>
+            </div>
+        </header>
+
+        <div class="head">
+            <div class="wrap">
+                <h1>GAME <em>LIBRARY</em></h1>
+                <p>Every cabinet in the arcade — <b id="count">0</b> games. Pick a lane.</p>
+            </div>
         </div>
+
+        <div class="filters" id="filters">
+            <button class="pill on" data-f="all">All<span class="n" id="nAll"></span></button>
+            <button class="pill" data-f="new">New</button>
+            <button class="pill" data-f="action">Action</button>
+            <button class="pill" data-f="classic">Classic</button>
+            <button class="pill" data-f="puzzle">Puzzle &amp; Brain</button>
+            <button class="pill" data-f="degen">Degen</button>
+            <button class="pill" data-f="chill">Chill</button>
+        </div>
+
+        <div class="lib">
+            <div class="wrap">
+                <div class="grid" id="grid"></div>
+                <div class="empty" id="empty">Nothing in this lane yet.</div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="wrap"><p>Bots? Your games are in the <a href="ai-games.html">AI Arena</a>.</p></div>
+        </footer>
     </div>
+
+    <script>
+        const GAMES = [
+            // slug, icon, name, desc, hue, cats, isNew
+            ['claw-storm', '🌀', 'Claw Storm', 'Arena survival — auto-fire chaos, warping grid, chain multipliers.', '#00e5f6', ['new','action'], 1],
+            ['neon-muncher', '🟡', 'Neon Muncher', 'Chomp the maze, dodge four ghosts, flip the tables with power pellets.', '#ffd23e', ['new','classic'], 1],
+            ['neon-racer', '🏎️', 'Neon Racer', 'Pseudo-3D synthwave racing — curves, hills, traffic, checkpoints.', '#22e59a', ['new','action'], 1],
+            ['claw-jump', '🦘', 'Claw Jump', 'Bounce from the city to space — springs, jetpacks, drones.', '#ff2a6d', ['new','action'], 1],
+            ['cyber-crossing', '🚦', 'Cyber Crossing', 'Hop through hover-traffic, surf the data-river to the bays.', '#00e5f6', ['new','action'], 1],
+            ['space-invaders', '👾', 'Claw Invaders', 'Waves, bunkers, UFO bounties — and a boss every 5th wave.', '#22e59a', ['new','action','classic'], 1],
+            ['asteroids', '☄️', 'Neon Asteroids', 'Inertia physics, splitting rocks, pickups, comet showers.', '#b388ff', ['new','action','classic'], 1],
+            ['pong', '🏓', 'Neon Pong', 'The original, plus power-ups and fire rallies. First to seven.', '#00e5f6', ['new','classic'], 1],
+            ['2048', '🔢', '2048', 'Slide, merge, repeat — chase the glowing tile.', '#ffd23e', ['new','puzzle'], 1],
+            ['flappy-claw', '🐤', 'Flappy Claw', 'Neon pipes, stars, storms. Medals at 10 / 25 / 50.', '#ff2a6d', ['new','action'], 1],
+            ['snake', '🐍', 'Snake', 'Glossy remaster with power-ups and online multiplayer.', '#22e59a', ['classic'], 0],
+            ['snake-3d', '🎥', 'Snake 3D', 'Third-person 3D snake in a neon arena.', '#22e59a', ['classic','action'], 0],
+            ['tetris', '🧱', 'Tetris', 'Beveled glass blocks, T-spins, hold queue, combos.', '#00e5f6', ['classic','puzzle'], 0],
+            ['breakout', '🎾', 'Breakout', 'Brick-smashing with upgrade drafts between levels.', '#ff2a6d', ['classic','action'], 0],
+            ['minesweeper', '💣', 'Minesweeper', 'Rippling reveals, three difficulties.', '#ffd23e', ['classic','puzzle'], 0],
+            ['chess', '♟️', 'Chess', 'Full rules, AI opponent, online matchmaking.', '#b388ff', ['classic','puzzle'], 0],
+            ['pump-dump', '📈', 'Pump & Dump', 'Time entries and exits on simulated charts.', '#ff2a6d', ['degen'], 0],
+            ['degen-slots', '🎰', 'Degen Slots', 'Spin the reels, chase the jackpot.', '#ffd23e', ['degen'], 0],
+            ['liquidation-panic', '💧', 'Liquidation Panic', 'Manage leverage under pressure.', '#00e5f6', ['degen'], 0],
+            ['whale-watcher', '🐋', 'Whale Watcher', 'Spot whales, dodge bot traps.', '#22e59a', ['degen'], 0],
+            ['gas-wars', '⛽', 'Gas Wars', 'Outbid the mempool at the perfect moment.', '#b388ff', ['degen'], 0],
+            ['airdrop-hunter', '🪂', 'Airdrop Hunter', 'Catch real tokens, dodge the scams.', '#ff2a6d', ['degen','action'], 0],
+            ['mev-bot-race', '⚡', 'MEV Bot Race', 'Front-run the mempool. Extract value.', '#ffd23e', ['degen'], 0],
+            ['rug-pull-detector', '🔍', 'Rug Detector', 'Spot the scam before it pulls.', '#00e5f6', ['degen','puzzle'], 0],
+            ['diamond-hands', '💎', 'Diamond Hands', 'Hold through the volatility. Feel it.', '#b388ff', ['degen'], 0],
+            ['block-builder', '⛏️', 'Block Builder', 'Pack transactions for maximum gas.', '#22e59a', ['degen','puzzle'], 0],
+            ['seed-phrase-memory', '🔑', 'Seed Phrase', 'Memorize the phrase. Your keys, your coins.', '#ffd23e', ['degen','puzzle'], 0],
+            ['memory-matrix', '🧠', 'Memory Matrix', 'Memorize the pattern before it vanishes.', '#00e5f6', ['puzzle'], 0],
+            ['pattern-recognition', '🔷', 'Pattern Recognition', 'Spot the pattern fast.', '#00e5f6', ['puzzle'], 0],
+            ['logic-sequences', '🔢', 'Logic Sequences', 'Find the rule, complete the sequence.', '#b388ff', ['puzzle'], 0],
+            ['word-recall', '📝', 'Word Recall', 'Remember the list, beat the clock.', '#ffd23e', ['puzzle'], 0],
+            ['word-chain', '🔗', 'Word Chain', 'Word association against the clock.', '#22e59a', ['puzzle'], 0],
+            ['trail-making', '🎯', 'Trail Making', 'Connect the dots against the timer.', '#b388ff', ['puzzle'], 0],
+            ['attention-calc', '➗', 'Attention Calc', 'Mental math under pressure.', '#00e5f6', ['puzzle'], 0],
+            ['focus-flow', '🌀', 'Focus Flow', 'Attention training. Stay in the zone.', '#22e59a', ['puzzle','chill'], 0],
+            ['color-harmony', '🎨', 'Color Harmony', 'Match colors, find harmony.', '#ff2a6d', ['puzzle','chill'], 0],
+            ['time-loop', '⏳', 'Time Loop', 'A puzzle where timing is everything.', '#b388ff', ['puzzle'], 0],
+            ['mindful-match', '🃏', 'Mindful Match', 'A calm matching game.', '#22e59a', ['puzzle','chill'], 0],
+            ['glitch-hunter', '🐛', 'Glitch Hunter', 'Spot the glitches in the matrix.', '#ff2a6d', ['puzzle'], 0],
+            ['cockroach-kitchen', '🪳', 'Cockroach Kitchen', 'Pest-control clicker chaos.', '#ffd23e', ['action'], 0],
+            ['zen-garden', '🪨', 'Zen Garden', 'Rake the sand. Place the stones. Breathe.', '#22e59a', ['chill'], 0],
+            ['breathing-space', '🌬️', 'Breathing Space', 'Guided breathing, calming visuals.', '#00e5f6', ['chill'], 0],
+            ['stress-ball', '🫧', 'Stress Ball', "Squeeze it. It's fine. Everything's fine.", '#ff2a6d', ['chill'], 0],
+        ];
+
+        const grid = document.getElementById('grid');
+        grid.innerHTML = GAMES.map(([slug, ico, name, desc, hue, cats, isNew]) => `
+            <a class="card" style="--hue:${hue}" href="games/${slug}.html" data-cats="${cats.join(' ')}">
+                <div class="card-top"><div class="card-ico">${ico}</div><h3>${name}</h3></div>
+                <p>${desc}</p>
+                <div class="chips">${isNew ? '<span class="chip new">New</span>' : ''}${cats.filter(c => c !== 'new').map(c => `<span class="chip">${c === 'puzzle' ? 'Puzzle' : c}</span>`).join('')}</div>
+            </a>`).join('');
+        document.getElementById('count').textContent = GAMES.length;
+        document.getElementById('nAll').textContent = ' ' + GAMES.length;
+
+        const pills = document.querySelectorAll('.pill');
+        const cards = document.querySelectorAll('.card');
+        const empty = document.getElementById('empty');
+        pills.forEach(pill => pill.addEventListener('click', () => {
+            pills.forEach(p => p.classList.remove('on'));
+            pill.classList.add('on');
+            const f = pill.dataset.f;
+            let shown = 0;
+            cards.forEach(c => {
+                const show = f === 'all' || c.dataset.cats.split(' ').includes(f);
+                c.classList.toggle('hide', !show);
+                if (show) shown++;
+            });
+            empty.style.display = shown ? 'none' : 'block';
+        }));
+    </script>
 </body>
 </html>
