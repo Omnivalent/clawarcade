@@ -1,0 +1,13 @@
+{
+  "_comment": "The scripted 90-second first-run. Runs once ever, gated by the `wildkin-onboarded` localStorage flag. `affinityThreshold` here OVERRIDES the normal creatures.json threshold during onboarding — it is THE most important tuning number in the build: with affinityPerTick 10 and a ~2s harvest tick, 30 affinity = 3 resonant harvests ≈ 6-8 seconds of work, putting the first evolution well under 90 seconds including reading time. `freeDecor` is handed to the player at step 1 at zero cost. Prompt texts are shown in the guide panel in order.",
+
+  "affinityThreshold": 30,
+  "freeDecor": "forge",
+
+  "prompts": {
+    "place": "🔥 Place the Forge on the glowing tile",
+    "assign": "👆 Tap Cindling, then tap the glowing tree beside the Forge",
+    "working": "✨ Resonance! Cindling is changing… watch the bar above it",
+    "done": "🌱 Your sanctuary grows — two new wildkin have arrived. Steer them with decor!"
+  }
+}

@@ -1,34 +1,54 @@
 {
-  "_comment": "Decor items placeable in Build mode. Pure placeholders for now (shape + color), swap for art later. `cost` spends from the global inventory. Decor matters for gameplay: resonance recipes (resonance.json) check for decor near working creatures, and creatures idling near ANY decor gain sanctuary-time twice as fast.",
+  "_comment": "Decor for the fused resonance-evolution system. Decor is the STEERING WHEEL of the game: each item channels exactly one evolution branch (`branchId`, matching evolutionForms.json). A creature working a resource node with a matching decor nearby resonates — production multiplies AND affinity for that decor's branch accrues (the exact numbers live in resonanceRecipes.json). Placeholder shapes/colors, swap for art later.",
 
   "items": {
-    "crystal": {
-      "name": "Hum Crystal",
-      "shape": "diamond",
-      "color": "#7ee8fa",
-      "size": 30,
-      "cost": { "stone": 5 }
+    "forge": {
+      "name": "Forge",
+      "shape": "square",
+      "color": "#c1440e",
+      "size": 28,
+      "cost": { "stone": 4 },
+      "branchId": "magmaton"
     },
-    "lantern": {
-      "name": "Glow Lantern",
+    "beacon": {
+      "name": "Beacon",
       "shape": "circle",
       "color": "#ffd166",
-      "size": 22,
-      "cost": { "wood": 5 }
-    },
-    "mossStone": {
-      "name": "Moss Stone",
-      "shape": "square",
-      "color": "#7aa874",
       "size": 24,
-      "cost": { "stone": 3, "herbs": 2 }
+      "cost": { "wood": 4 },
+      "branchId": "flarewisp"
     },
-    "petalBed": {
-      "name": "Petal Bed",
+    "bloombed": {
+      "name": "Bloombed",
       "shape": "star",
       "color": "#f4a7cf",
       "size": 26,
-      "cost": { "herbs": 5 }
+      "cost": { "herbs": 4 },
+      "branchId": "mycelord"
+    },
+    "thornbed": {
+      "name": "Thornbed",
+      "shape": "triangle",
+      "color": "#3e7d3a",
+      "size": 26,
+      "cost": { "herbs": 3, "wood": 2 },
+      "branchId": "toxifang"
+    },
+    "stormrod": {
+      "name": "Storm Rod",
+      "shape": "diamond",
+      "color": "#5a7bff",
+      "size": 30,
+      "cost": { "stone": 3, "wood": 3 },
+      "branchId": "tempestcoil"
+    },
+    "windvane": {
+      "name": "Windvane",
+      "shape": "triangle",
+      "color": "#bfe8dd",
+      "size": 26,
+      "cost": { "wood": 5 },
+      "branchId": "zephyrscout"
     }
   }
 }

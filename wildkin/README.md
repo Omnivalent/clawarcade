@@ -1,13 +1,15 @@
-# 🌿 Wildkin — Creature Sanctuary (vertical slice)
+# 🌿 Wildkin — Creature Sanctuary (Build Pass 2)
 
-A browser-based isometric creature-sanctuary game. **Creatures evolve based on
-how you raise and use them** — work them hard and they become sturdy Forgekin,
-let them roam and they become swift Swiftkin, let them rest among your decor
-and they bloom into serene Bloomkin.
+A browser-based isometric creature-sanctuary game built on ONE fused system:
+**resonance drives evolution**. Working a creature next to a matching decor
+multiplies production now AND fills that decor's evolution branch — so the
+player literally steers each creature's destiny by arranging the sanctuary.
+Three bases (Cindling, Sporeling, Nimbling) × two branches × common/rare
+forms = 12 evolutions. First-ever visit runs a scripted 90-second onboarding
+that lands the first evolution in ~15–20 seconds of play.
 
-This is the **world & core systems pass**: all creatures and art are
-placeholder shapes, designed to be swapped for real art later without touching
-game logic.
+All art is placeholder shapes, designed to be swapped for real art later
+without touching game logic. See `GAMEPLAY.md` for the full player guide.
 
 ---
 
@@ -45,14 +47,20 @@ npm run build   # output lands in wildkin/dist/
 
 - Working creatures deposit **wood / stone / herbs** into the counters at the
   top-left. Nodes run dry and **regenerate over time**.
-- **Resonance:** place matching decor near a worker for bonus production —
-  e.g. a **Hum Crystal** within 2 tiles of a creature mining a **Moon Rock**
-  doubles its stone. Sparkles = it's working. All combos are listed in
-  `src/config/resonance.json`.
-- **Evolution:** select a creature to see its three activity bars. When one
-  fills up, the creature evolves — **into the branch matching whatever it did
-  most**. Everything it does counts: harvesting fills *Working*, walking fills
-  *Exploring*, resting fills *Resting* (twice as fast near decor).
+- **Resonance drives evolution (the fused system):** a creature working next
+  to a **matching decor** resonates — production multiplies with sparkles AND
+  affinity accrues toward that decor's **evolution branch** (e.g. a Forge
+  within 2 tiles of a working Cindling channels **Magmaton**). All pairings
+  live in `src/config/resonanceRecipes.json`; the build menu labels which
+  branch each decor steers.
+- **Evolution:** select a creature to see its two branch bars. When one
+  crosses the threshold, the creature evolves down that branch — with a
+  **15% chance of the rare variant** (gold-ringed, stronger). Celebration
+  modal shows before → after with a Share button.
+- **First run:** a scripted onboarding delivers your first evolution in under
+  90 seconds. It only ever runs once.
+- **Daily boost:** one branch evolves +50% faster each real-world day
+  (see the banner under the resource counters).
 - Your sanctuary **saves automatically** (every 10s and on close) — refresh
   and everything is still there. Reset from the ⚙ settings panel.
 - ⚙ settings also lets you force **Desktop / Phone** interface mode
@@ -68,13 +76,15 @@ JSON — no code changes needed.
 | `src/config/biomes.json` | Tile types, the four biomes, and terrain-generation knobs |
 | `src/config/creatures.json` | Species (shape/color/speed), starting creatures, mobile creature cap |
 | `src/config/nodes.json` | Resources (HUD counters), node yields, capacities, regen rates, build costs |
-| `src/config/decor.json` | Decor items + costs |
-| `src/config/resonance.json` | Resonance combos (decor + node → multiplier) — add rows to add combos |
-| `src/config/evolution.json` | Evolution threshold, branch forms, stat changes |
+| `src/config/decor.json` | Decor items, costs, and which branch each channels |
+| `src/config/resonanceRecipes.json` | The fused rules: base+decor → multiplier + affinity/tick + branch |
+| `src/config/evolutionForms.json` | The 6 branches, 12 forms (common+rare), rare chance, stats |
+| `src/config/dailyModifier.json` | Daily boost multiplier + banner text |
+| `src/config/onboarding.json` | Tutorial prompts + the low first-evolution threshold |
 
-Want a new resonance combo? Add one object to `resonance.json`. Want
-evolution to take longer? Raise `threshold` in `evolution.json`. Want a new
-landscape type? Add tiles + a biome entry to `biomes.json`.
+Want a new resonance pairing? Add a row to `resonanceRecipes.json`. Want
+evolution to take longer? Raise `affinityThreshold` in `creatures.json`. Want
+a new landscape type? Add tiles + a biome entry to `biomes.json`.
 
 ## 🌍 Generated landscapes
 
@@ -103,15 +113,18 @@ src/
   core/
     iso.ts                 Isometric grid ↔ pixel math
     GameState.ts           Global inventory + the event bus between scenes
+    daily.ts               Date-seeded daily branch boost
+    share.ts               Canvas screenshot -> share sheet / download
     SaveManager.ts         localStorage save/load
     device.ts              Phone detection, UI-mode setting, performance caps
   systems/
     MapGenerator.ts        Seeded procedural landscape generation (biomes)
     Pathfinder.ts          BFS pathfinding on the tile grid
     CameraController.ts    Drag-pan, wheel-zoom, pinch-zoom, tap detection
-    ResonanceSystem.ts     Pure resonance-recipe matching logic
+    ResonanceSystem.ts     Fused recipe matcher (base + nearby decor -> recipe)
+    Onboarding.ts          The scripted 90-second first-run
   entities/
-    Creature.ts            Wander AI, job work, activity counters, EVOLUTION
+    Creature.ts            Wander AI, job work, branch AFFINITIES + evolution
     ResourceNode.ts        Harvestable, regenerating nodes
     Decor.ts               Placed decor items
   scenes/
@@ -122,7 +135,8 @@ src/
 
 **Swapping in real art later:** replace the texture generation in
 `BootScene.ts` with a normal asset loader that registers the **same texture
-keys** (`cr-glimmer`, `node-tree`, `decor-crystal`, …) — nothing else changes.
+keys** (`cr-cindling`, `cr-form-magmaton`, `node-tree`, `decor-forge`, …) —
+nothing else changes.
 
 ## 🚫 Deliberately not in this pass
 

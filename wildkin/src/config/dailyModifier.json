@@ -1,0 +1,6 @@
+{
+  "_comment": "The rotating daily driver — deliberately tiny. On load the game picks one branch (rotates each real-world day via a date seed: dayNumber % branchCount over the branches in evolutionForms.json, alphabetical) and multiplies that branch's affinity gain by `affinityMultiplier` for the whole day. A small banner announces it. That's the entire feature: no quests, no streaks.",
+
+  "affinityMultiplier": 1.5,
+  "banner": "⚡ Today's Resonance: {branch} — evolves +50% faster"
+}

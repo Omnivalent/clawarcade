@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import biomesConfig from '../config/biomes.json';
 import creaturesConfig from '../config/creatures.json';
 import decorConfig from '../config/decor.json';
-import evolutionConfig from '../config/evolution.json';
+import formsConfig from '../config/evolutionForms.json';
 import { TILE_H, TILE_W } from '../core/iso';
-import type { DecorDef, EvolutionBranchDef, NodeTypeDef, SpeciesDef, TileTypeDef } from '../types';
+import type { BranchDef, DecorDef, NodeTypeDef, SpeciesDef, TileTypeDef } from '../types';
 import nodesConfig from '../config/nodes.json';
 
 /**
@@ -110,30 +110,34 @@ export class BootScene extends Phaser.Scene {
   }
 
   // --------------------------------------------------------------------------
-  // Creatures: one texture per species (stage 1), plus one per
-  // species x evolution-branch (stage 2). Stage-2 forms use the BRANCH's shape
-  // and color but keep an outline in the species color, so an evolved Pip is
-  // still recognizably Pip.
+  // Creatures: one texture per base species (`cr-cindling`…), plus one per
+  // evolved form from evolutionForms.json (`cr-form-magmaton`,
+  // `cr-form-obsidian-magmaton`, …). Rare variants get a gold outer ring so
+  // they read as special even in placeholder art.
   // --------------------------------------------------------------------------
   private makeCreatureTextures(): void {
     const species = creaturesConfig.species as Record<string, SpeciesDef>;
-    const branches = evolutionConfig.branches as Record<string, EvolutionBranchDef>;
+    const branches = formsConfig.branches as Record<string, BranchDef>;
 
     for (const [spId, sp] of Object.entries(species)) {
       const spColor = Phaser.Display.Color.HexStringToColor(sp.color).color;
-
-      // Stage 1: the species' own shape and color.
       this.shapeTexture(`cr-${spId}`, sp.shape, sp.size, spColor, 0x10201c);
+    }
 
-      // Stage 2: one variant per branch.
-      for (const [brKey, br] of Object.entries(branches)) {
-        const brColor = Phaser.Display.Color.HexStringToColor(br.color).color;
+    for (const br of Object.values(branches)) {
+      const baseSize = species[br.base]?.size ?? 26;
+      for (const [form, isRare] of [
+        [br.common, false],
+        [br.rare, true],
+      ] as const) {
+        const color = Phaser.Display.Color.HexStringToColor(form.color).color;
         this.shapeTexture(
-          `cr-${spId}-${brKey}`,
-          br.shape,
-          Math.round(sp.size * br.sizeMult),
-          brColor,
-          spColor, // species-colored outline preserves identity
+          `cr-form-${form.id}`,
+          form.shape,
+          Math.round(baseSize * form.sizeMult),
+          color,
+          0x10201c,
+          isRare ? 0xffd166 : undefined, // gold halo marks the rare
         );
       }
     }
@@ -206,13 +210,28 @@ export class BootScene extends Phaser.Scene {
   /**
    * Draw one of the placeholder shapes ('circle' | 'square' | 'triangle' |
    * 'diamond' | 'star') into its own texture. Used for creatures and decor.
+   * `haloColor` (optional) draws a glowing ring around the shape — used to
+   * mark RARE evolved forms.
    */
-  private shapeTexture(key: string, shape: string, size: number, fill: number, stroke: number): void {
+  private shapeTexture(
+    key: string,
+    shape: string,
+    size: number,
+    fill: number,
+    stroke: number,
+    haloColor?: number,
+  ): void {
     const g = this.add.graphics();
-    const pad = 4;
+    const pad = haloColor !== undefined ? 10 : 4;
     const S = size + pad * 2;
     const c = S / 2;
     const r = size / 2;
+    if (haloColor !== undefined) {
+      g.lineStyle(3, haloColor, 0.9);
+      g.strokeCircle(c, c, r + 6);
+      g.lineStyle(1.5, haloColor, 0.35);
+      g.strokeCircle(c, c, r + 9);
+    }
     g.fillStyle(fill, 1);
     g.lineStyle(2.5, stroke, 1);
 

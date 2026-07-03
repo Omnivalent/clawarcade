@@ -11,8 +11,22 @@ import type { SaveData } from '../types';
  */
 
 const SAVE_KEY = 'wildkin-save';
-/** Bump this if the save format ever changes incompatibly; old saves are then discarded instead of crashing the game. (v2: added generated-world biome + seed.) */
-const SAVE_VERSION = 2;
+/** Bump this if the save format ever changes incompatibly; old saves are then discarded instead of crashing the game. (v3: fused resonance-evolution — creatures store branch affinities + evolved form instead of activity counters.) */
+const SAVE_VERSION = 3;
+
+/**
+ * The onboarding flag lives OUTSIDE the save file on purpose: "Reset & new
+ * land" wipes the sanctuary but must never replay the tutorial.
+ */
+const ONBOARDED_KEY = 'wildkin-onboarded';
+
+export function hasOnboarded(): boolean {
+  return localStorage.getItem(ONBOARDED_KEY) === '1';
+}
+
+export function setOnboarded(): void {
+  localStorage.setItem(ONBOARDED_KEY, '1');
+}
 
 export function save(data: Omit<SaveData, 'version'>): void {
   try {

@@ -1,20 +1,21 @@
-import resonanceConfig from '../config/resonance.json';
+import recipesConfig from '../config/resonanceRecipes.json';
 import { tileDistance } from '../core/iso';
 import type { ResonanceRecipe } from '../types';
 
 /**
- * Resonance — CORE HOOK #1.
+ * The FUSED resonance-evolution matcher.
  *
- * When a creature works a node with a matching decor item placed nearby, the
- * combo "resonates": production is multiplied and sparkles fly. All combos
- * live in src/config/resonance.json — add rows there to create new ones.
+ * Resonance is the verb, evolution is the outcome: when a creature works a
+ * node with a matching decor within range, ONE recipe fires and delivers
+ * both halves of the system —
+ *   (a) NOW:   a production multiplier + particles (instant feedback), and
+ *   (b) LATER: affinityPerTick toward that decor's branch (steering).
  *
- * This module is pure logic (no rendering): given who is working, where, and
- * what decor exists, it answers "what multiplier applies right now?".
- * The WorldScene handles the particle effects.
+ * All pairings live in src/config/resonanceRecipes.json. This module is pure
+ * logic — the WorldScene applies the effects.
  */
 
-const RECIPES = resonanceConfig.recipes as ResonanceRecipe[];
+const RECIPES = recipesConfig.recipes as ResonanceRecipe[];
 
 /** Minimal view of a placed decor item, supplied by the WorldScene. */
 export interface DecorPlacement {
@@ -23,40 +24,26 @@ export interface DecorPlacement {
   ty: number;
 }
 
-export interface ResonanceResult {
-  /** Combined production multiplier (1 = no resonance active). */
-  multiplier: number;
-  /** The recipe that fired (the strongest one, if several match). */
-  recipe: ResonanceRecipe | null;
-}
-
 /**
- * Check resonance for a creature working at tile (tx,ty) on a node of
- * `nodeType`. `resonanceBonus` comes from the creature's evolution branch
- * (Bloomkin gets +0.5 to any active multiplier).
+ * Find the recipe that fires for `baseId` working at (tx,ty), given the decor
+ * on the map. If several match (e.g. both a Forge AND a Beacon nearby), the
+ * one with the highest productionMultiplier wins — the player resolves the
+ * ambiguity by moving decor, which is exactly the game.
  */
-export function checkResonance(
-  speciesId: string,
-  nodeType: string,
+export function matchRecipe(
+  baseId: string,
   tx: number,
   ty: number,
   decor: DecorPlacement[],
-  resonanceBonus: number,
-): ResonanceResult {
+): ResonanceRecipe | null {
   let best: ResonanceRecipe | null = null;
-
   for (const recipe of RECIPES) {
-    // Recipe must match this creature (or be species-agnostic) and this node.
-    if (recipe.species !== 'any' && recipe.species !== speciesId) continue;
-    if (recipe.nodeType !== nodeType) continue;
-    // ...and a matching decor item must be within range of the worker.
+    if (recipe.creatureBase !== baseId) continue;
     const near = decor.some(
-      (d) => d.type === recipe.decor && tileDistance(d.tx, d.ty, tx, ty) <= recipe.range,
+      (d) => d.type === recipe.adjacentDecor && tileDistance(d.tx, d.ty, tx, ty) <= recipe.range,
     );
     if (!near) continue;
-    if (!best || recipe.multiplier > best.multiplier) best = recipe;
+    if (!best || recipe.productionMultiplier > best.productionMultiplier) best = recipe;
   }
-
-  if (!best) return { multiplier: 1, recipe: null };
-  return { multiplier: best.multiplier + resonanceBonus, recipe: best };
+  return best;
 }
