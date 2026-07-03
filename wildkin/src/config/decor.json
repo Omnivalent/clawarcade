@@ -1,0 +1,34 @@
+{
+  "_comment": "Decor items placeable in Build mode. Pure placeholders for now (shape + color), swap for art later. `cost` spends from the global inventory. Decor matters for gameplay: resonance recipes (resonance.json) check for decor near working creatures, and creatures idling near ANY decor gain sanctuary-time twice as fast.",
+
+  "items": {
+    "crystal": {
+      "name": "Hum Crystal",
+      "shape": "diamond",
+      "color": "#7ee8fa",
+      "size": 30,
+      "cost": { "stone": 5 }
+    },
+    "lantern": {
+      "name": "Glow Lantern",
+      "shape": "circle",
+      "color": "#ffd166",
+      "size": 22,
+      "cost": { "wood": 5 }
+    },
+    "mossStone": {
+      "name": "Moss Stone",
+      "shape": "square",
+      "color": "#7aa874",
+      "size": 24,
+      "cost": { "stone": 3, "herbs": 2 }
+    },
+    "petalBed": {
+      "name": "Petal Bed",
+      "shape": "star",
+      "color": "#f4a7cf",
+      "size": 26,
+      "cost": { "herbs": 5 }
+    }
+  }
+}

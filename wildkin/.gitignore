@@ -1,0 +1,3 @@
+# Dependencies and build output for the Wildkin sub-project
+node_modules/
+dist/
