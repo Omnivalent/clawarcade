@@ -1,5 +1,5 @@
 /**
- * Shared TypeScript types for Wildkin.
+ * Shared TypeScript types for Wildkin (Build Pass 2 — fused resonance-evolution).
  *
  * These mirror the shapes of the JSON config files in src/config/. If you add
  * fields to a config file, add them here too so the compiler can check your
@@ -47,15 +47,22 @@ export interface GeneratedWorld {
   spawns: TileCoord[];
 }
 
-/** One creature species from creatures.json. */
+/**
+ * One base creature species from creatures.json.
+ * `branches` are its two possible evolution paths (keys into
+ * evolutionForms.json); `affinityThreshold` is how much branch affinity
+ * triggers evolution in normal play.
+ */
 export interface SpeciesDef {
   name: string;
   shape: string; // 'circle' | 'square' | 'triangle' | 'diamond' | 'star'
   color: string;
   size: number;
   speed: number; // walk speed in pixels/second
-  wanderRadius: number; // how far it roams while idle, in tiles
+  wanderRadius: number; // idle roaming range, in tiles
   flavor: string;
+  branches: string[]; // exactly two branch ids
+  affinityThreshold: number;
 }
 
 /** One resource kind from nodes.json (wood, stone, herbs…). */
@@ -74,54 +81,56 @@ export interface NodeTypeDef {
   regenPerSecond: number;
   workIntervalMs: number;
   yieldPerTick: number;
-  activity: string; // which creature activity counter working here feeds
+  activity: string;
   color: string;
   trunkColor: string;
   buildable: boolean;
   cost: Record<string, number>;
 }
 
-/** One decor item from decor.json. */
+/** One decor item from decor.json. `branchId` is the evolution branch this decor channels — the heart of player steering. */
 export interface DecorDef {
   name: string;
   shape: string;
   color: string;
   size: number;
   cost: Record<string, number>;
+  branchId: string;
 }
 
-/** One resonance recipe from resonance.json. */
+/**
+ * One fused resonance recipe from resonanceRecipes.json:
+ * base creature + nearby decor → production multiplier NOW, branch affinity
+ * for LATER. Resonance is the verb; evolution is the outcome.
+ */
 export interface ResonanceRecipe {
-  id: string;
-  label: string;
-  species: string; // species id or 'any'
-  nodeType: string;
-  decor: string;
-  range: number; // in tiles (Chebyshev distance)
-  multiplier: number;
+  creatureBase: string;
+  adjacentDecor: string;
+  range: number; // Chebyshev tiles between worker and decor
+  productionMultiplier: number;
+  affinityPerTick: number;
+  branchId: string;
   particleColor: string;
 }
 
-/** One evolution branch from evolution.json. */
-export interface EvolutionBranchDef {
+/** One evolved form (common or rare) from evolutionForms.json. */
+export interface EvolvedFormDef {
   id: string;
   name: string;
-  description: string;
   shape: string;
   color: string;
   sizeMult: number;
-  stats: {
-    workSpeedMult: number;
-    moveSpeedMult: number;
-    resonanceBonus: number;
-  };
+  stats: { workSpeedMult: number; moveSpeedMult: number };
 }
 
-/** The three activity counters every creature tracks (CORE HOOK #2). */
-export interface ActivityCounters {
-  mining: number;
-  exploring: number;
-  sanctuary: number;
+/** One evolution branch: which base it belongs to, its two forms, the rare roll. */
+export interface BranchDef {
+  name: string;
+  base: string;
+  color: string;
+  rareChance: number;
+  common: EvolvedFormDef;
+  rare: EvolvedFormDef;
 }
 
 /** An entry in the Build menu (either a decor item or a buildable node). */
@@ -133,6 +142,24 @@ export interface BuildItem {
   color: string;
 }
 
+/** Today's rotating boost, resolved from dailyModifier.json + the date. */
+export interface DailyBoost {
+  branchId: string;
+  branchName: string;
+  multiplier: number;
+  bannerText: string;
+}
+
+/** Payload for the evolution celebration modal. */
+export interface EvolutionEvent {
+  creatureName: string;
+  baseSpeciesId: string;
+  baseSpeciesName: string;
+  branchId: string;
+  form: EvolvedFormDef;
+  isRare: boolean;
+}
+
 /** Serialized creature state, as stored in localStorage. */
 export interface SavedCreature {
   id: number;
@@ -140,8 +167,9 @@ export interface SavedCreature {
   name: string;
   tile: [number, number];
   stage: number;
-  branch: string | null;
-  counters: ActivityCounters;
+  formId: string | null; // evolved form id once evolved
+  formRare: boolean;
+  affinities: Record<string, number>; // branchId -> accumulated affinity
   assignedNodeId: number | null;
 }
 

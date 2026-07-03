@@ -1,41 +1,46 @@
 {
-  "_comment": "All creature definitions live here — logic code never hardcodes a species. `species` defines the archetypes (placeholder shape + color now, real art later: swap `shape`/`color` for a spritesheet key when art lands). `startingCreatures` is who you begin a fresh sanctuary with — spawn positions come from the landscape generator (near the center of whatever land was rolled), so there are no fixed coordinates here. `speed` is walking speed in pixels/second. `wanderRadius` is how far (in tiles) a creature roams from where it's standing when idle.",
+  "_comment": "Base creatures for the FUSED resonance-evolution system (Build Pass 2). Each base has exactly TWO evolution branches (see evolutionForms.json) — which one it takes is steered by the player: working next to a decor that channels branch A fills branch-A affinity, branch B decor fills branch B. `affinityThreshold` is how much affinity evolves a creature under NORMAL play (onboarding uses the much lower override in onboarding.json). Placeholder shapes/colors — swap for real art later. `speed` is walk speed in px/sec, `wanderRadius` is idle roaming range in tiles.",
 
   "species": {
-    "glimmer": {
-      "name": "Glimmer",
+    "cindling": {
+      "name": "Cindling",
       "shape": "circle",
-      "color": "#4fd8c4",
+      "color": "#ff7847",
       "size": 26,
       "speed": 70,
       "wanderRadius": 4,
-      "flavor": "A gentle orb-like spirit drawn to calm places."
+      "flavor": "A warm little ember-spirit. What it becomes is up to you.",
+      "branches": ["magmaton", "flarewisp"],
+      "affinityThreshold": 300
     },
-    "thorn": {
-      "name": "Thorn",
+    "sporeling": {
+      "name": "Sporeling",
       "shape": "triangle",
-      "color": "#8ecf4d",
-      "size": 28,
+      "color": "#7fbf4d",
+      "size": 27,
+      "speed": 65,
+      "wanderRadius": 4,
+      "flavor": "A soft-capped forest sprout, listening for the right soil.",
+      "branches": ["mycelord", "toxifang"],
+      "affinityThreshold": 300
+    },
+    "nimbling": {
+      "name": "Nimbling",
+      "shape": "diamond",
+      "color": "#6fc7e8",
+      "size": 26,
       "speed": 85,
       "wanderRadius": 5,
-      "flavor": "Restless and leaf-quick — never sits still for long."
-    },
-    "cinder": {
-      "name": "Cinder",
-      "shape": "square",
-      "color": "#f2924a",
-      "size": 25,
-      "speed": 60,
-      "wanderRadius": 3,
-      "flavor": "Stubborn little ember that loves hard work."
+      "flavor": "A restless wisp of sky, waiting for a storm or a breeze.",
+      "branches": ["tempestcoil", "zephyrscout"],
+      "affinityThreshold": 300
     }
   },
 
   "startingCreatures": [
-    { "species": "glimmer", "name": "Pip" },
-    { "species": "thorn", "name": "Moss" },
-    { "species": "cinder", "name": "Ember" },
-    { "species": "glimmer", "name": "Lumen" }
+    { "species": "cindling", "name": "Cindling" },
+    { "species": "sporeling", "name": "Sporeling" },
+    { "species": "nimbling", "name": "Nimbling" }
   ],
 
   "maxCreaturesMobile": 3

@@ -1,0 +1,138 @@
+{
+  "_comment": "The 6 evolution branches and their 12 final forms. When a creature's affinity for a branch crosses its threshold, it evolves down that branch — the FORM within the branch is rolled: common (usually 85%) or the rare variant (`rareChance`). The rare is the shareable 'look what I got' moment: bigger, wilder color, gold ring, better stats. `color` on the branch itself is used for affinity bars, banners and particles. All placeholder shapes — swap for art later; keep the ids stable.",
+
+  "branches": {
+    "magmaton": {
+      "name": "Magmaton",
+      "base": "cindling",
+      "color": "#e25822",
+      "rareChance": 0.15,
+      "common": {
+        "id": "magmaton",
+        "name": "Magmaton",
+        "shape": "square",
+        "color": "#d84315",
+        "sizeMult": 1.35,
+        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 1.0 }
+      },
+      "rare": {
+        "id": "obsidian-magmaton",
+        "name": "Obsidian Magmaton",
+        "shape": "square",
+        "color": "#2f2440",
+        "sizeMult": 1.5,
+        "stats": { "workSpeedMult": 1.8, "moveSpeedMult": 1.1 }
+      }
+    },
+    "flarewisp": {
+      "name": "Flarewisp",
+      "base": "cindling",
+      "color": "#ffb100",
+      "rareChance": 0.15,
+      "common": {
+        "id": "flarewisp",
+        "name": "Flarewisp",
+        "shape": "star",
+        "color": "#ffd166",
+        "sizeMult": 1.3,
+        "stats": { "workSpeedMult": 1.2, "moveSpeedMult": 1.3 }
+      },
+      "rare": {
+        "id": "solar-flarewisp",
+        "name": "Solar Flarewisp",
+        "shape": "star",
+        "color": "#fff0a0",
+        "sizeMult": 1.45,
+        "stats": { "workSpeedMult": 1.4, "moveSpeedMult": 1.5 }
+      }
+    },
+    "mycelord": {
+      "name": "Mycelord",
+      "base": "sporeling",
+      "color": "#9b6fd1",
+      "rareChance": 0.15,
+      "common": {
+        "id": "mycelord",
+        "name": "Mycelord",
+        "shape": "circle",
+        "color": "#7d5ba6",
+        "sizeMult": 1.4,
+        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 0.9 }
+      },
+      "rare": {
+        "id": "elder-mycelord",
+        "name": "Elder Mycelord",
+        "shape": "circle",
+        "color": "#4a3d78",
+        "sizeMult": 1.55,
+        "stats": { "workSpeedMult": 1.8, "moveSpeedMult": 1.0 }
+      }
+    },
+    "toxifang": {
+      "name": "Toxifang",
+      "base": "sporeling",
+      "color": "#54c93f",
+      "rareChance": 0.15,
+      "common": {
+        "id": "toxifang",
+        "name": "Toxifang",
+        "shape": "triangle",
+        "color": "#61d84e",
+        "sizeMult": 1.3,
+        "stats": { "workSpeedMult": 1.3, "moveSpeedMult": 1.2 }
+      },
+      "rare": {
+        "id": "venom-toxifang",
+        "name": "Venom Toxifang",
+        "shape": "triangle",
+        "color": "#9c27b0",
+        "sizeMult": 1.45,
+        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 1.4 }
+      }
+    },
+    "tempestcoil": {
+      "name": "Tempestcoil",
+      "base": "nimbling",
+      "color": "#5a7bff",
+      "rareChance": 0.15,
+      "common": {
+        "id": "tempestcoil",
+        "name": "Tempestcoil",
+        "shape": "diamond",
+        "color": "#4a63d8",
+        "sizeMult": 1.35,
+        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 1.1 }
+      },
+      "rare": {
+        "id": "voltaic-tempestcoil",
+        "name": "Voltaic Tempestcoil",
+        "shape": "diamond",
+        "color": "#ffe94d",
+        "sizeMult": 1.5,
+        "stats": { "workSpeedMult": 1.8, "moveSpeedMult": 1.2 }
+      }
+    },
+    "zephyrscout": {
+      "name": "Zephyrscout",
+      "base": "nimbling",
+      "color": "#6fd8c0",
+      "rareChance": 0.15,
+      "common": {
+        "id": "zephyrscout",
+        "name": "Zephyrscout",
+        "shape": "triangle",
+        "color": "#8fe3d0",
+        "sizeMult": 1.25,
+        "stats": { "workSpeedMult": 1.1, "moveSpeedMult": 1.6 }
+      },
+      "rare": {
+        "id": "gale-zephyrscout",
+        "name": "Gale Zephyrscout",
+        "shape": "triangle",
+        "color": "#e8f7ff",
+        "sizeMult": 1.4,
+        "stats": { "workSpeedMult": 1.3, "moveSpeedMult": 1.9 }
+      }
+    }
+  }
+}

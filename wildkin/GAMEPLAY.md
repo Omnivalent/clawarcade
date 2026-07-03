@@ -1,103 +1,86 @@
 # 🌿 Wildkin — Game Summary & Gameplay Guide
 
-*Vertical slice v0.1 — world & core systems complete, placeholder art.*
+*Build Pass 2 — fused resonance-evolution + 90-second onboarding. Placeholder art.*
 
 ## What Wildkin is
 
-A browser-based isometric **creature-sanctuary game** — no download, works on
-desktop and phone. You tend a small pocket of wilderness: assign creatures to
-gather resources, decorate the land, and shape who your creatures become.
+A browser-based isometric **creature-sanctuary game** — no download, desktop
+and phone. You raise a small band of wildkin, and **what each one becomes is
+entirely up to you**: the decor you place next to a working creature decides
+which evolution branch it takes.
 
-The core identity: **creatures evolve based on how you raise and use them.**
-Two creatures of the same species end up completely different depending on
-what you had them do. Nothing is random — every evolution is earned.
+**Resonance is the verb; evolution is the outcome.** One system:
 
-Every sanctuary sits on a **procedurally generated landscape**: one of four
-biomes, rolled from a random seed. No two players' lands look alike, and
-refreshing the page always brings back *your* exact land.
+1. A creature works a resource node **next to a matching decor** → it
+   *resonates*: sparkles fly, production multiplies (×1.5–×2), **and** that
+   decor's **branch affinity** fills.
+2. Each base creature has **two branches**. Which decor you use = which
+   branch fills. Fully player-steered, fully deterministic.
+3. When affinity crosses the threshold, the creature **evolves** — screen
+   flash, particle burst, celebration modal with before → after and a
+   **COMMON (85%) or ✨RARE (15%)** roll. Rares are bigger, wilder-colored,
+   gold-ringed — the "look what I got" moment. Share button captures a
+   screenshot straight to the share sheet / download.
 
-## Where to play
+## The creatures (3 bases → 12 possible forms)
 
-| | |
-|---|---|
-| Live (GitHub Pages) | `https://omnivalent.github.io/clawarcade/games/wildkin/` |
-| Main site (after surge deploy) | `https://clawarcade.surge.sh/games/wildkin/` |
-| Locally | `cd wildkin && npm install && npm run dev` |
+| Base | Decor → Branch A | Decor → Branch B |
+|---|---|---|
+| **Cindling** 🔥 | Forge → **Magmaton** (rare: *Obsidian Magmaton*) | Beacon → **Flarewisp** (rare: *Solar Flarewisp*) |
+| **Sporeling** 🍄 | Bloombed → **Mycelord** (rare: *Elder Mycelord*) | Thornbed → **Toxifang** (rare: *Venom Toxifang*) |
+| **Nimbling** 🌩 | Storm Rod → **Tempestcoil** (rare: *Voltaic Tempestcoil*) | Windvane → **Zephyrscout** (rare: *Gale Zephyrscout*) |
+
+Every form changes the look and the stats (work speed / move speed); rare
+variants are stronger still.
+
+## Your first 90 seconds
+
+First-ever visit runs a scripted intro: place a free **Forge** on the glowing
+tile, tap **Cindling**, tap the glowing tree — resonance fires instantly, the
+affinity bar above Cindling fills, and your **first evolution bursts in well
+under 90 seconds** (measured ~15–20s of play). Then two more wildkin arrive
+and the sanctuary is yours. It never replays (stored in the browser).
+
+## Daily driver
+
+Each real-world day one branch gets **+50% affinity gain**, announced in a
+small banner: *"⚡ Today's Resonance: [Branch] — evolves +50% faster."* Same
+for every player, rotates at midnight UTC. That's the whole feature.
 
 ## Controls
 
 | Action | Desktop | Phone |
 |---|---|---|
-| Pan the camera | Click + drag | One-finger drag |
-| Zoom | Scroll wheel | Pinch |
-| Select a creature | Click it | Tap it |
-| Assign work | Select a creature, then click a tree / rock / flower | Same, with taps |
-| Move a creature | Select it, then click open ground | Same |
-| Deselect | Click the creature again (or water) | Same |
-| Build | 🔨 Build → pick an item → click a grass/dirt tile | Same |
-| Settings | ⚙ — Desktop/Phone interface mode, current land info, reset | Same |
+| Pan / Zoom | Drag / Scroll wheel | One-finger drag / Pinch |
+| Select creature | Click | Tap |
+| Assign work | Select creature → click a tree/rock/flower | Same |
+| Move / Deselect | Click ground / click creature again | Same |
+| Build decor | 🔨 Build → pick → click open ground | Same |
 
-## The gameplay loop
+The build menu shows **which branch each decor steers**. Select a creature to
+see its two affinity bars. Everything autosaves; refresh restores creatures,
+affinities, evolved forms — workers walk right back to their posts.
 
-1. **Put your Wildkin to work.** Select a creature, tap a resource node. It
-   walks over and harvests on its own: **Wisp Trees** give wood, **Moon
-   Rocks** give stone, **Dream Blooms** give herbs. Counters tick up in the
-   top-left HUD. Nodes run dry and slowly refill in real time, so spreading
-   workers across nodes beats stacking them.
-2. **Spend resources in Build mode.** Four decor items (Hum Crystal, Glow
-   Lantern, Moss Stone, Petal Bed) plus plantable nodes — you can grow your
-   own groves and quarries.
-3. **Trigger Resonance.** Decor isn't just pretty. Place the *matching* decor
-   within 2 tiles of a worker and production multiplies, with sparkles:
-   - Hum Crystal near a rock-miner → **×2 stone**
-   - Glow Lantern near a tree-worker → **×1.5 wood**
-   - Petal Bed near a bloom-gatherer → **×2 herbs**
-   - Moss Stone near a *Glimmer* gathering blooms → **×2.5 herbs** (species-specific combo)
-4. **Shape your creatures.** Select any creature to see its three activity
-   bars. Everything it does feeds one of them:
-   - **Working** — +1 per harvest
-   - **Exploring** — grows as it walks (deliberate journeys count most)
-   - **Resting** — grows while idle, *twice as fast near decor*
-5. **Witness evolution.** The first bar to fill (25 points) evolves the
-   creature — down the branch of whichever bar is **highest**:
+Each sanctuary sits on a **generated landscape** (four biomes, seeded).
+⚙ Settings: Desktop/Phone interface mode, land info, "Reset — start a new
+land" (keeps your tutorial-done status).
 
-   | Branch | Form | What changes |
-   |---|---|---|
-   | Working | **Forgekin** | Works 1.6× faster |
-   | Exploring | **Swiftkin** | Moves 1.7× faster |
-   | Resting | **Bloomkin** | Resonance is stronger around it (+0.5 to multipliers) |
+## Everything is data-driven
 
-   A focused worker evolves in roughly a minute of play; idle creatures drift
-   toward their own fates much more slowly. Your choices are the difference.
+| File | Controls |
+|---|---|
+| `src/config/creatures.json` | Bases, their two branches, affinity threshold |
+| `src/config/decor.json` | Decor items + which branch each channels |
+| `src/config/resonanceRecipes.json` | base+decor → multiplier, affinity/tick, particles |
+| `src/config/evolutionForms.json` | The 12 forms, rare chance, stats |
+| `src/config/dailyModifier.json` | Daily boost size + banner text |
+| `src/config/onboarding.json` | Tutorial prompts + the low first-evolution threshold |
+| `src/config/nodes.json`, `biomes.json` | Resources/nodes, landscape generation |
 
-## The four lands
+URL testing helpers: `?fresh=1` (ignore save), `?biome=frost&seed=42`
+(pin a landscape), `?rare=1` (force the rare roll — testing only).
 
-Each new sanctuary rolls one of these biomes with unique terrain every time:
+## Deliberately not in this pass
 
-- **Verdant Meadow** — rolling grass, warm earth, calm ponds
-- **Ember Dunes** — endless sand, red clay, one precious oasis
-- **Frostreach** — snowfields, ice sheets, cold meltwater
-- **Whispermire** — soft moss, deep mud, dark pools, boardwalks
-
-⚙ Settings shows your land's name and seed. **Reset** erases the sanctuary
-and travels to a brand-new random land. (Preview any land with URL params:
-`?fresh=1&biome=frost&seed=42`.)
-
-## Saving
-
-Automatic — every 10 seconds and whenever you close or hide the tab. Refresh
-and everything returns: creatures, their progress bars and evolutions, decor,
-node stock levels, even jobs (workers walk right back to their posts).
-
-## Quick tips
-
-- Give each starter a different life — one worker, one wanderer, one resting
-  in a decorated corner — and you'll see all three evolutions.
-- Build a Petal Bed next to a Dream Bloom early; herbs pay for more decor.
-- A Bloomkin parked near your work sites quietly boosts everyone's resonance.
-
-## Deliberately not in this slice
-
-Wallet / token, multiplayer, combat, final art, sound, narrative — later
-layers. All creatures and terrain are placeholder shapes generated in code,
-built to be swapped for real art without touching game logic.
+Wallet/token/crypto, multiplayer, trading, combat, extra biomes or creatures,
+sound, narrative, final art. All later layers.

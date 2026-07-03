@@ -1,0 +1,60 @@
+{
+  "_comment": "THE fused system's rulebook. One recipe = 'when creature base X works any resource node with decor Y within `range` tiles': (a) production is multiplied by `productionMultiplier` with `particleColor` sparkles — the immediate reward — and (b) `affinityPerTick` is added to that creature's affinity for `branchId` — the long-term steering. Resonance is the verb, evolution is the outcome. Add rows to create new pairings; numbers here + affinityThreshold in creatures.json set the whole pacing of the game.",
+
+  "recipes": [
+    {
+      "creatureBase": "cindling",
+      "adjacentDecor": "forge",
+      "range": 2,
+      "productionMultiplier": 2.0,
+      "affinityPerTick": 10,
+      "branchId": "magmaton",
+      "particleColor": "#ff5722"
+    },
+    {
+      "creatureBase": "cindling",
+      "adjacentDecor": "beacon",
+      "range": 2,
+      "productionMultiplier": 1.5,
+      "affinityPerTick": 10,
+      "branchId": "flarewisp",
+      "particleColor": "#ffd166"
+    },
+    {
+      "creatureBase": "sporeling",
+      "adjacentDecor": "bloombed",
+      "range": 2,
+      "productionMultiplier": 2.0,
+      "affinityPerTick": 10,
+      "branchId": "mycelord",
+      "particleColor": "#c792ea"
+    },
+    {
+      "creatureBase": "sporeling",
+      "adjacentDecor": "thornbed",
+      "range": 2,
+      "productionMultiplier": 1.5,
+      "affinityPerTick": 10,
+      "branchId": "toxifang",
+      "particleColor": "#61d84e"
+    },
+    {
+      "creatureBase": "nimbling",
+      "adjacentDecor": "stormrod",
+      "range": 2,
+      "productionMultiplier": 2.0,
+      "affinityPerTick": 10,
+      "branchId": "tempestcoil",
+      "particleColor": "#5a7bff"
+    },
+    {
+      "creatureBase": "nimbling",
+      "adjacentDecor": "windvane",
+      "range": 2,
+      "productionMultiplier": 1.5,
+      "affinityPerTick": 10,
+      "branchId": "zephyrscout",
+      "particleColor": "#8fe3d0"
+    }
+  ]
+}

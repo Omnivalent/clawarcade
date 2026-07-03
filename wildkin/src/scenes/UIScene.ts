@@ -1,27 +1,30 @@
 import Phaser from 'phaser';
 import decorConfig from '../config/decor.json';
-import evolutionConfig from '../config/evolution.json';
 import nodesConfig from '../config/nodes.json';
 import { gameEvents, inventory } from '../core/GameState';
 import * as SaveManager from '../core/SaveManager';
 import { effectiveUIMode, getUIModeSetting, setUIModeSetting, type UIMode } from '../core/device';
-import type { ActivityCounters, BuildItem, DecorDef, EvolutionBranchDef, NodeTypeDef } from '../types';
+import { shareSnapshot } from '../core/share';
+import type { BuildItem, DailyBoost, DecorDef, EvolutionEvent, NodeTypeDef } from '../types';
 
 /**
- * UIScene — the HUD, layered on top of WorldScene.
+ * UIScene — the HUD, layered on top of WorldScene (Build Pass 2).
  *
- * Responsive design: the whole HUD is built by `rebuild()` using a scale
- * factor `s` — 1.0 in desktop mode, 1.5 in phone mode (bigger tap targets).
- * The canvas itself is scaled by Phaser's Scale.FIT, so on a phone the HUD
- * ends up both physically reachable and readable. Switching modes in the ⚙
- * settings panel tears the HUD down and rebuilds it instantly.
+ * Responsive: the whole HUD is built by `rebuild()` using a scale factor `s`
+ * (1.0 desktop, 1.5 phone — bigger tap targets), on top of Phaser's Scale.FIT
+ * canvas. Switching modes in ⚙ settings rebuilds instantly.
  *
- * The HUD never reaches into WorldScene. Everything flows over the
- * `gameEvents` bus: inventory updates, selection info, toasts. The only thing
- * the HUD "sends" is the current Build-menu selection ('wk-build-changed').
+ * New in this pass:
+ *  - Guide panel: the big tutorial prompt during the 90-second onboarding.
+ *  - Daily banner: "Today's Resonance: X evolves faster."
+ *  - Evolution celebration modal: before → after, COMMON/✨RARE✨ tag, and a
+ *    Share button (canvas screenshot → native share sheet or download).
+ *    The modal is drawn INSIDE the canvas so the screenshot captures it.
+ *  - Selected-creature panel now shows the creature's TWO branch affinity
+ *    bars — the player-steering readout of the fused system.
  */
 
-const W = 1280; // logical canvas size (see main.ts scale config)
+const W = 1280;
 const H = 720;
 
 /** Snapshot of the selected creature, as sent by WorldScene. */
@@ -30,17 +33,23 @@ interface SelectionInfo {
   speciesName: string;
   flavor: string;
   stage: number;
-  branchName: string | null;
   state: string;
-  counters: ActivityCounters;
-  threshold: number;
+  formName: string | null;
+  formRare: boolean;
+  branches: {
+    id: string;
+    name: string;
+    color: string;
+    value: number;
+    threshold: number;
+    boosted: boolean;
+  }[];
 }
 
 export class UIScene extends Phaser.Scene {
   private root!: Phaser.GameObjects.Container;
-  private s = 1; // UI scale factor for the current mode
+  private s = 1;
 
-  // Live-updating pieces
   private resourceTexts: Record<string, Phaser.GameObjects.Text> = {};
   private buildPanel: Phaser.GameObjects.Container | null = null;
   private settingsPanel: Phaser.GameObjects.Container | null = null;
@@ -48,11 +57,15 @@ export class UIScene extends Phaser.Scene {
   private infoTitle!: Phaser.GameObjects.Text;
   private infoState!: Phaser.GameObjects.Text;
   private counterBars!: Phaser.GameObjects.Graphics;
+  private barLabels: Phaser.GameObjects.Text[] = [];
   private lastSelection: SelectionInfo | null = null;
   private buildItems: BuildItem[] = [];
   private activeBuildId: string | null = null;
   private toastText!: Phaser.GameObjects.Text;
   private toastTimer: Phaser.Time.TimerEvent | null = null;
+  private guidePanel: Phaser.GameObjects.Container | null = null;
+  private guideText: string | null = null;
+  private modal: Phaser.GameObjects.Container | null = null;
   private resetArmed = false;
 
   constructor() {
@@ -61,29 +74,41 @@ export class UIScene extends Phaser.Scene {
 
   create(): void {
     this.collectBuildItems();
+    // The WorldScene is created first — pick up any guide prompt (onboarding
+    // step 1) that fired before our listeners existed.
+    this.guideText = (this.registry.get('wk-guide-text') as string | null) ?? null;
     this.rebuild();
 
-    // --- Event bus wiring (and cleanup on shutdown) ---
+    // --- Event bus wiring (cleaned up on shutdown) ---
     const onInventory = () => this.refreshResources();
     const onSelected = (info: SelectionInfo | null) => this.showSelection(info);
     const onSelectedUpdate = (info: SelectionInfo) => this.showSelection(info);
     const onToast = (msg: string) => this.toast(msg);
-    const onEvolved = (e: { name: string; formName: string; description: string }) =>
-      this.toast(`✨ ${e.name} evolved into ${e.formName}! ${e.description}`);
+    const onGuide = (msg: string | null) => this.showGuide(msg);
+    const onModal = (ev: EvolutionEvent) => this.showEvolutionModal(ev);
+    const onOnboardingChanged = () => this.rebuild();
 
     gameEvents.on('wk-inventory', onInventory);
     gameEvents.on('wk-selected', onSelected);
     gameEvents.on('wk-selected-update', onSelectedUpdate);
     gameEvents.on('wk-toast', onToast);
-    gameEvents.on('wk-evolved', onEvolved);
+    gameEvents.on('wk-guide', onGuide);
+    gameEvents.on('wk-evolution-modal', onModal);
+    gameEvents.on('wk-onboarding-changed', onOnboardingChanged);
 
     this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
       gameEvents.off('wk-inventory', onInventory);
       gameEvents.off('wk-selected', onSelected);
       gameEvents.off('wk-selected-update', onSelectedUpdate);
       gameEvents.off('wk-toast', onToast);
-      gameEvents.off('wk-evolved', onEvolved);
+      gameEvents.off('wk-guide', onGuide);
+      gameEvents.off('wk-evolution-modal', onModal);
+      gameEvents.off('wk-onboarding-changed', onOnboardingChanged);
     });
+  }
+
+  private onboardingActive(): boolean {
+    return !!this.registry.get('wk-onboarding');
   }
 
   // ==========================================================================
@@ -96,20 +121,23 @@ export class UIScene extends Phaser.Scene {
     this.root = this.add.container(0, 0);
     this.buildPanel = null;
     this.settingsPanel = null;
+    this.guidePanel = null;
+    this.barLabels = [];
     this.activeBuildId = null;
-    gameEvents.emit('wk-build-changed', null);
 
     this.buildResourceBar();
-    this.buildTopRightButtons();
+    this.buildDailyBanner();
+    if (!this.onboardingActive()) this.buildTopRightButtons();
     this.buildInfoPanel();
     this.buildToast();
     this.buildHelpHint();
 
     this.refreshResources();
     this.showSelection(this.lastSelection);
+    this.showGuide(this.guideText);
   }
 
-  // --- Top-left: live resource counters (wood / stone / herbs) --------------
+  // --- Top-left: live resource counters --------------------------------------
   private buildResourceBar(): void {
     const s = this.s;
     const pad = 10 * s;
@@ -143,7 +171,59 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  // --- Top-right: Build + Settings buttons ----------------------------------
+  // --- Daily banner: today's boosted branch -----------------------------------
+  private buildDailyBanner(): void {
+    const daily = this.registry.get('wk-daily') as DailyBoost | undefined;
+    if (!daily) return;
+    const s = this.s;
+    const banner = this.add
+      .text(12, 12 + 44 * s + 8, daily.bannerText, {
+        fontSize: `${12 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        color: '#ffd166',
+        backgroundColor: '#13242bee',
+        padding: { x: 10, y: 5 },
+      })
+      .setOrigin(0, 0);
+    this.root.add(banner);
+  }
+
+  // --- Guide panel: the onboarding's big prompt --------------------------------
+  private showGuide(msg: string | null): void {
+    this.guideText = msg;
+    this.guidePanel?.destroy(true);
+    this.guidePanel = null;
+    if (!msg) return;
+
+    const s = this.s;
+    this.guidePanel = this.add.container(0, 0);
+    this.root.add(this.guidePanel);
+
+    const text = this.add
+      .text(W / 2, 96 * s, msg, {
+        fontSize: `${20 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        fontStyle: 'bold',
+        color: '#0a1418',
+        backgroundColor: '#9fd8c8',
+        padding: { x: 20, y: 12 },
+        align: 'center',
+        wordWrap: { width: 640 * s },
+      })
+      .setOrigin(0.5, 0);
+    this.guidePanel.add(text);
+    // Gentle pulse so the prompt reads as "do this now".
+    this.tweens.add({
+      targets: text,
+      scale: { from: 1, to: 1.04 },
+      duration: 650,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  // --- Top-right: Build + Settings buttons (hidden during onboarding) ----------
   private buildTopRightButtons(): void {
     const s = this.s;
     const bw = 110 * s;
@@ -152,7 +232,7 @@ export class UIScene extends Phaser.Scene {
     this.makeButton(W - 12 - bh, 12, bh, bh, '⚙', () => this.toggleSettingsPanel());
   }
 
-  // --- Build menu: pick decor / nodes to place ------------------------------
+  // --- Build menu ----------------------------------------------------------------
   private collectBuildItems(): void {
     this.buildItems = [];
     for (const [id, def] of Object.entries(decorConfig.items as Record<string, DecorDef>)) {
@@ -165,14 +245,18 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  /** Turn a cost record into a compact icon string, e.g. "5🪨 2🌿". */
   private costLabel(cost: Record<string, number>): string {
-    return Object.entries(cost)
-      .map(([id, amt]) => {
-        const res = nodesConfig.resources.find((r) => r.id === id);
-        return `${amt}${res?.icon ?? id}`;
-      })
-      .join('  ');
+    const parts = Object.entries(cost).map(([id, amt]) => {
+      const res = nodesConfig.resources.find((r) => r.id === id);
+      return `${amt}${res?.icon ?? id}`;
+    });
+    return parts.length ? parts.join('  ') : 'free';
+  }
+
+  /** Which branch a decor steers, e.g. "→ Magmaton" — shown in the build menu so steering is legible. */
+  private decorBranchLabel(id: string): string {
+    const def = (decorConfig.items as Record<string, DecorDef>)[id];
+    return def?.branchId ? `→ steers ${def.branchId.charAt(0).toUpperCase()}${def.branchId.slice(1)}` : '';
   }
 
   private toggleBuildPanel(): void {
@@ -183,7 +267,7 @@ export class UIScene extends Phaser.Scene {
     }
     const s = this.s;
     const rowH = 50 * s;
-    const panelW = 300 * s;
+    const panelW = 320 * s;
     const panelH = rowH * this.buildItems.length + 58 * s;
     const px = W - 12 - panelW;
     const py = 12 + 44 * s + 8;
@@ -219,12 +303,15 @@ export class UIScene extends Phaser.Scene {
         fontFamily: 'Segoe UI, sans-serif',
         color: '#e8f6f0',
       });
-      const cost = this.add.text(px + 42 * s, ry + 25 * s, this.costLabel(item.cost), {
-        fontSize: `${12 * s}px`,
+      const sub =
+        item.kind === 'decor'
+          ? `${this.costLabel(item.cost)}   ${this.decorBranchLabel(item.id)}`
+          : this.costLabel(item.cost);
+      const cost = this.add.text(px + 42 * s, ry + 25 * s, sub, {
+        fontSize: `${11.5 * s}px`,
         fontFamily: 'Segoe UI, sans-serif',
         color: '#9ab8ae',
       });
-      // Highlight rectangle shown when this item is the active pick.
       const hl = this.add
         .rectangle(px + 6, ry, panelW - 12, rowH - 4, 0x4fd8c4, 0.15)
         .setOrigin(0, 0)
@@ -234,7 +321,6 @@ export class UIScene extends Phaser.Scene {
       this.buildPanel!.add([hl, zone, swatch, name, cost]);
     });
 
-    // ✕ exits build mode entirely.
     this.makeButton(px + 14 * s, py + panelH - 46 * s, panelW - 28 * s, 36 * s, '✕ Close build mode', () => {
       this.closeBuildPanel();
     }, this.buildPanel);
@@ -243,7 +329,6 @@ export class UIScene extends Phaser.Scene {
   private selectBuildItem(item: BuildItem): void {
     this.activeBuildId = this.activeBuildId === item.id ? null : item.id;
     gameEvents.emit('wk-build-changed', this.activeBuildId ? item : null);
-    // Update highlight rectangles in place.
     this.buildPanel?.each((obj: Phaser.GameObjects.GameObject) => {
       if (obj instanceof Phaser.GameObjects.Rectangle && obj.getData('buildId')) {
         const on = obj.getData('buildId') === this.activeBuildId;
@@ -252,7 +337,7 @@ export class UIScene extends Phaser.Scene {
       }
     });
     if (this.activeBuildId) {
-      this.toast(`Tap a grass or dirt tile to place ${item.name} (${this.costLabel(item.cost)})`);
+      this.toast(`Tap open ground to place ${item.name} (${this.costLabel(item.cost)})`);
     }
   }
 
@@ -263,7 +348,7 @@ export class UIScene extends Phaser.Scene {
     gameEvents.emit('wk-build-changed', null);
   }
 
-  // --- Settings: UI mode toggle + reset -------------------------------------
+  // --- Settings ------------------------------------------------------------------
   private toggleSettingsPanel(): void {
     this.closeBuildPanel();
     if (this.settingsPanel) {
@@ -286,7 +371,6 @@ export class UIScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: '#e8f6f0',
     });
-    // Which generated land this sanctuary lives on (set by WorldScene).
     const world = this.registry.get('wk-world') as { name: string; seed: number } | undefined;
     const landLine = this.add.text(
       px + 16 * s,
@@ -305,7 +389,6 @@ export class UIScene extends Phaser.Scene {
     });
     this.settingsPanel.add([title, landLine, label]);
 
-    // Auto / Desktop / Phone selector. Rebuilds the HUD immediately.
     const modes: { key: UIMode; label: string }[] = [
       { key: 'auto', label: 'Auto' },
       { key: 'desktop', label: 'Desktop' },
@@ -323,15 +406,13 @@ export class UIScene extends Phaser.Scene {
         () => {
           setUIModeSetting(m.key);
           gameEvents.emit('wk-ui-mode-changed', m.key);
-          this.rebuild(); // apply new scale instantly
+          this.rebuild();
         },
         this.settingsPanel!,
         active,
       );
     });
 
-    // Reset needs two taps so nobody wipes their sanctuary by accident.
-    // A reset also rolls a brand-new random landscape (new biome + seed).
     this.resetArmed = false;
     this.makeButton(px + 16 * s, py + 136 * s, pw - 32 * s, 40 * s, '🗑 Reset — start a new land', () => {
       if (!this.resetArmed) {
@@ -339,8 +420,7 @@ export class UIScene extends Phaser.Scene {
         this.toast('Tap again to erase this sanctuary and travel to a new land');
         return;
       }
-      SaveManager.clear();
-      // Drop any ?biome/?seed overrides so the new land is truly random.
+      SaveManager.clear(); // note: the onboarding flag survives on purpose
       window.location.href = window.location.pathname;
     }, this.settingsPanel);
 
@@ -354,11 +434,11 @@ export class UIScene extends Phaser.Scene {
     this.settingsPanel = null;
   }
 
-  // --- Bottom-left: selected creature info + evolution progress -------------
+  // --- Bottom-left: selected creature + its two branch affinity bars ------------
   private buildInfoPanel(): void {
     const s = this.s;
-    const pw = 330 * s;
-    const ph = 168 * s;
+    const pw = 340 * s;
+    const ph = 150 * s;
     const px = 12;
     const py = H - 12 - ph;
 
@@ -378,15 +458,19 @@ export class UIScene extends Phaser.Scene {
       color: '#9ab8ae',
     });
     this.counterBars = this.add.graphics();
-    const hint = this.add.text(px + 14 * s, py + ph - 24 * s, 'Tap a tree/rock/flower to assign work · tap ground to move', {
-      fontSize: `${10.5 * s}px`,
-      fontFamily: 'Segoe UI, sans-serif',
-      color: '#6f8d83',
-    });
+    const hint = this.add.text(
+      px + 14 * s,
+      py + ph - 24 * s,
+      'Work near a decor to fill its branch — decor placement decides the evolution',
+      {
+        fontSize: `${10 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        color: '#6f8d83',
+      },
+    );
     this.infoPanel.add([this.infoTitle, this.infoState, this.counterBars, hint]);
   }
 
-  /** Fill the info panel from a selection snapshot (or hide it). */
   private showSelection(info: SelectionInfo | null): void {
     this.lastSelection = info;
     if (!this.infoPanel) return;
@@ -396,8 +480,6 @@ export class UIScene extends Phaser.Scene {
     }
     this.infoPanel.setVisible(true);
 
-    const form = info.branchName ? ` · ${info.branchName}` : '';
-    this.infoTitle.setText(`${info.name} — ${info.speciesName} (stage ${info.stage}${form})`);
     const stateLabels: Record<string, string> = {
       idle: 'resting',
       wandering: 'wandering',
@@ -405,44 +487,46 @@ export class UIScene extends Phaser.Scene {
       toTile: 'walking',
       working: 'working hard',
     };
-    this.infoState.setText(stateLabels[info.state] ?? info.state);
 
-    // Three progress bars toward evolution, colored to match the branch each
-    // counter leads to (colors come straight from evolution.json).
     const s = this.s;
     const px = 12 + 14 * s;
-    const py = H - 12 - 168 * s + 54 * s;
-    const barW = 300 * s - 90 * s;
-    const branches = evolutionConfig.branches as Record<string, EvolutionBranchDef>;
-    const rows: { key: keyof ActivityCounters; label: string }[] = [
-      { key: 'mining', label: 'Working' },
-      { key: 'exploring', label: 'Exploring' },
-      { key: 'sanctuary', label: 'Resting' },
-    ];
+    const py = H - 12 - 150 * s + 56 * s;
+    const barW = 326 * s - 130 * s;
 
     this.counterBars.clear();
-    rows.forEach((row, i) => {
-      const y = py + i * 26 * s;
-      const val = info.counters[row.key];
-      const frac = Math.min(1, val / info.threshold);
-      const color = Phaser.Display.Color.HexStringToColor(branches[row.key].color).color;
+
+    if (info.stage >= 2) {
+      // Evolved: show the form instead of progress bars.
+      this.infoTitle.setText(`${info.name} — ${info.formName}${info.formRare ? ' ✨' : ''}`);
+      this.infoState.setText(
+        `${info.formRare ? 'RARE form · ' : ''}evolved from ${info.speciesName} · ${stateLabels[info.state] ?? info.state}`,
+      );
+      this.getBarLabel(0).setPosition(px, py + 6 * s).setText(info.formRare ? '✨ A rare variant — one in seven!' : 'Fully evolved');
+      this.getBarLabel(1).setText('');
+      return;
+    }
+
+    this.infoTitle.setText(`${info.name} — ${info.speciesName}`);
+    this.infoState.setText(stateLabels[info.state] ?? info.state);
+
+    // The two branch bars: affinity progress toward each possible evolution.
+    info.branches.forEach((br, i) => {
+      const y = py + i * 28 * s;
+      const frac = Math.min(1, br.value / br.threshold);
+      const color = Phaser.Display.Color.HexStringToColor(br.color).color;
       this.counterBars.fillStyle(0x0a1418, 0.8);
-      this.counterBars.fillRoundedRect(px + 78 * s, y + 3 * s, barW, 12 * s, 4 * s);
+      this.counterBars.fillRoundedRect(px + 118 * s, y + 3 * s, barW, 12 * s, 4 * s);
       if (frac > 0) {
         this.counterBars.fillStyle(color, 1);
-        this.counterBars.fillRoundedRect(px + 78 * s, y + 3 * s, Math.max(8, barW * frac), 12 * s, 4 * s);
+        this.counterBars.fillRoundedRect(px + 118 * s, y + 3 * s, Math.max(8, barW * frac), 12 * s, 4 * s);
       }
-      // Labels are re-drawn as part of the graphics pass? No — text objects
-      // can't live in Graphics, so we draw the label with bitmap-ish trick:
-      // simplest is dedicated Text objects, but they'd need re-creating per
-      // rebuild. We keep persistent ones instead:
-      // Counters can be fractional (exploring gains 0.5/tile) — show whole numbers.
-      this.getBarLabel(i).setPosition(px, y).setText(`${row.label} ${Math.floor(val)}/${info.threshold}`);
+      const boostTag = br.boosted ? ' ⚡' : '';
+      this.getBarLabel(i)
+        .setPosition(px, y)
+        .setText(`${br.name}${boostTag} ${Math.floor(br.value)}/${br.threshold}`);
     });
   }
 
-  /** Lazily-created, persistent labels for the three counter bars. */
-  private barLabels: Phaser.GameObjects.Text[] = [];
   private getBarLabel(i: number): Phaser.GameObjects.Text {
     if (!this.barLabels[i] || !this.barLabels[i].active) {
       this.barLabels[i] = this.add.text(0, 0, '', {
@@ -455,10 +539,105 @@ export class UIScene extends Phaser.Scene {
     return this.barLabels[i];
   }
 
-  // --- Toast messages (top center) ------------------------------------------
+  // --- Evolution celebration modal ------------------------------------------------
+  private showEvolutionModal(ev: EvolutionEvent): void {
+    this.modal?.destroy(true);
+    const s = this.s;
+    this.modal = this.add.container(0, 0).setDepth(1000);
+    this.root.add(this.modal);
+
+    // Full-screen dim + input blocker.
+    const dim = this.add.rectangle(0, 0, W, H, 0x05080a, 0.72).setOrigin(0, 0);
+    const blocker = this.add.zone(0, 0, W, H).setOrigin(0, 0).setInteractive();
+    this.stopThrough(blocker);
+    this.modal.add([dim, blocker]);
+
+    const pw = 520 * s;
+    const ph = 330 * s;
+    const px = (W - pw) / 2;
+    const py = (H - ph) / 2;
+
+    // Panel — gold-framed for rares.
+    const g = this.add.graphics();
+    g.fillStyle(0x13242b, 0.97);
+    g.lineStyle(ev.isRare ? 4 : 2, ev.isRare ? 0xffd166 : 0x3f7a68, 1);
+    g.fillRoundedRect(px, py, pw, ph, 14);
+    g.strokeRoundedRect(px, py, pw, ph, 14);
+    this.modal.add(g);
+
+    const title = this.add
+      .text(W / 2, py + 22 * s, 'EVOLUTION!', {
+        fontSize: `${26 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        fontStyle: 'bold',
+        color: '#e8f6f0',
+      })
+      .setOrigin(0.5, 0);
+    // COMMON / ✨RARE✨ tag.
+    const tag = this.add
+      .text(W / 2, py + 56 * s, ev.isRare ? '✨ RARE ✨' : 'COMMON', {
+        fontSize: `${15 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        fontStyle: 'bold',
+        color: ev.isRare ? '#ffd166' : '#9ab8ae',
+      })
+      .setOrigin(0.5, 0);
+    this.modal.add([title, tag]);
+
+    // Before → after, side by side.
+    const cy = py + 160 * s;
+    const before = this.add.image(W / 2 - 130 * s, cy, `cr-${ev.baseSpeciesId}`).setScale(2 * s * 0.9);
+    const arrow = this.add
+      .text(W / 2, cy, '→', { fontSize: `${34 * s}px`, color: '#9fd8c8' })
+      .setOrigin(0.5);
+    const after = this.add.image(W / 2 + 130 * s, cy, `cr-form-${ev.form.id}`).setScale(2 * s);
+    this.tweens.add({
+      targets: after,
+      scale: { from: 2 * s * 0.7, to: 2 * s },
+      duration: 700,
+      ease: 'Back.easeOut',
+    });
+    const beforeName = this.add
+      .text(W / 2 - 130 * s, cy + 52 * s, ev.baseSpeciesName, {
+        fontSize: `${12 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        color: '#9ab8ae',
+      })
+      .setOrigin(0.5, 0);
+    const afterName = this.add
+      .text(W / 2 + 130 * s, cy + 52 * s, ev.form.name, {
+        fontSize: `${14 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        fontStyle: 'bold',
+        color: ev.isRare ? '#ffd166' : '#e8f6f0',
+      })
+      .setOrigin(0.5, 0);
+    const line = this.add
+      .text(W / 2, py + 232 * s, `${ev.creatureName} evolved into ${ev.form.name}!`, {
+        fontSize: `${14 * s}px`,
+        fontFamily: 'Segoe UI, sans-serif',
+        color: '#cdeee2',
+      })
+      .setOrigin(0.5, 0);
+    this.modal.add([before, arrow, after, beforeName, afterName, line]);
+
+    // Buttons: Share (canvas screenshot) + Continue.
+    const bw = (pw - 48 * s) / 2;
+    this.makeButton(px + 16 * s, py + ph - 56 * s, bw, 42 * s, '📸 Share', () => {
+      shareSnapshot(this.game, `wildkin-${ev.form.id}.png`);
+      this.toast('Snapshot captured!');
+    }, this.modal);
+    this.makeButton(px + 32 * s + bw, py + ph - 56 * s, bw, 42 * s, 'Continue', () => {
+      this.modal?.destroy(true);
+      this.modal = null;
+      gameEvents.emit('wk-modal-closed');
+    }, this.modal);
+  }
+
+  // --- Toast ---------------------------------------------------------------------
   private buildToast(): void {
     this.toastText = this.add
-      .text(W / 2, 68 * this.s, '', {
+      .text(W / 2, 52 * this.s, '', {
         fontSize: `${14 * this.s}px`,
         fontFamily: 'Segoe UI, sans-serif',
         color: '#e8f6f0',
@@ -480,7 +659,7 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  // --- Bottom-right controls hint --------------------------------------------
+  // --- Bottom-right controls hint ---------------------------------------------------
   private buildHelpHint(): void {
     const phone = effectiveUIMode() === 'phone';
     const msg = phone
@@ -500,7 +679,6 @@ export class UIScene extends Phaser.Scene {
   // Small UI helpers
   // ==========================================================================
 
-  /** Rounded panel background + an input blocker so taps on panels never leak through to the world underneath. */
   private panelBg(
     x: number,
     y: number,
@@ -518,7 +696,6 @@ export class UIScene extends Phaser.Scene {
     (parent ?? this.root).add([g, blocker]);
   }
 
-  /** A tap/click button with generous hit area. `active` renders it highlighted. */
   private makeButton(
     x: number,
     y: number,
@@ -550,10 +727,7 @@ export class UIScene extends Phaser.Scene {
     (parent ?? this.root).add([g, t, zone]);
   }
 
-  /**
-   * Stop pointer events on a UI element from reaching the WorldScene below
-   * (otherwise a tap on a button would also pan the camera / select tiles).
-   */
+  /** Stop pointer events on a UI element from reaching the WorldScene below. */
   private stopThrough(zone: Phaser.GameObjects.Zone): void {
     zone.on('pointerdown', (_p: unknown, _x: unknown, _y: unknown, ev: { stopPropagation(): void }) => {
       ev.stopPropagation();
