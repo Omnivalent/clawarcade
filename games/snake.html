@@ -281,6 +281,22 @@
         .leg-green { color: #00ff88; }
         .leg-blue { color: #00bbff; }
         .leg-yellow { color: #ffdd00; }
+        .fx-hud {
+            position: absolute;
+            top: 8px; left: 8px;
+            z-index: 15;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.68rem;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 14px;
+            background: rgba(0,0,0,0.65);
+            border: 1px solid currentColor;
+            pointer-events: none;
+            text-shadow: 0 0 8px currentColor;
+            animation: fxPulse 1s ease-in-out infinite;
+        }
+        @keyframes fxPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.65; } }
     </style>
 </head>
 <body>
@@ -298,6 +314,7 @@
     <div class="canvas-wrap" id="canvasWrap">
         <canvas id="c"></canvas>
         <div id="connectionStatus" class="connection-status hidden">●</div>
+        <div id="fxHud" class="fx-hud hidden"></div>
         
         <!-- Start Overlay -->
         <div class="overlay" id="startOverlay">
@@ -394,6 +411,11 @@
         function playEat() { playTone(440, 'sine', 0.12, 0.25); setTimeout(() => playTone(660, 'sine', 0.12, 0.2), 60); }
         function playDeath() { playTone(300, 'sawtooth', 0.12, 0.35); setTimeout(() => playTone(100, 'sawtooth', 0.35, 0.25), 250); }
         function playStart() { playTone(440, 'sine', 0.12, 0.25); setTimeout(() => playTone(660, 'sine', 0.18, 0.25), 240); }
+        // Power-up sfx (solo specials)
+        function playSurge() { [660, 880, 1320].forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.1, 0.2), i * 70)); }
+        function playGhost() { playTone(520, 'sine', 0.25, 0.2); setTimeout(() => playTone(390, 'sine', 0.3, 0.16), 130); }
+        function playFrenzy() { [880, 1175, 1568].forEach((f, i) => setTimeout(() => playTone(f, 'triangle', 0.12, 0.2), i * 60)); }
+        function playGhostSave() { playTone(300, 'sine', 0.15, 0.25); setTimeout(() => playTone(600, 'sine', 0.2, 0.2), 100); }
 
         // Game State
         const TILES = 20;
@@ -409,6 +431,63 @@
         let trail = [];            // faint motion trail behind the head
         let gradCache = {};        // cached gradients (unit-space, reused every frame)
         let vnow = performance.now(); // smooth visual clock for pulses/sparkles
+
+        // === Solo power-ups (specials) — solo mode only, never touches online play ===
+        const SPECIALS = {
+            surge:  { color: '#ffd700', label: '⚡ SURGE ×2 ' },
+            ghost:  { color: '#b266ff', label: '👻 GHOST ARMED' },
+            frenzy: { color: '#ff00ff', label: '✨ FRENZY' }
+        };
+        let special = null;           // {x, y, kind, born, expires} — cap: one at a time
+        let foodsSinceSpecial = 0;    // spawn roll every ~6 foods
+        let surgeUntil = 0;           // performance.now() deadline for double points
+        let ghostArmed = false;       // next self-collision forgiven
+        let ghostGraceUntil = 0;      // brief pass-through window after a save
+        const fxHud = document.getElementById('fxHud');
+        let lastHudTxt = null;
+
+        function spawnSpecial(kind) {
+            if (special || isOnline) return;
+            if (!kind) {
+                const ks = ['surge', 'ghost', 'frenzy'];
+                kind = ks[Math.floor(Math.random() * ks.length)];
+            }
+            let pos, tries = 0;
+            do {
+                pos = {x: Math.floor(Math.random()*TILES), y: Math.floor(Math.random()*TILES)};
+                tries++;
+            } while (tries < 100 && (snake.some(s => s.x===pos.x && s.y===pos.y) || foods.some(f => f.x===pos.x && f.y===pos.y)));
+            const now = performance.now();
+            special = { x: pos.x, y: pos.y, kind, born: now, expires: now + 7000 };
+            addParticles(pos.x, pos.y, SPECIALS[kind].color, 10, 1.2);
+        }
+
+        function burstBonusFoods(n) {
+            for (let i = 0; i < n; i++) {
+                let pos, tries = 0;
+                do {
+                    pos = {x: Math.floor(Math.random()*TILES), y: Math.floor(Math.random()*TILES)};
+                    tries++;
+                } while (tries < 100 && (snake.some(s => s.x===pos.x && s.y===pos.y) || foods.some(f => f.x===pos.x && f.y===pos.y)));
+                const type = Math.random() < 0.5 ? 'yellow' : 'blue';
+                foods.push({...pos, type, points: type==='yellow' ? 2 : 3, color: type==='yellow' ? '#ffdd00' : '#00bbff'});
+                addParticles(pos.x, pos.y, '#ff00ff', 6, 1);
+            }
+        }
+
+        function updateFxHud() {
+            let txt = '', col = '';
+            if (!isOnline) {
+                if (surgeUntil > vnow) { col = SPECIALS.surge.color; txt = SPECIALS.surge.label + Math.ceil((surgeUntil - vnow)/1000) + 's'; }
+                else if (ghostArmed || ghostGraceUntil > vnow) { col = SPECIALS.ghost.color; txt = SPECIALS.ghost.label; }
+            }
+            if (txt === lastHudTxt) return;
+            lastHudTxt = txt;
+            if (!txt) { fxHud.classList.add('hidden'); return; }
+            fxHud.style.color = col;
+            fxHud.textContent = txt;
+            fxHud.classList.remove('hidden');
+        }
         
         // Online State
         let isOnline = false;
@@ -470,6 +549,11 @@
             running = false;
             particles = [];
             trail = [];
+            special = null;
+            foodsSinceSpecial = 0;
+            surgeUntil = 0;
+            ghostArmed = false;
+            ghostGraceUntil = 0;
             document.getElementById('score').textContent = 0;
             document.getElementById('startOverlay').classList.remove('hidden');
             document.getElementById('overOverlay').classList.add('hidden');
@@ -522,9 +606,37 @@
             const head = {x: snake[0].x+dx, y: snake[0].y+dy};
             
             if (head.x<0||head.x>=TILES||head.y<0||head.y>=TILES) return gameOver();
-            if (snake.some(s=>s.x===head.x&&s.y===head.y)) return gameOver();
-            
+            if (snake.some(s=>s.x===head.x&&s.y===head.y)) {
+                const nowMs = performance.now();
+                if (ghostGraceUntil > nowMs) {
+                    // still phasing through from a ghost save
+                } else if (ghostArmed) {
+                    ghostArmed = false;
+                    ghostGraceUntil = nowMs + 1200; // window to fully pass through
+                    playGhostSave();
+                    addParticles(head.x, head.y, SPECIALS.ghost.color, 14, 1.5);
+                } else {
+                    return gameOver();
+                }
+            }
+
             snake.unshift(head);
+
+            // Special item lifecycle (solo only)
+            if (special) {
+                const nowMs = performance.now();
+                if (nowMs > special.expires) {
+                    addParticles(special.x, special.y, SPECIALS[special.kind].color, 8, 0.8);
+                    special = null;
+                } else if (head.x === special.x && head.y === special.y) {
+                    const sp = special;
+                    special = null;
+                    addParticles(sp.x, sp.y, SPECIALS[sp.kind].color, 22, 1.8);
+                    if (sp.kind === 'surge') { surgeUntil = nowMs + 5000; playSurge(); }
+                    else if (sp.kind === 'ghost') { ghostArmed = true; playGhost(); }
+                    else { burstBonusFoods(3); playFrenzy(); }
+                }
+            }
 
             // Motion trail (visual only)
             trail.push({x: head.x*tileSize + tileSize/2, y: head.y*tileSize + tileSize/2, life: 1});
@@ -533,8 +645,13 @@
             let ate = false;
             for (let i = foods.length-1; i >= 0; i--) {
                 if (head.x === foods[i].x && head.y === foods[i].y) {
-                    score += foods[i].points;
+                    score += foods[i].points * (surgeUntil > performance.now() ? 2 : 1);
                     document.getElementById('score').textContent = score;
+                    foodsSinceSpecial++;
+                    if (foodsSinceSpecial >= 6) {
+                        foodsSinceSpecial = 0;
+                        if (!special && Math.random() < 0.4) spawnSpecial();
+                    }
                     if (score > highScore) {
                         highScore = score;
                         localStorage.setItem('snakeHigh', highScore);
@@ -549,6 +666,7 @@
             }
             if (!ate) snake.pop();
             speed = Math.max(60, 150 - Math.floor(score / 5) * 3);
+            if (surgeUntil > performance.now()) speed = Math.max(50, speed - 20); // surge: slight speed up
             spawnFood();
         }
 
@@ -575,6 +693,11 @@
 
         // Time-based FX stepping (runs at display refresh, independent of game tick)
         function stepEffects(dt) {
+            // special despawn is wall-clock based, so it also expires between game ticks
+            if (special && !isOnline && vnow > special.expires) {
+                addParticles(special.x, special.y, SPECIALS[special.kind].color, 8, 0.8);
+                special = null;
+            }
             const k = dt / 16.667;
             if (particles.length) {
                 particles = particles.filter(p => {
@@ -640,6 +763,67 @@
             ctx.moveTo(sx, sy - sl); ctx.lineTo(sx, sy + sl);
             ctx.stroke();
             ctx.globalAlpha = 1;
+        }
+
+        // Pulsing diamond-ring orb with a procedural icon glyph — visually distinct from food.
+        // Spawn: 300ms pop-in. Despawn: shrink/fade over final 600ms of its 7s life.
+        function drawSpecialOrb(sp) {
+            const cx = sp.x*tileSize + tileSize/2, cy = sp.y*tileSize + tileSize/2;
+            const info = SPECIALS[sp.kind];
+            const lifeIn = Math.min(1, (vnow - sp.born) / 300);
+            const lifeOut = Math.max(0, Math.min(1, (sp.expires - vnow) / 600));
+            const sc = Math.min(lifeIn, lifeOut);
+            if (sc <= 0) return;
+            const pulse = 1 + Math.sin(vnow*0.008)*0.12;
+            const r = tileSize*0.62 * sc * pulse;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.12, sc);
+            ctx.translate(cx, cy);
+            ctx.rotate(Math.sin(vnow*0.003)*0.3);
+            // outer pulsing diamond ring
+            ctx.strokeStyle = info.color;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = info.color;
+            ctx.shadowBlur = 16 + Math.sin(vnow*0.008)*8;
+            ctx.beginPath();
+            ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = info.color;
+            ctx.globalAlpha = Math.max(0.08, sc*0.3);
+            ctx.fill();
+            ctx.globalAlpha = Math.max(0.12, sc);
+            ctx.shadowBlur = 8;
+            // icon glyph
+            const ir = r*0.58;
+            ctx.fillStyle = '#fff';
+            if (sp.kind === 'surge') { // lightning bolt
+                ctx.beginPath();
+                ctx.moveTo(ir*0.35, -ir); ctx.lineTo(-ir*0.4, ir*0.15); ctx.lineTo(-0.02, ir*0.15);
+                ctx.lineTo(-ir*0.35, ir); ctx.lineTo(ir*0.4, -ir*0.15); ctx.lineTo(0.02, -ir*0.15);
+                ctx.closePath(); ctx.fill();
+            } else if (sp.kind === 'ghost') { // little ghost
+                ctx.beginPath();
+                ctx.arc(0, -ir*0.15, ir*0.72, Math.PI, 0);
+                ctx.lineTo(ir*0.72, ir*0.68);
+                ctx.lineTo(ir*0.36, ir*0.4); ctx.lineTo(0, ir*0.68);
+                ctx.lineTo(-ir*0.36, ir*0.4); ctx.lineTo(-ir*0.72, ir*0.68);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = info.color;
+                ctx.beginPath();
+                ctx.arc(-ir*0.28, -ir*0.2, ir*0.14, 0, TAU);
+                ctx.arc(ir*0.28, -ir*0.2, ir*0.14, 0, TAU);
+                ctx.fill();
+            } else { // frenzy: 4-point sparkle
+                ctx.beginPath();
+                ctx.moveTo(0, -ir);
+                ctx.quadraticCurveTo(ir*0.15, -ir*0.15, ir, 0);
+                ctx.quadraticCurveTo(ir*0.15, ir*0.15, 0, ir);
+                ctx.quadraticCurveTo(-ir*0.15, ir*0.15, -ir, 0);
+                ctx.quadraticCurveTo(-ir*0.15, -ir*0.15, 0, -ir);
+                ctx.closePath(); ctx.fill();
+            }
+            ctx.restore();
         }
 
         function drawEye(x, y, r, ux, uy) {
@@ -759,9 +943,22 @@
             // Food: pulsing glowing orbs with rotating sparkle
             foods.forEach(f => drawFoodOrb(f.x, f.y, f.color));
 
+            // Special power-up orb (solo only, one at a time)
+            if (special) drawSpecialOrb(special);
+
             // Snake: glossy tapered 3D capsule chain with facing eyes
             const skin = SKINS[currentSkin];
-            drawSnakeBody(snake, skin.head, skin.body, skin.glow, dx, dy);
+            const surging = surgeUntil > vnow;
+            const ghosting = ghostArmed || ghostGraceUntil > vnow;
+            if (ghosting) ctx.globalAlpha = 0.5; // translucent while ghost is armed
+            drawSnakeBody(
+                snake,
+                surging ? '#ffd700' : skin.head,
+                surging ? '#e6b800' : skin.body,
+                surging ? '#ffd700' : skin.glow,
+                dx, dy
+            );
+            ctx.globalAlpha = 1;
         }
 
         function drawOnlineState() {
@@ -1026,6 +1223,7 @@
             lastRT = now;
             vnow = now;
             stepEffects(dt);
+            updateFxHud();
             if (!(running && isOnline)) draw(); // online loop draws itself
             requestAnimationFrame(renderLoop);
         }
@@ -1132,7 +1330,20 @@
         });
 
         init();
-        
+
+        // Tiny debug hooks for automated verification (no gameplay impact)
+        window.__debug = {
+            spawnSpecial: (k, x, y) => {
+                spawnSpecial(k);
+                if (special && typeof x === 'number') { special.x = x; special.y = y; }
+            },
+            snapshot: () => ({
+                special: special && { x: special.x, y: special.y, kind: special.kind },
+                surgeActive: surgeUntil > performance.now(),
+                ghostArmed, score, running, isOnline
+            })
+        };
+
         // Tournament mode initialization
         if (tournamentMode) {
             document.getElementById('tournamentBadge').style.display = 'inline-block';
