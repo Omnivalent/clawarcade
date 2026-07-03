@@ -130,6 +130,11 @@ function playMarch(){ playTone(marchNotes[marchIdx], 'square', 0.09, 0.08); marc
 function playWaveClear(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.18,0.22),i*90)); }
 function playGameOver(){ [400,300,200,120,80].forEach((f,i)=>setTimeout(()=>playTone(f,'sawtooth',0.25,0.2),i*150)); }
 function playCoin(){ [988,1319].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.12,0.18),i*90)); }
+function playBossHit(){ playTone(140, 'square', 0.08, 0.14, -40); }
+function playBossRoar(){ [70,90,110].forEach((f,i)=>setTimeout(()=>playTone(f,'sawtooth',0.4,0.22),i*140)); }
+function playBossDie(){ playExplosion(); setTimeout(playExplosion, 180); setTimeout(playWaveClear, 380); }
+function playShieldGet(){ [523,784,1047,1319].forEach((f,i)=>setTimeout(()=>playTone(f,'triangle',0.14,0.2),i*70)); }
+function playShieldAbsorb(){ playTone(320, 'sine', 0.12, 0.2, 200); }
 let ufoSoundTimer = null;
 function startUfoSound(){ stopUfoSound(); let hi = false; ufoSoundTimer = setInterval(()=>{ playTone(hi?520:420, 'sine', 0.12, 0.07); hi = !hi; }, 130); }
 function stopUfoSound(){ if(ufoSoundTimer){ clearInterval(ufoSoundTimer); ufoSoundTimer = null; } }
@@ -220,6 +225,10 @@ let score = 0, wave = 1, lives = 3;
 let shakeT = 0, flashT = 0, flashCol = '5,255,161';
 let deadTimer = 0, waveClearTimer = 0;
 let continueUsed = false;
+// boss-wave (every 5th wave) + shield pickup state
+let boss = null;                    // {x,y,hp,maxHp,t,animT,spreadT,aimT,hitT}
+let shieldDrop = null;              // floating 🛡 pickup dropped by UFO kill
+let shieldT = 0;                    // seconds of force-field remaining
 const keys = {};
 let highScore = parseInt(localStorage.getItem('spaceInvadersHigh') || '0');
 
@@ -271,10 +280,22 @@ function bulletVsBunkers(bl){
 }
 
 // === WAVE / RESET ===
+function makeBoss(){
+    const hp = 30 + Math.max(0, Math.floor(wave/5) - 1) * 14;
+    return { x: W/2, y: 96, hp, maxHp: hp, t: 0, animT: 0, spreadT: 2.2, aimT: 3.2, hitT: 0 };
+}
 function spawnWave(){
     aliens = [];
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-        aliens.push({ row:r, col:c, alive:true, type:rowType(r) });
+    boss = null;
+    shieldDrop = null;
+    if(wave % 5 === 0){
+        // BOSS WAVE — big multi-segment alien instead of the grid
+        boss = makeBoss();
+        playBossRoar();
+    } else {
+        for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+            aliens.push({ row:r, col:c, alive:true, type:rowType(r) });
+        }
     }
     gridX = 42; gridY = 64 + Math.min((wave-1)*10, 60);
     gridDir = 1; stepTimer = 0; frame = 0;
@@ -286,6 +307,7 @@ function newGame(){
     score = 0; wave = 1; lives = 3; continueUsed = false;
     player.x = W/2; player.cooldown = 0; player.invuln = 2;
     particles = []; ufoPopup = null;
+    boss = null; shieldDrop = null; shieldT = 0;
     spawnWave();
     state = 'play';
     updateHud();
@@ -331,6 +353,51 @@ function alienFire(){
     const shooter = colsAlive[Math.floor(Math.random()*colsAlive.length)];
     const p = alienPos(shooter);
     eBullets.push({ x: p.x, y: p.y + 14, vy: 150 + wave*14 + Math.random()*40, wob: Math.random()*Math.PI*2 });
+}
+
+// === BOSS (every 5th wave) ===
+function updateBoss(dt){
+    boss.t += dt;
+    boss.animT += dt;
+    if(boss.hitT > 0) boss.hitT -= dt;
+    const rage = 1 - boss.hp / boss.maxHp; // 0 fresh -> 1 nearly dead
+    // sweeping movement — faster and wilder as health drops
+    boss.x = W/2 + Math.sin(boss.t * (0.7 + rage*0.9)) * (W/2 - 70);
+    boss.y = 96 + Math.sin(boss.t * (1.4 + rage)) * (14 + rage*26);
+    // spread-shot fan, escalates with rage
+    boss.spreadT -= dt;
+    if(boss.spreadT <= 0){
+        boss.spreadT = 2.4 - rage*1.3;
+        const n = 3 + Math.floor(rage*3);
+        for(let i=0;i<n;i++){
+            const a = Math.PI/2 + (i - (n-1)/2) * 0.28;
+            const sp = 170 + wave*8;
+            eBullets.push({ x: boss.x, y: boss.y + 28, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, wob: Math.random()*Math.PI*2 });
+        }
+        playTone(220, 'square', 0.12, 0.14, -80);
+    }
+    // aimed shot at the player
+    boss.aimT -= dt;
+    if(boss.aimT <= 0){
+        boss.aimT = 2.1 - rage*1.1;
+        const ax = player.x - boss.x, ay = (H - 52) - boss.y;
+        const d = Math.hypot(ax, ay) || 1;
+        const sp = 230 + rage*130;
+        eBullets.push({ x: boss.x, y: boss.y + 28, vx: ax/d*sp, vy: ay/d*sp, wob: 0 });
+        playTone(300, 'sawtooth', 0.15, 0.14, -120);
+    }
+}
+function killBoss(){
+    burst(boss.x, boss.y, '#ff2a6d', 40, 8);
+    burst(boss.x, boss.y, '#f0e010', 30, 7);
+    burst(boss.x, boss.y, '#ffffff', 20, 6);
+    score += 500 + wave*100;
+    shake();
+    flashCol = '5,255,161'; flashT = 0.5;
+    playBossDie();
+    boss = null;
+    waveClearTimer = 1.8;
+    updateHud();
 }
 
 // === DEATH / GAME OVER ===
@@ -388,6 +455,9 @@ function update(dt){
     if(dragX !== null) player.x += (dragX - player.x) * Math.min(1, dt*20);
     player.x = Math.max(24, Math.min(W-24, player.x));
 
+    if(boss){
+        updateBoss(dt);
+    } else {
     // alien march
     stepTimer += dt;
     if(stepTimer >= stepInterval()){
@@ -419,6 +489,23 @@ function update(dt){
 
     // alien fire rate scales with wave
     if(Math.random() < dt * (0.8 + wave*0.22 + (50-aliveCount())*0.012)) alienFire();
+    }
+
+    // shield force-field timer + floating pickup
+    if(shieldT > 0) shieldT = Math.max(0, shieldT - dt);
+    if(shieldDrop){
+        shieldDrop.t += dt;
+        shieldDrop.y += 55 * dt;
+        shieldDrop.x += Math.sin(shieldDrop.t * 3) * 30 * dt;
+        if(shieldDrop.y > H - 26){ shieldDrop = null; }
+        else if(shieldDrop.y > H - 84 && Math.abs(shieldDrop.x - player.x) < 28){
+            shieldT = 6;
+            burst(shieldDrop.x, shieldDrop.y, '#05ffa1', 22, 5);
+            burst(shieldDrop.x, shieldDrop.y, '#ffffff', 8, 3);
+            playShieldGet();
+            shieldDrop = null;
+        }
+    }
 
     // UFO
     ufoTimer -= dt;
@@ -444,8 +531,18 @@ function update(dt){
             burst(ufo.x, ufo.y, '#f0e010', 26, 6);
             burst(ufo.x, ufo.y, '#ff2a6d', 14, 5);
             playUfoHit();
+            shieldDrop = { x: ufo.x, y: ufo.y + 12, t: 0 }; // UFO drops a 🛡 pickup
             ufo = null; stopUfoSound(); ufoTimer = 12 + Math.random()*10;
             updateHud();
+            return false;
+        }
+        // vs boss
+        if(boss && Math.abs(bl.x - boss.x) < 48 && Math.abs(bl.y - boss.y) < 32){
+            boss.hp--;
+            boss.hitT = 0.1;
+            burst(bl.x, bl.y, '#ff2a6d', 8, 4);
+            playBossHit();
+            if(boss.hp <= 0) killBoss();
             return false;
         }
         // vs aliens
@@ -475,11 +572,18 @@ function update(dt){
     // enemy bullets
     eBullets = eBullets.filter(bl => {
         bl.y += bl.vy * dt;
+        if(bl.vx) bl.x += bl.vx * dt;
         bl.wob += dt*14;
-        if(bl.y > H+10) return false;
+        if(bl.y > H+10 || bl.x < -14 || bl.x > W+14) return false;
         if(bulletVsBunkers(bl)) return false;
-        if(bl.y > H-72 && bl.y < H-40 && Math.abs(bl.x - player.x) < 20){
-            killPlayer();
+        if(bl.y > H-72 && bl.y < H-40 && Math.abs(bl.x - player.x) < (shieldT > 0 ? 30 : 20)){
+            if(shieldT > 0){
+                // force-field absorbs the hit
+                burst(bl.x, bl.y, '#05ffa1', 10, 4);
+                playShieldAbsorb();
+            } else {
+                killPlayer();
+            }
             return false;
         }
         return true;
@@ -522,6 +626,108 @@ function drawShip(x, y, alpha){
     eg.addColorStop(1, 'rgba(255,42,109,0)');
     ctx.fillStyle = eg;
     ctx.fillRect(-10, 8, 20, 14);
+    ctx.restore();
+}
+
+// procedurally drawn multi-segment boss, 2-frame animation, cached gradients
+let bossGradCore = null, bossGradDome = null;
+function drawBoss(){
+    const bf = Math.floor(boss.animT * 4) % 2; // 2-frame animation
+    if(!bossGradCore){
+        bossGradCore = ctx.createLinearGradient(0, -28, 0, 32);
+        bossGradCore.addColorStop(0, '#ff9dbd');
+        bossGradCore.addColorStop(0.45, '#ff2a6d');
+        bossGradCore.addColorStop(1, '#5a0b26');
+        bossGradDome = ctx.createRadialGradient(-8, -20, 2, 0, -14, 26);
+        bossGradDome.addColorStop(0, 'rgba(240,224,16,0.95)');
+        bossGradDome.addColorStop(1, 'rgba(240,224,16,0.12)');
+    }
+    ctx.save();
+    ctx.translate(boss.x, boss.y);
+    if(boss.hitT > 0) ctx.translate((Math.random()-0.5)*4, (Math.random()-0.5)*4);
+    ctx.shadowColor = '#ff2a6d';
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = bossGradCore;
+    // side pods (segments) bob on alternate frames
+    for(const side of [-1, 1]){
+        ctx.beginPath();
+        ctx.ellipse(side*42, 8 + (bf ? 3 : -3), 16, 12 + (bf ? 2 : 0), 0, 0, Math.PI*2);
+        ctx.fill();
+    }
+    // core hull
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 34, 24, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if(boss.hitT > 0){ // hit flash
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.ellipse(0, 4, 34, 24, 0, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+    // dome
+    ctx.fillStyle = bossGradDome;
+    ctx.beginPath();
+    ctx.ellipse(0, -14, 20, 14, 0, Math.PI, 0);
+    ctx.fill();
+    // eye tracks the player
+    const ex = Math.max(-8, Math.min(8, (player.x - boss.x) * 0.04));
+    ctx.fillStyle = '#06060c';
+    ctx.beginPath(); ctx.ellipse(0, -2, 12, 9, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = bf ? '#f0e010' : '#00f0ff';
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(ex, -2, 5, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // segmented tentacles wiggle between the 2 frames
+    ctx.strokeStyle = '#ff2a6d';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = '#ff2a6d'; ctx.shadowBlur = 8;
+    for(let i=0;i<6;i++){
+        const tx = -30 + i*12;
+        const sway = ((i % 2 === 0) === (bf === 0)) ? 5 : -5;
+        ctx.beginPath();
+        ctx.moveTo(tx, 24);
+        ctx.lineTo(tx + sway, 36);
+        ctx.lineTo(tx - sway, 48);
+        ctx.stroke();
+    }
+    ctx.restore();
+    // health bar
+    const bw = W - 140, bx = 70, by = 26;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(bx-2, by-2, bw+4, 12);
+    const frac = Math.max(0, boss.hp / boss.maxHp);
+    const hpCol = frac > 0.5 ? '#05ffa1' : frac > 0.25 ? '#f0e010' : '#ff2a6d';
+    ctx.fillStyle = hpCol;
+    ctx.shadowColor = hpCol; ctx.shadowBlur = 10;
+    ctx.fillRect(bx, by, bw*frac, 8);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.strokeRect(bx-2, by-2, bw+4, 12);
+    ctx.font = '700 10px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff2a6d';
+    ctx.fillText('MOTHER CLAW', W/2, by - 6);
+}
+function drawShieldDrop(){
+    ctx.save();
+    ctx.translate(shieldDrop.x, shieldDrop.y + Math.sin(shieldDrop.t*5)*3);
+    ctx.shadowColor = '#05ffa1'; ctx.shadowBlur = 16;
+    ctx.fillStyle = 'rgba(5,255,161,0.25)';
+    ctx.strokeStyle = '#05ffa1';
+    ctx.lineWidth = 2;
+    // shield badge
+    ctx.beginPath();
+    ctx.moveTo(0,-11); ctx.lineTo(9,-7); ctx.lineTo(9,2);
+    ctx.quadraticCurveTo(9,9,0,13);
+    ctx.quadraticCurveTo(-9,9,-9,2);
+    ctx.lineTo(-9,-7); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // check mark
+    ctx.strokeStyle = '#eafff5';
+    ctx.beginPath(); ctx.moveTo(-4,0); ctx.lineTo(-1,4); ctx.lineTo(5,-4); ctx.stroke();
     ctx.restore();
 }
 
@@ -595,6 +801,10 @@ function draw(){
         ctx.drawImage(sp.canvas, p.x - dw/2, p.y - dh/2, dw, dh);
     }
 
+    // boss + shield pickup
+    if(boss) drawBoss();
+    if(shieldDrop) drawShieldDrop();
+
     // shields
     for(const b of bunkers){
         for(let r=0;r<B_ROWS;r++) for(let c=0;c<B_COLS;c++){
@@ -643,6 +853,28 @@ function draw(){
     if(state === 'play' && deadTimer <= 0){
         const blink = player.invuln > 0 && Math.floor(performance.now()/100)%2 === 0;
         drawShip(player.x, H - 52, blink ? 0.25 : 1);
+        // force-field bubble + HUD timer
+        if(shieldT > 0){
+            const pu = 1 + Math.sin(performance.now()*0.01)*0.06;
+            ctx.save();
+            ctx.translate(player.x, H - 56);
+            ctx.globalAlpha = shieldT < 1.2 ? (0.35 + 0.3*Math.sin(performance.now()*0.02)) : 0.6;
+            ctx.strokeStyle = '#05ffa1';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#05ffa1';
+            ctx.shadowBlur = 18;
+            ctx.beginPath(); ctx.arc(0, 0, 34*pu, 0, Math.PI*2); ctx.stroke();
+            ctx.globalAlpha *= 0.22;
+            ctx.fillStyle = '#05ffa1';
+            ctx.fill();
+            ctx.restore();
+            ctx.font = '700 11px Orbitron, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#05ffa1';
+            ctx.shadowColor = '#05ffa1'; ctx.shadowBlur = 8;
+            ctx.fillText('SHIELD ' + shieldT.toFixed(1) + 's', player.x, H - 100);
+            ctx.shadowBlur = 0;
+        }
     }
 
     // particles
@@ -782,6 +1014,15 @@ fireBtn.addEventListener('mouseleave', fireStop);
 document.getElementById('startBtn').addEventListener('click', () => { initAudio(); newGame(); });
 document.getElementById('restartBtn').addEventListener('click', () => { initAudio(); newGame(); });
 window.addEventListener('beforeunload', stopUfoSound);
+
+// Tiny debug hooks for automated verification (no gameplay impact)
+window.__debug = {
+    bossWave(){ if(state !== 'play') newGame(); wave = 5; updateHud(); spawnWave(); },
+    shield(){ shieldT = 6; },
+    drop(){ shieldDrop = { x: player.x, y: 220, t: 0 }; },
+    hurtBoss(n){ if(boss){ boss.hp -= n; if(boss.hp <= 0) killBoss(); } },
+    snapshot(){ return { state, wave, score, lives, boss: boss && { hp: boss.hp, maxHp: boss.maxHp, x: boss.x, y: boss.y }, shieldT, hasDrop: !!shieldDrop, aliens: aliveCount() }; }
+};
 })();
 </script>
 <script>
