@@ -91,6 +91,11 @@ canvas{display:block;border:3px solid #f0f;border-radius:6px;box-shadow:0 0 30px
 </div>
 <div class="wrap" id="wrap">
 <canvas id="c"></canvas>
+<div id="chips"></div>
+<div id="draft" class="hidden">
+<h2>⚡ CHOOSE UPGRADE</h2>
+<div id="draftCards"></div>
+</div>
 </div>
 <div id="controls">
 <button id="btnPause">⏸ Pause</button>
@@ -162,6 +167,103 @@ let rings = [];                          // bomb shockwave rings
 let breakTimes = [], feverT = 0, feverPierce = 0;
 let brickCols = 0, brickBW = 0, brickBH = 0;
 const SHIFT_FRAMES = 600, SHIMMER_FRAMES = 60;   // shift every ~10s, telegraph last 1s
+
+// ---- roguelite upgrade system: draft one card after every cleared level ----
+const UPGRADES = {
+    wide:      {icon: '🛡', name: 'WIDE LOAD',       desc: 'Paddle +15% width',                     max: 99},
+    laser:     {icon: '🔫', name: 'LASER RIG',       desc: 'Laser bolt every 3s zaps a brick',      max: 99},
+    sticky:    {icon: '🧲', name: 'STICKY PAD',      desc: 'Ball sticks to paddle — tap to launch', max: 1},
+    multi:     {icon: '🐍', name: 'MULTIBALL START', desc: '+1 ball each new level (max 3)',        max: 3},
+    fever:     {icon: '🔥', name: 'LONGER FEVER',    desc: 'Fever lasts +2s',                       max: 99},
+    bank:      {icon: '💰', name: 'COMBO BANK',      desc: 'Combo decays 40% slower',               max: 1},
+    guardian:  {icon: '🧿', name: 'GUARDIAN',        desc: 'Energy net saves 1 ball per level',     max: 1},
+    overcharge:{icon: '⚡', name: 'OVERCHARGE',      desc: 'Ball +8% speed, score +25%',            max: 99}
+};
+let upgrades = {}, runOrder = [], drafting = false;
+let lasers = [], laserT = 0, muzzleFlash = 0;
+let guardianCharge = 0, guardianFlash = 0;
+let slowMo = 0, vignette = 0;
+const draftEl = document.getElementById('draft'), draftCardsEl = document.getElementById('draftCards'), chipsEl = document.getElementById('chips');
+function stacks(id) { return upgrades[id] || 0; }
+function padScale() { return Math.pow(1.15, stacks('wide')); }
+function overSpeed() { return Math.pow(1.08, stacks('overcharge')); }
+function laserInterval() { return Math.max(45, Math.round(180 / Math.max(1, stacks('laser')))); }
+function scaledPadW() { return Math.min(W * 0.55, W * getLevelConfig(level).paddleWidth * padScale()); }
+
+function renderChips() {
+    chipsEl.innerHTML = '';
+    for (const id of runOrder) {
+        const u = UPGRADES[id], n = stacks(id);
+        const el = document.createElement('span');
+        el.className = 'chip';
+        el.textContent = u.icon + (n > 1 ? '×' + n : '');
+        el.title = u.name;
+        chipsEl.appendChild(el);
+    }
+}
+function applyUpgrade(id) {
+    if (!UPGRADES[id]) return;
+    upgrades[id] = stacks(id) + 1;
+    if (!runOrder.includes(id)) runOrder.push(id);
+    if (id === 'wide') padW = scaledPadW();
+    if (id === 'laser' && laserT <= 0) laserT = laserInterval();
+    if (id === 'guardian') guardianCharge = 1;
+    renderChips();
+}
+function startDraft() {
+    drafting = true;
+    const pool = Object.keys(UPGRADES).filter(id => stacks(id) < UPGRADES[id].max);
+    const picks = [];
+    while (picks.length < 3 && pool.length) {
+        picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    draftCardsEl.innerHTML = '';
+    for (const id of picks) {
+        const u = UPGRADES[id];
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = '<div class="ic">' + u.icon + '</div><div class="nm">' + u.name + '</div><div class="fx">' + u.desc + '</div>' +
+            (stacks(id) ? '<div class="own">OWNED ×' + stacks(id) + '</div>' : '');
+        card.onclick = () => pickUpgrade(id);
+        draftCardsEl.appendChild(card);
+    }
+    draftEl.classList.remove('hidden');
+}
+function pickUpgrade(id) {
+    if (!drafting) return;
+    playPowerup();
+    applyUpgrade(id);
+    draftEl.classList.add('hidden');
+    drafting = false;
+    nextLevel();
+}
+function nextLevel() {
+    level++;
+    padW = scaledPadW();
+    balls = [makeBall()];
+    for (let i = 0; i < Math.min(3, stacks('multi')); i++) {
+        const nb = makeBall();
+        nb.vx = (Math.random() - 0.5) * 4;
+        balls.push(nb);
+    }
+    powerups = []; lasers = [];
+    laserT = stacks('laser') ? laserInterval() : 0;
+    guardianCharge = stacks('guardian') ? 1 : 0;
+    makeBricks(); updateUI();
+    showCombo(W / 2, H / 2, 'LEVEL ' + level + '!', '#0f0');
+}
+function launchStuck() {
+    let any = false;
+    for (const b of balls) {
+        if (!b.stuck) continue;
+        b.stuck = false; any = true;
+        const hit = (b.stickOff || 0) / (padW / 2);
+        b.vx = hit * b.speed * 0.85;
+        b.vy = -Math.sqrt(Math.max(1, b.speed * b.speed - b.vx * b.vx));
+    }
+    if (any) playPaddleHit();
+    return any;
+}
 
 // ---- visual helpers: color math + cached sprites (gradients baked once) ----
 function hexToRgb(hex) {
@@ -351,11 +453,17 @@ function makeBricks() {
 
 function makeBall() {
     const cfg = getLevelConfig(level);
-    return {x: W / 2, y: H - 55, vx: (Math.random() - 0.5) * 3.5, vy: -cfg.ballSpeed, r: 6, speed: cfg.ballSpeed, trail: []};
+    const sp = cfg.ballSpeed * overSpeed();   // ⚡ overcharge: faster ball
+    return {x: W / 2, y: H - 55, vx: (Math.random() - 0.5) * 3.5, vy: -sp, r: 6, speed: sp, trail: []};
 }
 
 function init() {
     score = 0; lives = 3; level = 1; combo = 0;
+    upgrades = {}; runOrder = []; drafting = false;
+    lasers = []; laserT = 0; muzzleFlash = 0;
+    guardianCharge = 0; guardianFlash = 0; slowMo = 0; vignette = 0;
+    draftEl.classList.add('hidden');
+    renderChips();
     const cfg = getLevelConfig(level);
     padX = W / 2; padW = W * cfg.paddleWidth;
     balls = [makeBall()]; powerups = []; particles = [];
@@ -397,9 +505,12 @@ function spawnPowerup(x, y) {
 function destroyBrick(br) {
     if (!br.alive) return;
     br.alive = false; combo++;
-    score += 10 * combo;
+    score += Math.round(10 * combo * Math.pow(1.25, stacks('overcharge')));   // ⚡ overcharge: +25% score
     spawnPowerup(br.x + br.w / 2, br.y + br.h / 2);
-    addParticles(br.x + br.w / 2, br.y + br.h / 2, br.color, 12);
+    // debris: bigger burst + brief slow-mo (~60ms) on high combo
+    const big = combo >= 8;
+    addParticles(br.x + br.w / 2, br.y + br.h / 2, br.color, big ? 26 : 12);
+    if (big) { addParticles(br.x + br.w / 2, br.y + br.h / 2, '#fff', 8); slowMo = 4; }
     if (combo > 1) showCombo(br.x + br.w / 2, br.y + br.h / 2, 'x' + combo + '!', br.color);
     if (combo >= 5) triggerShake();
     trackFever();
@@ -424,7 +535,7 @@ function trackFever() {
     breakTimes.push(tNow);
     breakTimes = breakTimes.filter(t => tNow - t < 3000);
     if (breakTimes.length >= 6 && feverT <= 0) {
-        feverT = 300; feverPierce = 1; breakTimes = [];   // 5s @60fps, 1 pierce
+        feverT = 300 + stacks('fever') * 120; feverPierce = 1; breakTimes = [];   // 5s @60fps (+2s per 🔥), 1 pierce
         showCombo(W / 2 - 60, H * 0.4, '🔥 FEVER!', '#f80');
         playFever();
         triggerShake();
@@ -447,9 +558,35 @@ function doShift() {
 }
 
 function update() {
-    if (paused) return;
+    if (paused || drafting) return;
     const padY = H - 30;
     const cfg = getLevelConfig(level);
+    // high-combo slow-mo (~60ms of 0.35x time)
+    const ts = slowMo > 0 ? 0.35 : 1;
+    if (slowMo > 0) slowMo--;
+
+    // 🔫 laser rig: auto-fires a bolt upward, destroys first brick hit
+    if (stacks('laser')) {
+        laserT -= ts;
+        if (laserT <= 0) {
+            laserT = laserInterval();
+            lasers.push({x: padX, y: padY - padH, len: 18});
+            muzzleFlash = 6;
+            playTone(1150, 'square', 0.07, 0.1);
+        }
+    }
+    for (let i = lasers.length - 1; i >= 0; i--) {
+        const L = lasers[i];
+        L.y -= 14 * ts;
+        const hit = bricks.find(br => br.alive && L.x >= br.x && L.x <= br.x + br.w && L.y >= br.y && L.y <= br.y + br.h);
+        if (hit) {
+            hit.hits = 0;
+            destroyBrick(hit);
+            addParticles(L.x, hit.y + hit.h, '#f6a', 10);
+            lasers.splice(i, 1);
+            playBrickHit(hit.row); updateUI(); popScore();
+        } else if (L.y < -20) lasers.splice(i, 1);
+    }
 
     // shifter bricks: telegraphed sideways slide every ~10s
     if (bricks.some(b => b.alive && b.kind === 'shift')) {
@@ -466,7 +603,7 @@ function update() {
 
     // powerups
     for (let i = powerups.length - 1; i >= 0; i--) {
-        const p = powerups[i]; p.y += p.vy;
+        const p = powerups[i]; p.y += p.vy * ts;
         if (p.y > H) { powerups.splice(i, 1); continue; }
         if (p.y + p.r > padY - padH / 2 && p.y - p.r < padY + padH / 2 && p.x > padX - padW / 2 - p.r && p.x < padX + padW / 2 + p.r) {
             if (p.type === 'wide') { padW = Math.min(W * 0.42, padW * 1.45); playPowerup(); }
@@ -484,22 +621,38 @@ function update() {
     // balls
     for (let bi = balls.length - 1; bi >= 0; bi--) {
         const b = balls[bi];
+        // 🧲 sticky pad: caught ball rides the paddle until launched
+        if (b.stuck) {
+            b.x = padX + (b.stickOff || 0);
+            b.y = padY - padH / 2 - b.r;
+            b.trail.length = 0;
+            continue;
+        }
         b.trail.push({x: b.x, y: b.y}); if (b.trail.length > 14) b.trail.shift();
-        b.x += b.vx; b.y += b.vy;
-        
-        if (b.x - b.r < 0) { b.x = b.r; b.vx *= -1; playWallHit(); }
-        if (b.x + b.r > W) { b.x = W - b.r; b.vx *= -1; playWallHit(); }
-        if (b.y - b.r < 0) { b.y = b.r; b.vy *= -1; playWallHit(); }
-        
+        b.x += b.vx * ts; b.y += b.vy * ts;
+
+        if (b.x - b.r < 0) { b.x = b.r; b.vx *= -1; playWallHit(); addParticles(b.r + 1, b.y, '#0ff', 4); }
+        if (b.x + b.r > W) { b.x = W - b.r; b.vx *= -1; playWallHit(); addParticles(W - b.r - 1, b.y, '#0ff', 4); }
+        if (b.y - b.r < 0) { b.y = b.r; b.vy *= -1; playWallHit(); addParticles(b.x, b.r + 1, '#0ff', 4); }
+
         // paddle
         if (b.vy > 0 && b.y + b.r >= padY - padH / 2 && b.y < padY + padH / 2) {
             if (b.x > padX - padW / 2 - b.r && b.x < padX + padW / 2 + b.r) {
                 b.y = padY - padH / 2 - b.r;
-                const hit = (b.x - padX) / (padW / 2);
-                b.speed = Math.min(13, b.speed + 0.12);
-                b.vx = hit * b.speed * 0.85;
-                b.vy = -Math.sqrt(b.speed * b.speed - b.vx * b.vx);
-                combo = 0; padFlash = 1; playPaddleHit(); addParticles(b.x, b.y, '#f0f', 8);
+                // 💰 combo bank: keep 40% of combo on paddle catch instead of full reset
+                combo = stacks('bank') ? Math.floor(combo * 0.4) : 0;
+                padFlash = 1; playPaddleHit(); addParticles(b.x, b.y, '#f0f', 8);
+                if (stacks('sticky')) {
+                    b.stuck = true;
+                    b.stickOff = Math.max(-padW / 2 + b.r, Math.min(padW / 2 - b.r, b.x - padX));
+                    b.vx = 0; b.vy = 0;
+                    b.speed = Math.min(13, b.speed + 0.12);
+                } else {
+                    const hit = (b.x - padX) / (padW / 2);
+                    b.speed = Math.min(13, b.speed + 0.12);
+                    b.vx = hit * b.speed * 0.85;
+                    b.vy = -Math.sqrt(b.speed * b.speed - b.vx * b.vx);
+                }
             }
         }
         
@@ -522,25 +675,28 @@ function update() {
             }
         }
         
-        if (b.y > H + 25) balls.splice(bi, 1);
+        // 🧿 guardian: one-time energy net catches a lost ball
+        if (b.y + b.r > H - 4 && b.vy > 0 && guardianCharge > 0) {
+            guardianCharge--;
+            guardianFlash = 40;
+            b.y = H - 4 - b.r; b.vy = -Math.abs(b.vy);
+            addParticles(b.x, H - 8, '#4ff', 16);
+            playPowerup(); triggerShake();
+        } else if (b.y > H + 25) balls.splice(bi, 1);
     }
-    
+
     if (balls.length === 0) {
         lives--; updateUI(); playLoseLife(); triggerShake();
         if (lives <= 0) { endGame('GAME OVER'); return; }
-        const cfg = getLevelConfig(level);
-        padW = W * cfg.paddleWidth;
+        padW = scaledPadW();
         balls = [makeBall()]; combo = 0;
     }
-    
+
     if (bricks.every(b => !b.alive)) {
         playLevelUp();
-        level++;
-        const cfg = getLevelConfig(level);
-        padW = W * cfg.paddleWidth;
-        balls = [makeBall()]; powerups = [];
-        makeBricks(); updateUI();
-        showCombo(W / 2, H / 2, 'LEVEL ' + level + '!', '#0f0');
+        vignette = 1;      // level-clear vignette pulse
+        startDraft();      // roguelite: pick 1 of 3 upgrades, then nextLevel()
+        return;
     }
     
     particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.vx *= 0.98; p.life--; return p.life > 0; });
@@ -678,7 +834,53 @@ function draw() {
         ctx.fill();
         padFlash *= 0.85;
     } else padFlash = 0;
-    
+
+    // 🔫 laser bolts: glowing tracer + muzzle flash at the paddle
+    if (lasers.length) {
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#f0f'; ctx.shadowBlur = 14;
+        for (const L of lasers) {
+            const lg = ctx.createLinearGradient(L.x, L.y, L.x, L.y + L.len);
+            lg.addColorStop(0, '#fff');
+            lg.addColorStop(0.4, '#f6a');
+            lg.addColorStop(1, 'rgba(255,0,110,0)');
+            ctx.strokeStyle = lg;
+            ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(L.x, L.y + L.len); ctx.stroke();
+        }
+        ctx.restore();
+    }
+    if (muzzleFlash > 0) {
+        ctx.globalAlpha = muzzleFlash / 6;
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#f6a'; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.arc(padX, pY - padH / 2 - 4, 3 + muzzleFlash, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        muzzleFlash--;
+    }
+
+    // 🧿 guardian: shimmering energy net along the bottom (bright flare on catch)
+    if (guardianCharge > 0 || guardianFlash > 0) {
+        const fl = guardianFlash > 0 ? guardianFlash / 40 : 0;
+        if (guardianFlash > 0) guardianFlash--;
+        const base = guardianCharge > 0 ? 0.32 + 0.16 * Math.sin(now * 0.006) : 0;
+        ctx.save();
+        ctx.strokeStyle = `rgba(80,255,255,${Math.min(1, base + fl)})`;
+        ctx.lineWidth = fl > 0 ? 4 : 2;
+        ctx.shadowColor = '#0ff'; ctx.shadowBlur = 14 + fl * 26;
+        ctx.setLineDash([8, 6]);
+        ctx.lineDashOffset = -now * 0.02;
+        ctx.beginPath(); ctx.moveTo(0, H - 4); ctx.lineTo(W, H - 4); ctx.stroke();
+        ctx.restore();
+    }
+
+    // 🧲 sticky: launch hint while a ball is held
+    if (balls.some(b => b.stuck)) {
+        ctx.font = 'bold 11px Orbitron, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(0,255,255,${0.5 + 0.3 * Math.sin(now * 0.008)})`;
+        ctx.fillText('TAP / SPACE TO LAUNCH', W / 2, padY - 28);
+    }
+
     // particles
     particles.forEach(p => {
         ctx.globalAlpha = p.life / 40;
@@ -704,6 +906,17 @@ function draw() {
         ctx.restore();
     }
 
+    // level-clear vignette pulse (green energy wash from the edges)
+    if (vignette > 0.02) {
+        const vp = vignette * (0.7 + 0.3 * Math.sin(now * 0.02));
+        const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.28, W / 2, H / 2, Math.max(W, H) * 0.72);
+        vg.addColorStop(0, 'rgba(0,255,160,0)');
+        vg.addColorStop(1, `rgba(0,255,160,${vp * 0.4})`);
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, W, H);
+        vignette *= 0.97;
+    }
+
     // Animated border glow
     borderPhase += 0.035;
     const glow = 18 + Math.sin(borderPhase) * 10;
@@ -721,10 +934,15 @@ function endGame(msg) {
     running = false;
     if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
     if (msg.includes('OVER')) playGameOver(); else playWin();
+    draftEl.classList.add('hidden'); drafting = false;
     overlay.classList.remove('hidden');
     document.getElementById('overlayTitle').textContent = msg;
-    document.getElementById('overlayMsg').textContent = 'Score: ' + score + ' — Reached Level ' + level;
-    
+    const upList = runOrder.length
+        ? runOrder.map(id => UPGRADES[id].icon + ' ' + UPGRADES[id].name + (stacks(id) > 1 ? ' ×' + stacks(id) : '')).join('<br>')
+        : 'None — clear a level to draft one!';
+    document.getElementById('overlayMsg').innerHTML = 'Score: ' + score + ' — Reached Level ' + level +
+        '<br><br><span style="color:#0ff;text-shadow:0 0 8px #0ff">UPGRADES THIS RUN</span><br>' + upList;
+
     const scores = JSON.parse(localStorage.getItem('clawarcade_breakout') || '[]');
     scores.push({score, level, date: new Date().toISOString()});
     scores.sort((a, b) => b.score - a.score);
@@ -733,11 +951,15 @@ function endGame(msg) {
 
 // touch
 let touchActive = false;
-canvas.addEventListener('touchstart', e => { e.preventDefault(); touchActive = true; movepad(e.touches[0]); }, {passive: false});
+canvas.addEventListener('touchstart', e => { e.preventDefault(); touchActive = true; movepad(e.touches[0]); if (running && !paused && !drafting) launchStuck(); }, {passive: false});
 canvas.addEventListener('touchmove', e => { e.preventDefault(); if (touchActive) movepad(e.touches[0]); }, {passive: false});
 canvas.addEventListener('touchend', () => { touchActive = false; });
 function movepad(t) { const r = canvas.getBoundingClientRect(); padX = Math.max(padW / 2, Math.min(W - padW / 2, (t.clientX - r.left) * (W / r.width))); }
 canvas.addEventListener('mousemove', e => { const r = canvas.getBoundingClientRect(); padX = Math.max(padW / 2, Math.min(W - padW / 2, (e.clientX - r.left) * (W / r.width))); });
+canvas.addEventListener('mousedown', () => { if (running && !paused && !drafting) launchStuck(); });
+document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && running && !paused && !drafting) { e.preventDefault(); launchStuck(); }
+});
 
 document.getElementById('btnStart').onclick = () => {
     initAudio(); playClick();
@@ -755,6 +977,7 @@ document.getElementById('btnPause').onclick = () => {
 document.getElementById('btnReset').onclick = () => {
     playClick(); running = false;
     if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+    draftEl.classList.add('hidden'); drafting = false;
     overlay.classList.remove('hidden');
     document.getElementById('overlayTitle').textContent = '💎 NEON BREAKOUT';
     document.getElementById('overlayMsg').textContent = 'Touch & drag to move paddle.\nBreak all bricks! Catch power-ups!';
@@ -769,11 +992,21 @@ window.__debug = {
     },
     shift: () => doShift(),
     shimmer: () => { shiftTimer = SHIFT_FRAMES - SHIMMER_FRAMES + 5; },
+    clearLevel: () => { bricks.forEach(b => b.alive = false); },
+    grantUpgrade: (id) => applyUpgrade(id),
+    pick: (i) => { const c = draftCardsEl.children[i || 0]; if (c) c.click(); },
+    launch: () => launchStuck(),
+    fireLaser: () => { laserT = 0; },
+    dropBall: () => { balls.forEach(b => { b.stuck = false; b.x = W / 2; b.y = H - 20; b.vx = 0; b.vy = 6; }); },
     state: () => ({
         running, feverT, feverPierce, rings: rings.length, shiftTimer,
         bombs: bricks.filter(b => b.alive && b.kind === 'bomb').length,
         shifters: bricks.filter(b => b.alive && b.kind === 'shift').length,
-        alive: bricks.filter(b => b.alive).length, score, level
+        alive: bricks.filter(b => b.alive).length, score, level,
+        upgrades: {...upgrades}, drafting, padW, lives,
+        lasers: lasers.length, laserT, guardianCharge, guardianFlash,
+        balls: balls.length, stuck: balls.filter(b => b.stuck).length,
+        chips: chipsEl.children.length, slowMo, vignette
     })
 };
 

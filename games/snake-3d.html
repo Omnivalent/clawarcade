@@ -1,1253 +1,1030 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snake 3D - ClawArcade</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: #000;
-            overflow: hidden;
-            font-family: 'Courier New', monospace;
-            touch-action: none;
-        }
-        #game-container {
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-        }
-        canvas { display: block; }
-        
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
-            pointer-events: none;
-        }
-        #score {
-            font-size: 28px;
-            color: #0ff;
-            text-shadow: 0 0 20px #0ff, 0 0 40px #0ff;
-            font-weight: bold;
-        }
-        #speed {
-            font-size: 16px;
-            color: #f0f;
-            text-shadow: 0 0 10px #f0f;
-            margin-top: 5px;
-        }
-        #length {
-            font-size: 14px;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-            margin-top: 5px;
-        }
-        #cannon-status {
-            font-size: 14px;
-            color: #ff0;
-            text-shadow: 0 0 10px #ff0;
-            margin-top: 10px;
-            display: none;
-        }
-        #cannon-status.active { display: block; }
-        #next-cannon {
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-        
-        #food-timer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -100px);
-            font-size: 18px;
-            color: #ff0;
-            text-shadow: 0 0 15px #ff0;
-            z-index: 100;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        #food-timer.visible { opacity: 1; }
-        #food-timer.urgent { color: #f00; text-shadow: 0 0 20px #f00; animation: pulse 0.3s infinite; }
-        @keyframes pulse { 0%,100%{transform:translate(-50%,-100px) scale(1)} 50%{transform:translate(-50%,-100px) scale(1.2)} }
-        
-        #minimap {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 180px;
-            height: 180px;
-            border: 3px solid #0ff;
-            background: rgba(0, 0, 0, 0.8);
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.1);
-            border-radius: 10px;
-        }
-        
-        #start-screen, #game-over {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: radial-gradient(ellipse at center, rgba(20, 0, 40, 0.95) 0%, rgba(0, 0, 0, 0.98) 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-        }
-        #game-over { display: none; }
-        
-        h1 {
-            font-size: 56px;
-            color: #0ff;
-            text-shadow: 0 0 40px #0ff, 0 0 80px #0ff, 0 0 120px #08f;
-            margin-bottom: 10px;
-            letter-spacing: 8px;
-        }
-        .subtitle {
-            color: #f0f;
-            font-size: 20px;
-            text-shadow: 0 0 20px #f0f;
-            margin-bottom: 40px;
-            letter-spacing: 4px;
-        }
-        .controls {
-            color: #aaa;
-            font-size: 14px;
-            margin-bottom: 30px;
-            text-align: center;
-            line-height: 2;
-        }
-        .controls strong {
-            color: #0ff;
-            text-shadow: 0 0 10px #0ff;
-        }
-        .controls .new {
-            color: #ff0;
-            text-shadow: 0 0 10px #ff0;
-        }
-        .btn {
-            background: linear-gradient(135deg, rgba(0,255,255,0.2), rgba(255,0,255,0.2));
-            border: 2px solid #0ff;
-            color: #0ff;
-            padding: 18px 50px;
-            font-size: 22px;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            text-shadow: 0 0 15px #0ff;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.1);
-            transition: all 0.3s;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-        }
-        .btn:hover {
-            background: linear-gradient(135deg, rgba(0,255,255,0.4), rgba(255,0,255,0.4));
-            box-shadow: 0 0 50px rgba(0, 255, 255, 0.6), inset 0 0 30px rgba(0, 255, 255, 0.2);
-            transform: scale(1.05);
-        }
-        
-        #final-score {
-            font-size: 42px;
-            color: #0ff;
-            text-shadow: 0 0 30px #0ff;
-            margin: 20px 0;
-        }
-        #crash-reason {
-            color: #f66;
-            font-size: 18px;
-            margin-bottom: 20px;
-        }
-        
-        #mobile-controls {
-            position: absolute;
-            bottom: 30px;
-            left: 20px;
-            display: none;
-            z-index: 100;
-            gap: 15px;
-        }
-        @media (max-width: 768px) {
-            #mobile-controls { display: flex; }
-            #minimap { width: 120px; height: 120px; bottom: 10px; right: 10px; }
-            h1 { font-size: 36px; }
-        }
-        .ctrl-btn {
-            width: 90px;
-            height: 90px;
-            background: linear-gradient(135deg, rgba(0,255,255,0.3), rgba(0,255,255,0.1));
-            border: 3px solid #0ff;
-            color: #0ff;
-            font-size: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 20px;
-            box-shadow: 0 0 20px rgba(0,255,255,0.3);
-            transition: all 0.2s;
-        }
-        .ctrl-btn:active {
-            background: rgba(0, 255, 255, 0.5);
-            box-shadow: 0 0 40px rgba(0,255,255,0.6);
-            transform: scale(0.95);
-        }
-        #ctrl-shoot {
-            background: linear-gradient(135deg, rgba(255,255,0,0.3), rgba(255,100,0,0.2));
-            border-color: #ff0;
-            color: #ff0;
-            box-shadow: 0 0 20px rgba(255,255,0,0.3);
-        }
-        
-        #crosshair {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px; height: 40px;
-            pointer-events: none;
-            z-index: 50;
-        }
-        #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(0, 255, 255, 0.6);
-            box-shadow: 0 0 10px #0ff;
-        }
-        #crosshair::before {
-            width: 2px; height: 40px;
-            left: 19px; top: 0;
-        }
-        #crosshair::after {
-            width: 40px; height: 2px;
-            left: 0; top: 19px;
-        }
-        #crosshair.has-cannon::before, #crosshair.has-cannon::after {
-            background: rgba(255, 255, 0, 0.8);
-            box-shadow: 0 0 15px #ff0;
-        }
-        
-        #direction-hint {
-            position: absolute;
-            bottom: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #666;
-            font-size: 12px;
-            z-index: 100;
-            pointer-events: none;
-        }
-        @media (max-width: 768px) {
-            #direction-hint { display: none; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Snake 3D - ClawArcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    width: 100%; height: 100%;
+    background: #05060a;
+    overflow: hidden;
+    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+#game { display: block; position: fixed; inset: 0; }
+
+#vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.55) 100%);
+}
+#flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 6;
+    background: #ff2a6d; opacity: 0; transition: opacity 0.7s ease-out;
+}
+
+#back {
+    position: fixed; top: 14px; left: 16px; z-index: 20;
+    font-family: 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 2px;
+    color: #00e5f6; text-decoration: none; text-shadow: 0 0 12px rgba(0,229,246,0.8);
+    border: 1px solid rgba(0,229,246,0.35); border-radius: 6px; padding: 6px 12px;
+    background: rgba(5,6,10,0.55); backdrop-filter: blur(3px);
+}
+#back:hover { background: rgba(0,229,246,0.12); box-shadow: 0 0 18px rgba(0,229,246,0.35); }
+
+#mute {
+    position: fixed; top: 14px; right: 16px; z-index: 20;
+    width: 40px; height: 34px; cursor: pointer;
+    font-size: 16px; line-height: 1;
+    color: #00e5f6; border: 1px solid rgba(0,229,246,0.35); border-radius: 6px;
+    background: rgba(5,6,10,0.55);
+}
+#mute:hover { background: rgba(0,229,246,0.12); }
+
+#hud {
+    position: fixed; top: 58px; left: 16px; z-index: 20;
+    pointer-events: none;
+    background: rgba(5,6,10,0.5); border: 1px solid rgba(0,229,246,0.2);
+    border-radius: 8px; padding: 10px 14px; min-width: 148px;
+    backdrop-filter: blur(3px);
+}
+.hud-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+.hud-label { font-size: 11px; letter-spacing: 2px; color: rgba(200,210,230,0.65); text-transform: uppercase; font-weight: 600; }
+.hud-val { font-family: 'Orbitron', sans-serif; font-size: 17px; font-weight: 700; }
+#hud-score { color: #00e5f6; text-shadow: 0 0 12px rgba(0,229,246,0.8); }
+#hud-len   { color: #22e59a; text-shadow: 0 0 12px rgba(34,229,154,0.8); font-size: 14px; }
+#hud-speed { color: #ff2a6d; text-shadow: 0 0 12px rgba(255,42,109,0.8); font-size: 14px; }
+#hud-high  { color: #ffd23e; text-shadow: 0 0 12px rgba(255,210,62,0.8); font-size: 14px; }
+
+#minimap {
+    position: fixed; bottom: 18px; right: 18px; z-index: 20;
+    width: 160px; height: 160px; pointer-events: none;
+    border: 2px solid rgba(0,229,246,0.55); border-radius: 10px;
+    background: rgba(4,5,10,0.75);
+    box-shadow: 0 0 24px rgba(0,229,246,0.25), inset 0 0 18px rgba(0,229,246,0.06);
+}
+
+.overlay {
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(10,8,24,0.88) 0%, rgba(3,4,8,0.96) 100%);
+    text-align: center; padding: 20px;
+}
+.overlay h1 {
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    font-size: clamp(34px, 7vw, 62px); letter-spacing: 10px; color: #00e5f6;
+    text-shadow: 0 0 30px rgba(0,229,246,0.9), 0 0 80px rgba(0,229,246,0.45);
+    margin-bottom: 8px;
+}
+.overlay .sub {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(12px, 2.4vw, 17px);
+    letter-spacing: 6px; color: #ff2a6d; text-shadow: 0 0 16px rgba(255,42,109,0.8);
+    margin-bottom: 28px;
+}
+.overlay .info {
+    font-size: 16px; line-height: 2; color: rgba(205,215,235,0.8); margin-bottom: 26px; letter-spacing: 1px;
+}
+.overlay .info b { color: #00e5f6; text-shadow: 0 0 10px rgba(0,229,246,0.7); font-weight: 700; }
+.overlay .info .gold { color: #ffd23e; text-shadow: 0 0 10px rgba(255,210,62,0.7); }
+.btn {
+    font-family: 'Orbitron', sans-serif; font-size: 17px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase; cursor: pointer;
+    color: #00e5f6; padding: 15px 44px; border-radius: 8px;
+    background: linear-gradient(135deg, rgba(0,229,246,0.16), rgba(255,42,109,0.14));
+    border: 2px solid #00e5f6;
+    text-shadow: 0 0 12px rgba(0,229,246,0.8);
+    box-shadow: 0 0 26px rgba(0,229,246,0.35), inset 0 0 18px rgba(0,229,246,0.08);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn:hover { transform: scale(1.05); box-shadow: 0 0 44px rgba(0,229,246,0.6), inset 0 0 26px rgba(0,229,246,0.15); }
+#go-title { color: #ff2a6d; text-shadow: 0 0 30px rgba(255,42,109,0.9), 0 0 80px rgba(255,42,109,0.45); }
+#final-score {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(30px, 5vw, 46px); font-weight: 900;
+    color: #ffd23e; text-shadow: 0 0 26px rgba(255,210,62,0.8); margin: 6px 0 4px;
+}
+#go-high { font-size: 15px; letter-spacing: 2px; color: rgba(205,215,235,0.75); margin-bottom: 24px; }
+#go-high.newhigh { color: #ffd23e; text-shadow: 0 0 14px rgba(255,210,62,0.9); }
+.hint { margin-top: 20px; font-size: 13px; letter-spacing: 3px; color: rgba(205,215,235,0.5); text-transform: uppercase; }
+#game-over { display: none; }
+
+@media (max-width: 640px) {
+    #minimap { width: 110px; height: 110px; bottom: 12px; right: 12px; }
+    #hud { min-width: 120px; padding: 8px 10px; }
+    .hud-val { font-size: 15px; }
+}
+</style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="ui">
-            <div id="score">0</div>
-            <div id="speed">SPEED 1.0x</div>
-            <div id="length">LENGTH 3</div>
-            <div id="cannon-status">🔫 CANNON READY [SPACE]</div>
-            <div id="next-cannon">Next cannon: 60s</div>
-        </div>
-        <div id="food-timer">⏱️ 8</div>
-        <div id="crosshair"></div>
-        <canvas id="minimap"></canvas>
-        
-        <div id="mobile-controls">
-            <button class="ctrl-btn" id="ctrl-left">↰</button>
-            <button class="ctrl-btn" id="ctrl-shoot">🔫</button>
-            <button class="ctrl-btn" id="ctrl-right">↱</button>
-        </div>
-        
-        <div id="direction-hint">← A / LEFT &nbsp;|&nbsp; SPACE = SHOOT &nbsp;|&nbsp; D / RIGHT →</div>
-        
-        <div id="start-screen">
-            <h1>🐍 SNAKE 3D</h1>
-            <div class="subtitle">FIRST-PERSON SERPENT</div>
-            <div class="controls">
-                <strong>A / ←</strong> Turn LEFT &nbsp;&nbsp; <strong>D / →</strong> Turn RIGHT<br>
-                <span class="new">🔫 CANNON</span> spawns every 60 seconds<br>
-                <span class="new">🐭 SHOOT MICE</span> for bonus points!<br>
-                <span class="new">⏱️ FOOD</span> disappears after 8 seconds<br><br>
-                <em>Watch the minimap for your tail!</em>
-            </div>
-            <button class="btn" id="start-btn">ENTER THE GRID</button>
-        </div>
-        
-        <div id="game-over">
-            <h1>GAME OVER</h1>
-            <div id="final-score">0</div>
-            <div id="crash-reason"></div>
-            <button class="btn" id="restart-btn">TRY AGAIN</button>
-        </div>
+<canvas id="game"></canvas>
+<canvas id="minimap" width="320" height="320"></canvas>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<a id="back" href="../index.html">&#9664; ARCADE</a>
+<button id="mute" type="button" aria-label="Toggle sound">&#128266;</button>
+
+<div id="hud">
+    <div class="hud-row"><span class="hud-label">Score</span><span class="hud-val" id="hud-score">0</span></div>
+    <div class="hud-row"><span class="hud-label">Length</span><span class="hud-val" id="hud-len">4</span></div>
+    <div class="hud-row"><span class="hud-label">Speed</span><span class="hud-val" id="hud-speed">1.00x</span></div>
+    <div class="hud-row"><span class="hud-label">High</span><span class="hud-val" id="hud-high">0</span></div>
+</div>
+
+<div class="overlay" id="start-screen">
+    <h1>SNAKE 3D</h1>
+    <div class="sub">NEON CHASE CAM</div>
+    <div class="info">
+        <b>&#9664; &#9654;</b> or <b>A / D</b> &mdash; turn left / right<br>
+        Hunt the <span class="gold">gold beacon</span> &middot; don't hit the walls or yourself
     </div>
-    
-    <script src="../js/human-check.js"></script>
-    <script src="../js/joystick.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-    (function() {
-        'use strict';
-        
-        // Game constants
-        const GRID_SIZE = 50;
-        const CELL_SIZE = 2;
-        const ARENA_SIZE = GRID_SIZE * CELL_SIZE;
-        const HALF_ARENA = ARENA_SIZE / 2;
-        const INITIAL_SPEED = 250;
-        const MIN_SPEED = 90;
-        const SPEED_INCREASE = 3;
-        const FOOD_LIFETIME = 8000; // 8 seconds
-        const CANNON_INTERVAL = 60000; // 60 seconds
-        const MOUSE_SPAWN_INTERVAL = 3000;
-        const BULLET_SPEED = 2;
-        
-        const DIRECTIONS = [
-            { x: 0, z: -1 },  // North
-            { x: 1, z: 0 },   // East
-            { x: 0, z: 1 },   // South
-            { x: -1, z: 0 }   // West
-        ];
-        
-        // Game state
-        let scene, camera, renderer, composer;
-        let snake = [];
-        let dirIndex = 1;
-        let food = null, foodMesh = null, foodSpawnTime = 0;
-        let score = 0;
-        let speed = INITIAL_SPEED;
-        let gameLoop = null;
-        let isPlaying = false;
-        let tailMeshes = [];
-        let crashReason = '';
-        let hasCannon = false;
-        let cannonMesh = null;
-        let cannonSpawnTime = 0;
-        let lastCannonSpawn = 0;
-        let mice = [];
-        let bullets = [];
-        let particles = [];
-        let gameStartTime = 0;
-        
-        // Visual elements
-        let floorGrid, ambientLight, mainLight;
-        let glowMaterials = [];
-        
-        // Audio
-        let audioCtx = null;
-        
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }
-        
-        function playSound(freq, duration, type = 'square', volume = 0.1) {
-            if (!audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-                gain.gain.exponentialDecayTo && gain.gain.exponentialDecayTo(0.01, audioCtx.currentTime + duration);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            } catch(e) {}
-        }
-        
-        function playShootSound() {
-            playSound(800, 0.05, 'sawtooth', 0.15);
-            setTimeout(() => playSound(600, 0.05, 'sawtooth', 0.1), 30);
-        }
-        
-        function playHitSound() {
-            playSound(1200, 0.1, 'sine', 0.12);
-            playSound(1500, 0.08, 'sine', 0.1);
-        }
-        
-        function init() {
-            // Scene with dark background
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050510);
-            scene.fog = new THREE.FogExp2(0x050510, 0.012);
-            
-            // Camera
-            camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 500);
-            
-            // Renderer with better settings
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true,
-                powerPreference: 'high-performance'
-            });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setClearColor(0x050510);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            document.getElementById('game-container').insertBefore(renderer.domElement, document.getElementById('ui'));
-            
-            // Lighting
-            ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.4);
-            scene.add(ambientLight);
-            
-            mainLight = new THREE.PointLight(0x00ffff, 1.5, 150);
-            mainLight.position.set(0, 40, 0);
-            mainLight.castShadow = true;
-            scene.add(mainLight);
-            
-            // Secondary lights for atmosphere
-            const magentaLight = new THREE.PointLight(0xff00ff, 0.8, 100);
-            magentaLight.position.set(HALF_ARENA, 20, HALF_ARENA);
-            scene.add(magentaLight);
-            
-            const yellowLight = new THREE.PointLight(0xffff00, 0.5, 80);
-            yellowLight.position.set(-HALF_ARENA, 15, -HALF_ARENA);
-            scene.add(yellowLight);
-            
-            // Create enhanced arena
-            createArena();
-            
-            // Events
-            window.addEventListener('resize', onResize);
-            document.addEventListener('keydown', onKeyDown);
-            
-            // Mobile controls
-            document.getElementById('ctrl-left').addEventListener('touchstart', (e) => { e.preventDefault(); turnLeft(); });
-            document.getElementById('ctrl-right').addEventListener('touchstart', (e) => { e.preventDefault(); turnRight(); });
-            document.getElementById('ctrl-shoot').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
-            
-            // Buttons
-            document.getElementById('start-btn').addEventListener('click', startGame);
-            document.getElementById('restart-btn').addEventListener('click', startGame);
-            
-            // Start render loop
-            animate();
-        }
-        
-        function createArena() {
-            // Reflective floor
-            const floorGeo = new THREE.PlaneGeometry(ARENA_SIZE, ARENA_SIZE);
-            const floorMat = new THREE.MeshStandardMaterial({
-                color: 0x0a0a15,
-                metalness: 0.8,
-                roughness: 0.3,
-            });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-            
-            // Neon grid lines on floor
-            const gridMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 });
-            for (let i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
-                // X lines
-                const xGeo = new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(i * CELL_SIZE, 0.02, -HALF_ARENA),
-                    new THREE.Vector3(i * CELL_SIZE, 0.02, HALF_ARENA)
-                ]);
-                scene.add(new THREE.Line(xGeo, gridMat));
-                
-                // Z lines
-                const zGeo = new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(-HALF_ARENA, 0.02, i * CELL_SIZE),
-                    new THREE.Vector3(HALF_ARENA, 0.02, i * CELL_SIZE)
-                ]);
-                scene.add(new THREE.Line(zGeo, gridMat));
-            }
-            
-            // Glowing walls
-            const wallHeight = 20;
-            const wallMat = new THREE.MeshBasicMaterial({
-                color: 0xff00ff,
-                transparent: true,
-                opacity: 0.15,
-                side: THREE.DoubleSide
-            });
-            
-            const wallGeo = new THREE.PlaneGeometry(ARENA_SIZE, wallHeight);
-            
-            [[0, -HALF_ARENA, 0], [0, HALF_ARENA, Math.PI], [HALF_ARENA, 0, -Math.PI/2], [-HALF_ARENA, 0, Math.PI/2]].forEach(([x, z, rot]) => {
-                const wall = new THREE.Mesh(wallGeo, wallMat);
-                wall.position.set(x || 0, wallHeight/2, z || 0);
-                wall.rotation.y = rot;
-                scene.add(wall);
-            });
-            
-            // Glowing edge lines
-            const edgeMat = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 3 });
-            const corners = [
-                [-HALF_ARENA, -HALF_ARENA], [HALF_ARENA, -HALF_ARENA],
-                [HALF_ARENA, HALF_ARENA], [-HALF_ARENA, HALF_ARENA]
-            ];
-            
-            // Floor edges
-            for (let i = 0; i < 4; i++) {
-                const [x1, z1] = corners[i];
-                const [x2, z2] = corners[(i + 1) % 4];
-                const geo = new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(x1, 0.1, z1),
-                    new THREE.Vector3(x2, 0.1, z2)
-                ]);
-                scene.add(new THREE.Line(geo, edgeMat));
-            }
-            
-            // Corner pillars with glow
-            corners.forEach(([x, z]) => {
-                const pillarGeo = new THREE.CylinderGeometry(0.8, 0.8, wallHeight, 16);
-                const pillarMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                pillar.position.set(x, wallHeight/2, z);
-                scene.add(pillar);
-                
-                // Pillar light
-                const light = new THREE.PointLight(0xff00ff, 0.5, 30);
-                light.position.set(x, 5, z);
-                scene.add(light);
-            });
-            
-            // Floating particles for atmosphere
-            for (let i = 0; i < 100; i++) {
-                const particleGeo = new THREE.SphereGeometry(0.1, 8, 8);
-                const particleMat = new THREE.MeshBasicMaterial({
-                    color: Math.random() > 0.5 ? 0x00ffff : 0xff00ff,
-                    transparent: true,
-                    opacity: 0.4
-                });
-                const particle = new THREE.Mesh(particleGeo, particleMat);
-                particle.position.set(
-                    (Math.random() - 0.5) * ARENA_SIZE * 0.9,
-                    Math.random() * 15 + 2,
-                    (Math.random() - 0.5) * ARENA_SIZE * 0.9
-                );
-                particle.userData = {
-                    speed: Math.random() * 0.02 + 0.01,
-                    offset: Math.random() * Math.PI * 2
-                };
-                scene.add(particle);
-                particles.push(particle);
-            }
-        }
-        
-        function startGame() {
-            initAudio();
-            
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('game-over').style.display = 'none';
-            
-            // Reset state
-            score = 0;
-            speed = INITIAL_SPEED;
-            dirIndex = 1;
-            hasCannon = false;
-            gameStartTime = Date.now();
-            lastCannonSpawn = Date.now();
-            
-            // Clear old objects
-            tailMeshes.forEach(mesh => scene.remove(mesh));
-            tailMeshes = [];
-            mice.forEach(m => scene.remove(m.mesh));
-            mice = [];
-            bullets.forEach(b => scene.remove(b.mesh));
-            bullets = [];
-            if (cannonMesh) { scene.remove(cannonMesh); cannonMesh = null; }
-            
-            // Initialize snake
-            snake = [
-                { x: 0, z: 0 },
-                { x: -1, z: 0 },
-                { x: -2, z: 0 }
-            ];
-            
-            createTailMeshes();
-            spawnFood();
-            
-            updateUI();
-            updateCamera();
-            
-            isPlaying = true;
-            
-            if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(gameStep, speed);
-        }
-        
-        function createTailMeshes() {
-            for (let i = 1; i < snake.length; i++) {
-                addTailSegment(i);
-            }
-            updateTailPositions();
-        }
-        
-        function addTailSegment(index) {
-            const geo = new THREE.SphereGeometry(0.85, 24, 24);
-            const hue = 0.33 + (index * 0.01);
-            const mat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color().setHSL(hue % 1, 1, 0.5),
-                emissive: new THREE.Color().setHSL(hue % 1, 1, 0.2),
-                metalness: 0.3,
-                roughness: 0.4
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.castShadow = true;
-            tailMeshes.push(mesh);
-            scene.add(mesh);
-        }
-        
-        function updateTailPositions() {
-            for (let i = 0; i < tailMeshes.length; i++) {
-                const segment = snake[i + 1];
-                if (segment) {
-                    tailMeshes[i].position.set(
-                        segment.x * CELL_SIZE,
-                        1,
-                        segment.z * CELL_SIZE
-                    );
-                }
-            }
-        }
-        
-        function spawnFood() {
-            if (foodMesh) scene.remove(foodMesh);
-            
-            let valid = false, attempts = 0;
-            while (!valid && attempts < 1000) {
-                food = {
-                    x: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2,
-                    z: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2
-                };
-                valid = !snake.some(s => s.x === food.x && s.z === food.z);
-                attempts++;
-            }
-            
-            foodSpawnTime = Date.now();
-            
-            // Create glowing food orb
-            const foodGroup = new THREE.Group();
-            
-            // Core
-            const coreGeo = new THREE.IcosahedronGeometry(1, 1);
-            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            const core = new THREE.Mesh(coreGeo, coreMat);
-            foodGroup.add(core);
-            
-            // Outer glow
-            const glowGeo = new THREE.SphereGeometry(1.8, 16, 16);
-            const glowMat = new THREE.MeshBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: 0.25
-            });
-            foodGroup.add(new THREE.Mesh(glowGeo, glowMat));
-            
-            // Rings
-            const ringGeo = new THREE.TorusGeometry(1.5, 0.08, 8, 32);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.6 });
-            const ring1 = new THREE.Mesh(ringGeo, ringMat);
-            const ring2 = new THREE.Mesh(ringGeo, ringMat);
-            ring2.rotation.x = Math.PI / 2;
-            foodGroup.add(ring1, ring2);
-            
-            foodGroup.position.set(food.x * CELL_SIZE, 2, food.z * CELL_SIZE);
-            foodMesh = foodGroup;
-            scene.add(foodMesh);
-            
-            // Light at food
-            const foodLight = new THREE.PointLight(0xffff00, 1, 20);
-            foodLight.position.set(0, 0, 0);
-            foodMesh.add(foodLight);
-        }
-        
-        function spawnCannon() {
-            if (cannonMesh) scene.remove(cannonMesh);
-            
-            let valid = false, attempts = 0, pos;
-            while (!valid && attempts < 1000) {
-                pos = {
-                    x: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2,
-                    z: Math.floor(Math.random() * (GRID_SIZE - 4)) - (GRID_SIZE - 4) / 2
-                };
-                valid = !snake.some(s => s.x === pos.x && s.z === pos.z) && 
-                        !(food && food.x === pos.x && food.z === pos.z);
-                attempts++;
-            }
-            
-            const cannonGroup = new THREE.Group();
-            
-            // Base
-            const baseGeo = new THREE.CylinderGeometry(1.2, 1.5, 0.5, 16);
-            const baseMat = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.2 });
-            const base = new THREE.Mesh(baseGeo, baseMat);
-            cannonGroup.add(base);
-            
-            // Barrel
-            const barrelGeo = new THREE.CylinderGeometry(0.3, 0.4, 2, 16);
-            const barrelMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x553300, metalness: 0.9, roughness: 0.1 });
-            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-            barrel.rotation.x = Math.PI / 2;
-            barrel.position.y = 0.5;
-            barrel.position.z = 0.5;
-            cannonGroup.add(barrel);
-            
-            // Glow
-            const glowGeo = new THREE.SphereGeometry(2, 16, 16);
-            const glowMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.2 });
-            cannonGroup.add(new THREE.Mesh(glowGeo, glowMat));
-            
-            cannonGroup.position.set(pos.x * CELL_SIZE, 1, pos.z * CELL_SIZE);
-            cannonGroup.userData = { gridX: pos.x, gridZ: pos.z };
-            cannonMesh = cannonGroup;
-            scene.add(cannonMesh);
-            
-            const cannonLight = new THREE.PointLight(0xffaa00, 1, 15);
-            cannonMesh.add(cannonLight);
-            
-            cannonSpawnTime = Date.now();
-        }
-        
-        function spawnMouse() {
-            // Spawn mouse at random edge
-            const edge = Math.floor(Math.random() * 4);
-            let x, z, vx, vz;
-            
-            switch(edge) {
-                case 0: x = -HALF_ARENA + 5; z = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = 0.3; vz = 0; break;
-                case 1: x = HALF_ARENA - 5; z = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = -0.3; vz = 0; break;
-                case 2: z = -HALF_ARENA + 5; x = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = 0; vz = 0.3; break;
-                case 3: z = HALF_ARENA - 5; x = (Math.random() - 0.5) * ARENA_SIZE * 0.8; vx = 0; vz = -0.3; break;
-            }
-            
-            const mouseGroup = new THREE.Group();
-            
-            // Body
-            const bodyGeo = new THREE.SphereGeometry(0.6, 16, 16);
-            bodyGeo.scale(1, 0.7, 1.3);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            mouseGroup.add(body);
-            
-            // Head
-            const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
-            const head = new THREE.Mesh(headGeo, bodyMat);
-            head.position.z = 0.6;
-            mouseGroup.add(head);
-            
-            // Ears
-            const earGeo = new THREE.CircleGeometry(0.2, 16);
-            const earMat = new THREE.MeshBasicMaterial({ color: 0xffaaaa, side: THREE.DoubleSide });
-            const ear1 = new THREE.Mesh(earGeo, earMat);
-            ear1.position.set(-0.2, 0.25, 0.7);
-            ear1.rotation.y = -0.3;
-            const ear2 = new THREE.Mesh(earGeo, earMat);
-            ear2.position.set(0.2, 0.25, 0.7);
-            ear2.rotation.y = 0.3;
-            mouseGroup.add(ear1, ear2);
-            
-            // Eyes
-            const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
-            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
-            eye1.position.set(-0.15, 0.1, 0.85);
-            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
-            eye2.position.set(0.15, 0.1, 0.85);
-            mouseGroup.add(eye1, eye2);
-            
-            // Tail
-            const tailCurve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(0, 0, -0.6),
-                new THREE.Vector3(0, 0.2, -1),
-                new THREE.Vector3(0.2, 0.3, -1.3),
-                new THREE.Vector3(0, 0.2, -1.6)
-            ]);
-            const tailGeo = new THREE.TubeGeometry(tailCurve, 20, 0.05, 8, false);
-            const tail = new THREE.Mesh(tailGeo, new THREE.MeshBasicMaterial({ color: 0xffaaaa }));
-            mouseGroup.add(tail);
-            
-            mouseGroup.position.set(x, 0.6, z);
-            mouseGroup.rotation.y = Math.atan2(vx, vz);
-            
-            scene.add(mouseGroup);
-            mice.push({ mesh: mouseGroup, vx, vz, x, z });
-        }
-        
-        function shoot() {
-            if (!hasCannon || !isPlaying) return;
-            
-            playShootSound();
-            
-            const dir = DIRECTIONS[dirIndex];
-            const head = snake[0];
-            
-            const bulletGeo = new THREE.SphereGeometry(0.3, 8, 8);
-            const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
-            bullet.position.set(
-                head.x * CELL_SIZE + dir.x * 2,
-                2,
-                head.z * CELL_SIZE + dir.z * 2
-            );
-            
-            // Trail
-            const trailGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 8);
-            const trailMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 });
-            const trail = new THREE.Mesh(trailGeo, trailMat);
-            trail.rotation.x = Math.PI / 2;
-            trail.position.z = -0.5;
-            bullet.add(trail);
-            
-            scene.add(bullet);
-            bullets.push({ mesh: bullet, vx: dir.x * BULLET_SPEED, vz: dir.z * BULLET_SPEED });
-        }
-        
-        function updateBullets() {
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const b = bullets[i];
-                b.mesh.position.x += b.vx;
-                b.mesh.position.z += b.vz;
-                
-                // Check bounds
-                if (Math.abs(b.mesh.position.x) > HALF_ARENA || Math.abs(b.mesh.position.z) > HALF_ARENA) {
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                    continue;
-                }
-                
-                // Check mouse collision
-                for (let j = mice.length - 1; j >= 0; j--) {
-                    const m = mice[j];
-                    const dx = b.mesh.position.x - m.mesh.position.x;
-                    const dz = b.mesh.position.z - m.mesh.position.z;
-                    if (Math.sqrt(dx*dx + dz*dz) < 1.5) {
-                        // Hit!
-                        playHitSound();
-                        score += 25;
-                        updateUI();
-                        
-                        // Explosion particles
-                        createExplosion(m.mesh.position.x, m.mesh.position.z);
-                        
-                        scene.remove(m.mesh);
-                        mice.splice(j, 1);
-                        scene.remove(b.mesh);
-                        bullets.splice(i, 1);
-                        break;
-                    }
-                }
-            }
-        }
-        
-        function createExplosion(x, z) {
-            for (let i = 0; i < 15; i++) {
-                const geo = new THREE.SphereGeometry(0.15, 8, 8);
-                const mat = new THREE.MeshBasicMaterial({ 
-                    color: Math.random() > 0.5 ? 0xffff00 : 0xff8800,
-                    transparent: true,
-                    opacity: 1
-                });
-                const p = new THREE.Mesh(geo, mat);
-                p.position.set(x, 1, z);
-                p.userData = {
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: Math.random() * 0.3 + 0.1,
-                    vz: (Math.random() - 0.5) * 0.5,
-                    life: 1
-                };
-                scene.add(p);
-                particles.push(p);
-            }
-        }
-        
-        function updateMice() {
-            mice.forEach(m => {
-                m.x += m.vx;
-                m.z += m.vz;
-                m.mesh.position.x = m.x;
-                m.mesh.position.z = m.z;
-                
-                // Wiggle animation
-                m.mesh.rotation.y = Math.atan2(m.vx, m.vz) + Math.sin(Date.now() * 0.01) * 0.2;
-                m.mesh.position.y = 0.6 + Math.abs(Math.sin(Date.now() * 0.015)) * 0.1;
-                
-                // Bounce off walls
-                if (Math.abs(m.x) > HALF_ARENA - 3) m.vx *= -1;
-                if (Math.abs(m.z) > HALF_ARENA - 3) m.vz *= -1;
-            });
-        }
-        
-        function gameStep() {
-            if (!isPlaying) return;
-            
-            const now = Date.now();
-            const direction = DIRECTIONS[dirIndex];
-            
-            // Check food timeout
-            if (now - foodSpawnTime > FOOD_LIFETIME) {
-                spawnFood(); // Respawn if timed out
-            }
-            
-            // Spawn cannon every 60s
-            if (now - lastCannonSpawn > CANNON_INTERVAL && !cannonMesh && !hasCannon) {
-                spawnCannon();
-                lastCannonSpawn = now;
-            }
-            
-            // Spawn mice periodically when player has cannon
-            if (hasCannon && mice.length < 5 && Math.random() < 0.02) {
-                spawnMouse();
-            }
-            
-            const head = snake[0];
-            const newHead = {
-                x: head.x + direction.x,
-                z: head.z + direction.z
-            };
-            
-            // Wall collision
-            if (Math.abs(newHead.x) >= GRID_SIZE / 2 || Math.abs(newHead.z) >= GRID_SIZE / 2) {
-                crashReason = 'Hit the wall!';
-                gameOver();
-                return;
-            }
-            
-            // Self collision
-            for (let i = 0; i < snake.length; i++) {
-                if (snake[i].x === newHead.x && snake[i].z === newHead.z) {
-                    crashReason = 'Ate yourself!';
-                    gameOver();
-                    return;
-                }
-            }
-            
-            snake.unshift(newHead);
-            
-            // Check food
-            if (food && newHead.x === food.x && newHead.z === food.z) {
-                score += 10;
-                playSound(880, 0.1);
-                setTimeout(() => playSound(1100, 0.1), 50);
-                
-                speed = Math.max(MIN_SPEED, speed - SPEED_INCREASE);
-                clearInterval(gameLoop);
-                gameLoop = setInterval(gameStep, speed);
-                
-                addTailSegment(tailMeshes.length + 1);
-                spawnFood();
-                updateUI();
-            } else {
-                snake.pop();
-            }
-            
-            // Check cannon pickup
-            if (cannonMesh) {
-                const cx = cannonMesh.userData.gridX;
-                const cz = cannonMesh.userData.gridZ;
-                if (newHead.x === cx && newHead.z === cz) {
-                    hasCannon = true;
-                    scene.remove(cannonMesh);
-                    cannonMesh = null;
-                    playSound(440, 0.15, 'sine');
-                    playSound(660, 0.15, 'sine');
-                    document.getElementById('cannon-status').classList.add('active');
-                    document.getElementById('crosshair').classList.add('has-cannon');
-                    
-                    // Spawn initial mice
-                    for (let i = 0; i < 3; i++) {
-                        setTimeout(() => spawnMouse(), i * 500);
-                    }
-                }
-            }
-            
-            updateTailPositions();
-            updateCamera();
-        }
-        
-        function updateCamera() {
-            const head = snake[0];
-            const dir = DIRECTIONS[dirIndex];
-            
-            camera.position.set(
-                head.x * CELL_SIZE - dir.x * 1,
-                3,
-                head.z * CELL_SIZE - dir.z * 1
-            );
-            
-            camera.lookAt(
-                head.x * CELL_SIZE + dir.x * 30,
-                2,
-                head.z * CELL_SIZE + dir.z * 30
-            );
-        }
-        
-        function turnLeft() {
-            dirIndex = (dirIndex + 3) % 4;
-            playSound(330, 0.05);
-        }
-        
-        function turnRight() {
-            dirIndex = (dirIndex + 1) % 4;
-            playSound(440, 0.05);
-        }
-        
-        function onKeyDown(e) {
-            if (!isPlaying) {
-                if (e.key === ' ' || e.key === 'Enter') startGame();
-                return;
-            }
-            
-            switch(e.key) {
-                case 'ArrowLeft': case 'a': case 'A': turnLeft(); break;
-                case 'ArrowRight': case 'd': case 'D': turnRight(); break;
-                case ' ': shoot(); e.preventDefault(); break;
-            }
-        }
-        
-        function updateUI() {
-            document.getElementById('score').textContent = score;
-            const speedMult = (INITIAL_SPEED / speed).toFixed(1);
-            document.getElementById('speed').textContent = `SPEED ${speedMult}x`;
-            document.getElementById('length').textContent = `LENGTH ${snake.length}`;
-            
-            const elapsed = Math.floor((Date.now() - lastCannonSpawn) / 1000);
-            const nextCannon = Math.max(0, 60 - elapsed);
-            document.getElementById('next-cannon').textContent = hasCannon ? '🔫 ARMED!' : `Next cannon: ${nextCannon}s`;
-        }
-        
-        function updateFoodTimer() {
-            if (!isPlaying || !food) return;
-            
-            const remaining = Math.max(0, Math.ceil((FOOD_LIFETIME - (Date.now() - foodSpawnTime)) / 1000));
-            const timerEl = document.getElementById('food-timer');
-            timerEl.textContent = `⏱️ ${remaining}`;
-            timerEl.classList.toggle('visible', remaining <= 5);
-            timerEl.classList.toggle('urgent', remaining <= 3);
-        }
-        
-        function gameOver() {
-            isPlaying = false;
-            clearInterval(gameLoop);
-            
-            playSound(150, 0.3);
-            setTimeout(() => playSound(100, 0.4), 100);
-            
-            document.getElementById('final-score').textContent = `SCORE: ${score}`;
-            document.getElementById('crash-reason').textContent = crashReason;
-            document.getElementById('game-over').style.display = 'flex';
-            document.getElementById('cannon-status').classList.remove('active');
-            document.getElementById('crosshair').classList.remove('has-cannon');
-            document.getElementById('food-timer').classList.remove('visible');
-            
-            saveScore(score);
-        }
-        
-        function saveScore(newScore) {
-            const key = 'clawarcade_lb_snake-3d';
-            let scores = JSON.parse(localStorage.getItem(key) || '[]');
-            scores.push({ score: newScore, length: snake.length, date: new Date().toISOString() });
-            scores.sort((a, b) => b.score - a.score);
-            scores = scores.slice(0, 10);
-            localStorage.setItem(key, JSON.stringify(scores));
-        }
-        
-        function drawMinimap() {
-            const canvas = document.getElementById('minimap');
-            const ctx = canvas.getContext('2d');
-            const dpr = window.devicePixelRatio || 1;
-            const size = canvas.offsetWidth * dpr;
-            canvas.width = canvas.height = size;
-            const cellSize = size / GRID_SIZE;
-            
-            // Background
-            ctx.fillStyle = 'rgba(5, 5, 16, 0.95)';
-            ctx.fillRect(0, 0, size, size);
-            
-            // Grid
-            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
-            ctx.lineWidth = 0.5;
-            for (let i = 0; i <= GRID_SIZE; i += 5) {
-                ctx.beginPath();
-                ctx.moveTo(i * cellSize, 0);
-                ctx.lineTo(i * cellSize, size);
-                ctx.moveTo(0, i * cellSize);
-                ctx.lineTo(size, i * cellSize);
-                ctx.stroke();
-            }
-            
-            // Border
-            ctx.strokeStyle = '#0ff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(1, 1, size - 2, size - 2);
-            
-            // Food with timer ring
-            if (food) {
-                const fx = (food.x + GRID_SIZE/2) * cellSize + cellSize/2;
-                const fz = (food.z + GRID_SIZE/2) * cellSize + cellSize/2;
-                
-                // Timer ring
-                const progress = (Date.now() - foodSpawnTime) / FOOD_LIFETIME;
-                ctx.beginPath();
-                ctx.arc(fx, fz, cellSize * 1.5, -Math.PI/2, -Math.PI/2 + (1 - progress) * Math.PI * 2);
-                ctx.strokeStyle = progress > 0.6 ? '#f00' : '#ff0';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Food dot
-                ctx.fillStyle = '#ff0';
-                ctx.beginPath();
-                ctx.arc(fx, fz, cellSize, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            
-            // Cannon
-            if (cannonMesh) {
-                const cx = (cannonMesh.userData.gridX + GRID_SIZE/2) * cellSize + cellSize/2;
-                const cz = (cannonMesh.userData.gridZ + GRID_SIZE/2) * cellSize + cellSize/2;
-                ctx.fillStyle = '#fa0';
-                ctx.fillRect(cx - cellSize, cz - cellSize, cellSize * 2, cellSize * 2);
-            }
-            
-            // Mice
-            ctx.fillStyle = '#888';
-            mice.forEach(m => {
-                const mx = (m.x / CELL_SIZE + GRID_SIZE/2) * cellSize;
-                const mz = (m.z / CELL_SIZE + GRID_SIZE/2) * cellSize;
-                ctx.beginPath();
-                ctx.arc(mx, mz, cellSize * 0.8, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            
-            // Snake body
-            for (let i = snake.length - 1; i >= 1; i--) {
-                const seg = snake[i];
-                const sx = (seg.x + GRID_SIZE/2) * cellSize;
-                const sz = (seg.z + GRID_SIZE/2) * cellSize;
-                const hue = 120 + i * 2;
-                ctx.fillStyle = `hsl(${hue}, 100%, ${50 - i}%)`;
-                ctx.fillRect(sx, sz, cellSize, cellSize);
-            }
-            
-            // Snake head
-            const head = snake[0];
-            const hx = (head.x + GRID_SIZE/2) * cellSize + cellSize/2;
-            const hz = (head.z + GRID_SIZE/2) * cellSize + cellSize/2;
-            ctx.fillStyle = '#0ff';
-            ctx.beginPath();
-            ctx.arc(hx, hz, cellSize, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Direction
-            const dir = DIRECTIONS[dirIndex];
-            ctx.strokeStyle = hasCannon ? '#ff0' : '#0ff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(hx, hz);
-            ctx.lineTo(hx + dir.x * cellSize * 4, hz + dir.z * cellSize * 4);
-            ctx.stroke();
-        }
-        
-        function onResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            const time = Date.now() * 0.001;
-            
-            // Animate food
-            if (foodMesh) {
-                foodMesh.rotation.y = time * 2;
-                foodMesh.children.forEach((c, i) => {
-                    if (i > 0 && i < 3) c.rotation.x = time * (i + 1);
-                });
-                foodMesh.position.y = 2 + Math.sin(time * 3) * 0.3;
-            }
-            
-            // Animate cannon
-            if (cannonMesh) {
-                cannonMesh.rotation.y = time;
-                cannonMesh.position.y = 1 + Math.sin(time * 2) * 0.2;
-            }
-            
-            // Animate floating particles
-            particles.forEach(p => {
-                if (p.userData.life !== undefined) {
-                    // Explosion particle
-                    p.position.x += p.userData.vx;
-                    p.position.y += p.userData.vy;
-                    p.position.z += p.userData.vz;
-                    p.userData.vy -= 0.015;
-                    p.userData.life -= 0.03;
-                    p.material.opacity = p.userData.life;
-                    if (p.userData.life <= 0) {
-                        scene.remove(p);
-                        particles.splice(particles.indexOf(p), 1);
-                    }
-                } else {
-                    // Ambient particle
-                    p.position.y += Math.sin(time + p.userData.offset) * 0.01;
-                    p.material.opacity = 0.3 + Math.sin(time * 2 + p.userData.offset) * 0.2;
-                }
-            });
-            
-            // Update game elements
-            if (isPlaying) {
-                updateBullets();
-                updateMice();
-                updateFoodTimer();
-                updateUI();
-                drawMinimap();
-            }
-            
-            renderer.render(scene, camera);
-        }
-        
-        // Boot: Three.js comes from a CDN, so don't assume it loaded.
-        // Try fallback CDNs before giving up, and never throw a raw ReferenceError.
-        const THREE_FALLBACKS = [
-            'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
-            'https://unpkg.com/three@0.128.0/build/three.min.js'
-        ];
+    <button class="btn" id="start-btn" type="button">Start Game</button>
+    <div class="hint">or press space</div>
+</div>
 
-        function showLoadError() {
-            const el = document.createElement('div');
-            el.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#050510;color:#00ffff;font-family:monospace;text-align:center;padding:20px;z-index:9999;';
-            el.innerHTML = '<div style="font-size:1.2rem;">3D engine failed to load</div>' +
-                '<div style="color:#8888aa;font-size:0.85rem;">Check your connection and try again.</div>' +
-                '<button onclick="location.reload()" style="margin-top:8px;padding:10px 24px;background:transparent;border:1px solid #00ffff;color:#00ffff;font-family:monospace;cursor:pointer;">RETRY</button>';
-            document.body.appendChild(el);
-        }
+<div class="overlay" id="game-over">
+    <h1 id="go-title">CRASHED</h1>
+    <div class="sub" id="go-reason">INTO THE WALL</div>
+    <div id="final-score">0</div>
+    <div id="go-high">HIGH SCORE 0</div>
+    <button class="btn" id="restart-btn" type="button">Restart</button>
+    <div class="hint">press space to restart</div>
+</div>
 
-        function boot(fallbackIdx) {
-            if (typeof THREE !== 'undefined') { init(); return; }
-            if (fallbackIdx >= THREE_FALLBACKS.length) { showLoadError(); return; }
-            const s = document.createElement('script');
-            s.src = THREE_FALLBACKS[fallbackIdx];
-            s.onload = () => boot(fallbackIdx + 1);
-            s.onerror = () => boot(fallbackIdx + 1);
-            document.head.appendChild(s);
-        }
-
-        boot(0);
-    })();
-    </script>
+<script src="../js/human-check.js"></script>
+<script src="../js/joystick.js"></script>
 <script>
-(function(){
-    var stick = window.ArcadeStick && ArcadeStick.create({
-        mode: 'tap', axes: 4, lockY: true,
-        buttons: [ { label: 'SHOOT', key: ' ' } ]
-    });
-    if (stick) {
-        var st = document.createElement('style');
-        st.textContent = '#mobile-controls{display:none !important}';
-        document.head.appendChild(st);
+(function () {
+'use strict';
+
+/* ============================================================
+   SNAKE 3D — dependency-free pseudo-3D chase-cam snake.
+   Custom perspective projection onto 2D canvas, painter's-
+   algorithm depth sorting. No external libraries.
+   ============================================================ */
+
+var GRID = 30;          // 30x30 arena
+var WALL_H = 1.15;      // wall height (world units, 1 unit = 1 cell)
+var NEAR = 0.25;        // near clip plane (camera space z)
+var CAM_BACK = 9;       // chase cam distance behind head
+var CAM_UP = 6;         // chase cam height
+var CAM_AHEAD = 3.6;    // look-at point ahead of head
+var BASE_STEP = 200;    // ms per grid step at start
+var MIN_STEP = 88;
+
+var canvas = document.getElementById('game');
+var ctx = canvas.getContext('2d');
+var mm = document.getElementById('minimap');
+var mctx = mm.getContext('2d');
+
+var W = 0, H = 0, DPR = 1, FOCAL = 1;
+function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    FOCAL = (H * 0.5) / Math.tan(Math.PI / 6); // ~60 deg vertical FOV
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------------- camera & projection ---------------- */
+var cam = { x: 15, y: 12, z: -10 };   // smoothed camera position
+var rc = { x: 15, y: 12, z: -10 };    // render camera (cam + shake)
+var camYaw = 0;
+// basis vectors (right, up, forward), rebuilt by lookAt each frame
+var fX = 0, fY = 0, fZ = 1, rX = 1, rZ = 0, uX = 0, uY = 1, uZ = 0;
+
+function lookAt(tx, ty, tz) {
+    var dx = tx - rc.x, dy = ty - rc.y, dz = tz - rc.z;
+    var l = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    fX = dx / l; fY = dy / l; fZ = dz / l;
+    var rl = Math.sqrt(fX * fX + fZ * fZ);
+    if (rl < 1e-4) return;                 // degenerate: keep last basis
+    rX = fZ / rl; rZ = -fX / rl;           // horizontal right vector
+    uX = fY * rZ;                          // up = cross(forward, right)
+    uY = fZ * rX - fX * rZ;
+    uZ = -fY * rX;
+}
+
+// world -> camera space, writes into out[0..2], returns out
+function toCam(x, y, z, out) {
+    var dx = x - rc.x, dy = y - rc.y, dz = z - rc.z;
+    out[0] = dx * rX + dz * rZ;
+    out[1] = dx * uX + dy * uY + dz * uZ;
+    out[2] = dx * fX + dy * fY + dz * fZ;
+    return out;
+}
+
+// Sutherland-Hodgman clip of camera-space polygon against z > NEAR
+function clipNear(pts) {
+    var out = [];
+    for (var i = 0; i < pts.length; i++) {
+        var a = pts[i], b = pts[(i + 1) % pts.length];
+        var ain = a[2] > NEAR, bin = b[2] > NEAR;
+        if (ain) out.push(a);
+        if (ain !== bin) {
+            var t = (NEAR - a[2]) / (b[2] - a[2]);
+            out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR]);
+        }
+    }
+    return out;
+}
+
+// project world quad/poly -> screen path; returns false if fully clipped
+var polyCS = [];
+function pathPoly(worldPts) {
+    polyCS.length = 0;
+    for (var i = 0; i < worldPts.length; i++) {
+        var p = worldPts[i];
+        polyCS.push(toCam(p[0], p[1], p[2], [0, 0, 0]));
+    }
+    var cl = (polyCS[0][2] > NEAR && polyCS[1][2] > NEAR && polyCS[2][2] > NEAR &&
+              (polyCS.length < 4 || polyCS[3][2] > NEAR)) ? polyCS : clipNear(polyCS);
+    if (cl.length < 3) return false;
+    ctx.beginPath();
+    for (var j = 0; j < cl.length; j++) {
+        var c = cl[j], s = FOCAL / c[2];
+        var sx = W * 0.5 + c[0] * s, sy = H * 0.5 - c[1] * s;
+        if (j === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+    }
+    ctx.closePath();
+    return true;
+}
+
+/* ---------------- fog & shading ---------------- */
+var VOID_R = 5, VOID_G = 6, VOID_B = 10;
+function fogAt(d) { // 0 near .. ~0.95 far
+    var f = 1 - Math.exp(-Math.max(0, d - 5) * 0.062);
+    return f > 0.95 ? 0.95 : f;
+}
+function shade(r, g, b, br, fog) {
+    var inv = 1 - fog;
+    return 'rgb(' + ((r * br * inv + VOID_R * fog) | 0) + ',' +
+                    ((g * br * inv + VOID_G * fog) | 0) + ',' +
+                    ((b * br * inv + VOID_B * fog) | 0) + ')';
+}
+// light direction (normalized-ish)
+var LX = 0.45, LY = 0.78, LZ = 0.43;
+function faceBr(nx, ny, nz) {
+    var d = nx * LX + ny * LY + nz * LZ;
+    return 0.42 + 0.58 * (d > 0 ? d : 0);
+}
+
+/* ---------------- game state ---------------- */
+var DIRS = [[0, 1], [1, 0], [0, -1], [-1, 0]]; // +1 index = right turn
+var YAWS = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+
+var state = 'menu';   // menu | play | dying | dead
+var snake = [];       // [{x,z}] head first
+var prev = [];        // previous grid cells, for interpolation
+var dirIdx = 0;
+var turnQueue = [];
+var food = { x: 22, z: 22 };
+var score = 0, eaten = 0, growPending = 0;
+var stepMs = BASE_STEP, lastStep = 0, stepT = 0;
+var shake = 0, dyingAt = 0;
+var high = 0;
+try { high = parseInt(localStorage.getItem('snake3dHigh') || '0', 10) || 0; } catch (e) {}
+
+function spawnFood() {
+    for (var tries = 0; tries < 500; tries++) {
+        var x = (Math.random() * GRID) | 0, z = (Math.random() * GRID) | 0;
+        var hit = false;
+        for (var i = 0; i < snake.length; i++) {
+            if (snake[i].x === x && snake[i].z === z) { hit = true; break; }
+        }
+        if (!hit) { food.x = x; food.z = z; return; }
+    }
+}
+
+function resetGame() {
+    snake.length = 0;
+    snake.push({ x: 15, z: 15 }, { x: 15, z: 14 }, { x: 15, z: 13 }, { x: 15, z: 12 });
+    prev.length = 0;
+    dirIdx = 0;
+    turnQueue.length = 0;
+    score = 0; eaten = 0; growPending = 0;
+    stepMs = BASE_STEP; stepT = 0;
+    shake = 0;
+    spawnFood();
+    camYaw = YAWS[dirIdx];
+    cam.x = snake[0].x + 0.5 - Math.sin(camYaw) * CAM_BACK;
+    cam.z = snake[0].z + 0.5 - Math.cos(camYaw) * CAM_BACK;
+    cam.y = CAM_UP;
+    hudDirty = true;
+}
+
+function startGame() {
+    resetGame();
+    state = 'play';
+    lastStep = performance.now();
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+}
+
+function die(ix, iz, reason) {
+    state = 'dying';
+    dyingAt = performance.now();
+    shake = 1;
+    deathReason = reason;
+    var px = Math.min(GRID - 0.2, Math.max(0.2, ix + 0.5));
+    var pz = Math.min(GRID - 0.2, Math.max(0.2, iz + 0.5));
+    burst(px, 0.6, pz, 46, true);
+    sfxDeath();
+    var fl = document.getElementById('flash');
+    fl.style.transition = 'none'; fl.style.opacity = '0.45';
+    // force reflow then fade
+    void fl.offsetWidth;
+    fl.style.transition = 'opacity 0.7s ease-out'; fl.style.opacity = '0';
+}
+var deathReason = 'INTO THE WALL';
+
+function showGameOver() {
+    state = 'dead';
+    var isNew = score > high;
+    if (isNew) {
+        high = score;
+        try { localStorage.setItem('snake3dHigh', String(high)); } catch (e) {}
+    }
+    document.getElementById('final-score').textContent = score;
+    var gh = document.getElementById('go-high');
+    gh.textContent = isNew ? 'NEW HIGH SCORE!' : 'HIGH SCORE ' + high;
+    gh.className = isNew ? 'newhigh' : '';
+    document.getElementById('go-reason').textContent = deathReason;
+    document.getElementById('game-over').style.display = 'flex';
+    hudDirty = true;
+}
+
+function step() {
+    if (turnQueue.length) dirIdx = turnQueue.shift();
+    var d = DIRS[dirIdx];
+    var head = snake[0];
+    var nx = head.x + d[0], nz = head.z + d[1];
+
+    // snapshot previous positions for interpolation
+    prev.length = snake.length;
+    for (var i = 0; i < snake.length; i++) {
+        var pv = prev[i] || (prev[i] = { x: 0, z: 0 });
+        pv.x = snake[i].x; pv.z = snake[i].z;
+    }
+
+    if (nx < 0 || nx >= GRID || nz < 0 || nz >= GRID) { die(nx, nz, 'INTO THE WALL'); return; }
+    var willGrow = growPending > 0;
+    var checkLen = snake.length - (willGrow ? 0 : 1); // tail vacates unless growing
+    for (var j = 0; j < checkLen; j++) {
+        if (snake[j].x === nx && snake[j].z === nz) { die(nx, nz, 'ATE YOURSELF'); return; }
+    }
+
+    snake.unshift({ x: nx, z: nz });
+    if (willGrow) growPending--;
+    else snake.pop();
+
+    if (nx === food.x && nz === food.z) {
+        score += 10;
+        eaten++;
+        growPending += 1;
+        stepMs = Math.max(MIN_STEP, BASE_STEP - eaten * 3.5);
+        burst(nx + 0.5, 0.8, nz + 0.5, 14, false);
+        spawnFood();
+        sfxEat();
+        hudDirty = true;
+    }
+}
+
+// interpolated render position of segment i (grid coords, cell origin)
+function rpX(i) { var p = prev[i], c = snake[i]; return p ? p.x + (c.x - p.x) * stepT : c.x; }
+function rpZ(i) { var p = prev[i], c = snake[i]; return p ? p.z + (c.z - p.z) * stepT : c.z; }
+
+/* ---------------- input ---------------- */
+function queueTurn(sgn) {
+    if (state !== 'play') return;
+    if (turnQueue.length >= 2) return;
+    var base = turnQueue.length ? turnQueue[turnQueue.length - 1] : dirIdx;
+    turnQueue.push((base + (sgn > 0 ? 1 : 3)) % 4);
+    sfxTurn();
+}
+function startOrRestart() {
+    if (state === 'menu' || state === 'dead') startGame();
+}
+document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') { ensureAudio(); queueTurn(-1); e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') { ensureAudio(); queueTurn(1); e.preventDefault(); }
+    else if (k === ' ' || k === 'Spacebar') { ensureAudio(); startOrRestart(); e.preventDefault(); }
+    else if (k === 'ArrowUp' || k === 'ArrowDown') { e.preventDefault(); }
+});
+canvas.addEventListener('pointerdown', function () { ensureAudio(); startOrRestart(); });
+document.getElementById('start-btn').addEventListener('click', function () { ensureAudio(); startGame(); });
+document.getElementById('restart-btn').addEventListener('click', function () { ensureAudio(); startGame(); });
+
+/* ---------------- audio ---------------- */
+var AC = null, master = null, muted = false;
+function ensureAudio() {
+    try {
+        if (!AC) {
+            var Ctor = window.AudioContext || window.webkitAudioContext;
+            if (!Ctor) return;
+            AC = new Ctor();
+            master = AC.createGain();
+            master.gain.value = 0.32;
+            master.connect(AC.destination);
+        }
+        if (AC.state === 'suspended') AC.resume();
+    } catch (e) {}
+}
+function tone(type, f0, f1, dur, vol, when) {
+    if (!AC || muted) return;
+    try {
+        var t0 = AC.currentTime + (when || 0);
+        var o = AC.createOscillator(), g = AC.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(f0, t0);
+        o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
+        g.gain.setValueAtTime(vol, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+        o.connect(g); g.connect(master);
+        o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) {}
+}
+function sfxEat()  { tone('sine', 520, 1040, 0.12, 0.5); tone('square', 780, 1560, 0.1, 0.15, 0.05); }
+function sfxTurn() { tone('square', 300, 300, 0.03, 0.06); }
+function sfxDeath() {
+    tone('sawtooth', 300, 40, 0.55, 0.5);
+    tone('square', 180, 30, 0.5, 0.25, 0.04);
+}
+var muteBtn = document.getElementById('mute');
+muteBtn.addEventListener('click', function () {
+    muted = !muted;
+    muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+});
+
+/* ---------------- particles ---------------- */
+var MAXP = 140;
+var pX = new Float32Array(MAXP), pY = new Float32Array(MAXP), pZ = new Float32Array(MAXP);
+var vX = new Float32Array(MAXP), vY = new Float32Array(MAXP), vZ = new Float32Array(MAXP);
+var pLife = new Float32Array(MAXP), pCol = new Uint8Array(MAXP);
+var PCOLS = [[255, 210, 62], [34, 229, 154], [255, 42, 109], [240, 250, 255]];
+function burst(x, y, z, n, deadly) {
+    var placed = 0;
+    for (var i = 0; i < MAXP && placed < n; i++) {
+        if (pLife[i] > 0) continue;
+        var a = Math.random() * Math.PI * 2, r = 1.5 + Math.random() * 5;
+        pX[i] = x; pY[i] = y; pZ[i] = z;
+        vX[i] = Math.cos(a) * r;
+        vZ[i] = Math.sin(a) * r;
+        vY[i] = 2 + Math.random() * 6;
+        pLife[i] = 0.6 + Math.random() * 0.7;
+        pCol[i] = deadly ? (Math.random() < 0.45 ? 2 : (Math.random() < 0.5 ? 1 : 3))
+                         : (Math.random() < 0.7 ? 0 : 3);
+        placed++;
+    }
+}
+function updateParticles(dt) {
+    for (var i = 0; i < MAXP; i++) {
+        if (pLife[i] <= 0) continue;
+        pLife[i] -= dt;
+        vY[i] -= 14 * dt;
+        pX[i] += vX[i] * dt; pY[i] += vY[i] * dt; pZ[i] += vZ[i] * dt;
+        if (pY[i] < 0.04) { pY[i] = 0.04; vY[i] *= -0.45; vX[i] *= 0.8; vZ[i] *= 0.8; }
+    }
+}
+var PP = [0, 0, 0];
+function drawParticles() {
+    for (var i = 0; i < MAXP; i++) {
+        if (pLife[i] <= 0) continue;
+        toCam(pX[i], pY[i], pZ[i], PP);
+        if (PP[2] <= NEAR) continue;
+        var s = FOCAL / PP[2];
+        var sx = W * 0.5 + PP[0] * s, sy = H * 0.5 - PP[1] * s;
+        var rr = Math.min(18, (0.06 + 0.08 * pLife[i]) * s);
+        if (rr < 0.6) continue;
+        var c = PCOLS[pCol[i]];
+        var al = Math.min(1, pLife[i] * 1.6);
+        ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + al.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(sx, sy, rr, 0, 6.2832);
+        ctx.fill();
+    }
+}
+
+/* ---------------- stars & sun ---------------- */
+var STARS = [];
+(function () {
+    for (var i = 0; i < 90; i++) {
+        var az = Math.random() * Math.PI * 2;
+        var el = 0.06 + Math.random() * 0.9;
+        var ch = Math.cos(el);
+        STARS.push([Math.sin(az) * ch, Math.sin(el), Math.cos(az) * ch, 0.4 + Math.random() * 1.2]);
     }
 })();
+var SUN_AZ = 3.9;
+var SP = [0, 0, 0];
+function drawSky(now) {
+    // stars (direction-only: treated as points 500 units out)
+    ctx.fillStyle = 'rgba(190,215,255,0.5)';
+    for (var i = 0; i < STARS.length; i++) {
+        var st = STARS[i];
+        toCam(rc.x + st[0] * 500, rc.y + st[1] * 500, rc.z + st[2] * 500, SP);
+        if (SP[2] <= NEAR) continue;
+        var s = FOCAL / SP[2];
+        var sx = W * 0.5 + SP[0] * s, sy = H * 0.5 - SP[1] * s;
+        if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue;
+        ctx.globalAlpha = 0.25 + 0.3 * ((i * 2654435761 % 100) / 100);
+        ctx.fillRect(sx, sy, st[3], st[3]);
+    }
+    ctx.globalAlpha = 1;
+    // soft sun glow on the horizon
+    toCam(rc.x + Math.sin(SUN_AZ) * 500, rc.y + 55, rc.z + Math.cos(SUN_AZ) * 500, SP);
+    if (SP[2] > NEAR) {
+        var ss = FOCAL / SP[2];
+        var gx = W * 0.5 + SP[0] * ss, gy = H * 0.5 - SP[1] * ss;
+        var R = H * 0.5;
+        var g = ctx.createRadialGradient(gx, gy, 0, gx, gy, R);
+        g.addColorStop(0, 'rgba(255,120,160,0.22)');
+        g.addColorStop(0.35, 'rgba(150,60,200,0.10)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(gx - R, gy - R, R * 2, R * 2);
+    }
+}
+
+/* ---------------- floor ---------------- */
+var GA = [0, 0, 0], GB = [0, 0, 0];
+function drawSeg3D(x1, y1, z1, x2, y2, z2, styler, width) {
+    toCam(x1, y1, z1, GA);
+    toCam(x2, y2, z2, GB);
+    var a = GA, b = GB;
+    if (a[2] <= NEAR && b[2] <= NEAR) return;
+    if (a[2] < NEAR || b[2] < NEAR) {
+        var t = (NEAR - a[2]) / (b[2] - a[2]);
+        var ix = a[0] + (b[0] - a[0]) * t, iy = a[1] + (b[1] - a[1]) * t;
+        if (a[2] < NEAR) { a[0] = ix; a[1] = iy; a[2] = NEAR; }
+        else { b[0] = ix; b[1] = iy; b[2] = NEAR; }
+    }
+    var sa = FOCAL / a[2], sb = FOCAL / b[2];
+    var ax = W * 0.5 + a[0] * sa, ay = H * 0.5 - a[1] * sa;
+    var bx = W * 0.5 + b[0] * sb, by = H * 0.5 - b[1] * sb;
+    styler(ax, ay, a[2], bx, by, b[2]);
+    ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+}
+
+function gridStyler(major) {
+    return function (ax, ay, da, bx, by, db) {
+        var base = major ? 0.8 : 0.42;
+        var g = ctx.createLinearGradient(ax, ay, bx, by);
+        g.addColorStop(0, 'rgba(0,229,246,' + (base * (1 - fogAt(da))).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(0,229,246,' + (base * (1 - fogAt(db))).toFixed(3) + ')');
+        ctx.strokeStyle = g;
+    };
+}
+var gsMinor = gridStyler(false), gsMajor = gridStyler(true);
+
+var FLOOR_POLY = [[0, 0, 0], [GRID, 0, 0], [GRID, 0, GRID], [0, 0, GRID]];
+function drawFloor() {
+    if (pathPoly(FLOOR_POLY)) {
+        ctx.fillStyle = '#0b101c';
+        ctx.fill();
+    }
+    ctx.lineCap = 'round';
+    for (var i = 0; i <= GRID; i++) {
+        var major = (i % 5) === 0;
+        var st = major ? gsMajor : gsMinor;
+        var wpx = major ? 1.6 : 1;
+        drawSeg3D(i, 0, 0, i, 0, GRID, st, wpx);
+        drawSeg3D(0, 0, i, GRID, 0, i, st, wpx);
+    }
+}
+
+// soft glow disc on floor (grounding for head / food)
+var GD = [0, 0, 0];
+function floorGlow(wx, wz, radius, r, g, b, alpha) {
+    toCam(wx, 0.02, wz, GD);
+    if (GD[2] <= NEAR + 0.1) return;
+    var s = FOCAL / GD[2];
+    var sx = W * 0.5 + GD[0] * s, sy = H * 0.5 - GD[1] * s;
+    var rr = radius * s;
+    if (rr < 2 || rr > W) return;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.scale(1, 0.38);
+    var gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rr);
+    gr.addColorStop(0, 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')');
+    gr.addColorStop(1, 'rgba(' + r + ',' + g + ',' + b + ',0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(0, 0, rr, 0, 6.2832); ctx.fill();
+    ctx.restore();
+}
+
+/* ---------------- depth-sorted scene items ---------------- */
+// kinds: 1 wall segment (a=side, b=cell)  2 corner post (a=x, b=z)
+//        3 snake segment (a=index)        4 food pillar   5 food orb
+var items = [];
+var itemCount = 0;
+function pushItem(kind, d, a, b) {
+    var it = items[itemCount];
+    if (!it) { it = { kind: 0, d: 0, a: 0, b: 0 }; items[itemCount] = it; }
+    it.kind = kind; it.d = d; it.a = a; it.b = b;
+    itemCount++;
+}
+function distTo(x, y, z) {
+    var dx = x - rc.x, dy = y - rc.y, dz = z - rc.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+function byDepthDesc(p, q) { return q.d - p.d; }
+
+/* ---- walls ---- */
+// side 0: z=0 edge, 1: x=GRID, 2: z=GRID, 3: x=0
+var WQ = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+function wallCorners(side, c) {
+    var x1, z1, x2, z2;
+    if (side === 0) { x1 = c; z1 = 0; x2 = c + 1; z2 = 0; }
+    else if (side === 1) { x1 = GRID; z1 = c; x2 = GRID; z2 = c + 1; }
+    else if (side === 2) { x1 = c + 1; z1 = GRID; x2 = c; z2 = GRID; }
+    else { x1 = 0; z1 = c + 1; x2 = 0; z2 = c; }
+    WQ[0][0] = x1; WQ[0][1] = 0; WQ[0][2] = z1;
+    WQ[1][0] = x2; WQ[1][1] = 0; WQ[1][2] = z2;
+    WQ[2][0] = x2; WQ[2][1] = WALL_H; WQ[2][2] = z2;
+    WQ[3][0] = x1; WQ[3][1] = WALL_H; WQ[3][2] = z1;
+}
+function neonStroke(r, g, b, alpha) {
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + (alpha < 0 ? 0 : alpha > 1 ? 1 : alpha).toFixed(3) + ')';
+}
+var tubeStyle = null;
+function tubeStyler(ax, ay, da, bx, by, db) { ctx.strokeStyle = tubeStyle; }
+function drawWallSeg(side, c, d) {
+    var fog = fogAt(d);
+    var nf = (d - 1.6) / 4.5; nf = nf < 0 ? 0 : nf > 1 ? 1 : nf; // fade when camera is close/behind
+    if (nf <= 0.01) return;
+    wallCorners(side, c);
+    // translucent face
+    if (pathPoly(WQ)) {
+        ctx.fillStyle = 'rgba(255,42,109,' + (0.15 * nf * (1 - fog * 0.85)).toFixed(3) + ')';
+        ctx.fill();
+    }
+    // neon tube on top edge (3 layers: glow, body, hot core)
+    var x1 = WQ[3][0], z1 = WQ[3][2], x2 = WQ[2][0], z2 = WQ[2][2];
+    var wpx = 0.13 * FOCAL / d; if (wpx < 0.8) wpx = 0.8; if (wpx > 26) wpx = 26;
+    var vis = nf * (1 - fog);
+    tubeStyle = neonStroke(255, 42, 109, 0.16 * vis);
+    drawSeg3D(x1, WALL_H, z1, x2, WALL_H, z2, tubeStyler, wpx * 3.4);
+    tubeStyle = neonStroke(255, 42, 109, 0.55 * vis);
+    drawSeg3D(x1, WALL_H, z1, x2, WALL_H, z2, tubeStyler, wpx * 1.5);
+    tubeStyle = neonStroke(255, 190, 215, 0.95 * vis);
+    drawSeg3D(x1, WALL_H, z1, x2, WALL_H, z2, tubeStyler, wpx * 0.6);
+    // faint base line
+    tubeStyle = neonStroke(255, 42, 109, 0.3 * vis);
+    drawSeg3D(x1, 0.02, z1, x2, 0.02, z2, tubeStyler, 1.2);
+}
+function drawPost(x, z, d) {
+    var fog = fogAt(d);
+    var nf = (d - 1.6) / 4.5; nf = nf < 0 ? 0 : nf > 1 ? 1 : nf;
+    var vis = nf * (1 - fog);
+    if (vis <= 0.02) return;
+    var wpx = 0.2 * FOCAL / d; if (wpx < 1) wpx = 1; if (wpx > 30) wpx = 30;
+    tubeStyle = neonStroke(255, 42, 109, 0.2 * vis);
+    drawSeg3D(x, 0, z, x, WALL_H + 0.45, z, tubeStyler, wpx * 2.6);
+    tubeStyle = neonStroke(255, 200, 220, 0.9 * vis);
+    drawSeg3D(x, 0, z, x, WALL_H + 0.45, z, tubeStyler, wpx * 0.8);
+}
+
+/* ---- snake ---- */
+var BQ = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+function setQ(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz) {
+    BQ[0][0] = ax; BQ[0][1] = ay; BQ[0][2] = az;
+    BQ[1][0] = bx; BQ[1][1] = by; BQ[1][2] = bz;
+    BQ[2][0] = cx; BQ[2][1] = cy; BQ[2][2] = cz;
+    BQ[3][0] = dx; BQ[3][1] = dy; BQ[3][2] = dz;
+}
+function fillQ(style) {
+    if (pathPoly(BQ)) { ctx.fillStyle = style; ctx.fill(); }
+}
+var EP = [0, 0, 0];
+function drawSnakeSeg(i, d) {
+    var isHead = i === 0;
+    var gx = rpX(i), gz = rpZ(i);
+    var inset = isHead ? 0.05 : 0.1;
+    var x0 = gx + inset, x1 = gx + 1 - inset;
+    var z0 = gz + inset, z1 = gz + 1 - inset;
+    var y1 = isHead ? 0.88 : 0.68;
+    var fog = fogAt(d);
+    // color: bright head, alternating body shades
+    var r, g, b;
+    if (isHead) { r = 130; g = 255; b = 185; }
+    else if (state === 'dying' && ((performance.now() / 90) | 0) % 2 === 0) { r = 255; g = 80; b = 110; }
+    else { var alt = (i % 2) ? 0.82 : 1; r = 34 * alt + 10; g = 229 * alt; b = 154 * alt; }
+
+    // side faces (only those facing the camera)
+    if (rc.x < x0) { setQ(x0, 0, z0, x0, 0, z1, x0, y1, z1, x0, y1, z0); fillQ(shade(r, g, b, faceBr(-1, 0, 0), fog)); }
+    if (rc.x > x1) { setQ(x1, 0, z1, x1, 0, z0, x1, y1, z0, x1, y1, z1); fillQ(shade(r, g, b, faceBr(1, 0, 0), fog)); }
+    if (rc.z < z0) { setQ(x1, 0, z0, x0, 0, z0, x0, y1, z0, x1, y1, z0); fillQ(shade(r, g, b, faceBr(0, 0, -1), fog)); }
+    if (rc.z > z1) { setQ(x0, 0, z1, x1, 0, z1, x1, y1, z1, x0, y1, z1); fillQ(shade(r, g, b, faceBr(0, 0, 1), fog)); }
+    // top face + glossy rim
+    setQ(x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1);
+    if (pathPoly(BQ)) {
+        ctx.fillStyle = shade(r, g, b, isHead ? 1.15 : faceBr(0, 1, 0), fog);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(220,255,238,' + (0.35 * (1 - fog)).toFixed(3) + ')';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+    if (isHead && state !== 'dying') drawEyes(gx, gz, y1, fog);
+}
+function drawEyes(gx, gz, y1, fog) {
+    // face direction from neck->head render positions
+    var ddx = 0, ddz = 1;
+    if (snake.length > 1) {
+        ddx = (rpX(0) - rpX(1)); ddz = (rpZ(0) - rpZ(1));
+        var l = Math.sqrt(ddx * ddx + ddz * ddz);
+        if (l > 1e-3) { ddx /= l; ddz /= l; } else { ddx = DIRS[dirIdx][0]; ddz = DIRS[dirIdx][1]; }
+    }
+    var px = ddz, pz = -ddx; // perpendicular
+    var cx = gx + 0.5 + ddx * 0.44, cz = gz + 0.5 + ddz * 0.44;
+    for (var s = -1; s <= 1; s += 2) {
+        var ex = cx + px * 0.19 * s, ez = cz + pz * 0.19 * s;
+        toCam(ex, y1 - 0.24, ez, EP);
+        if (EP[2] <= NEAR) continue;
+        var sc = FOCAL / EP[2];
+        var sx = W * 0.5 + EP[0] * sc, sy = H * 0.5 - EP[1] * sc;
+        var rr = 0.085 * sc;
+        if (rr < 1) continue;
+        ctx.fillStyle = 'rgba(245,255,250,' + (0.95 * (1 - fog)).toFixed(2) + ')';
+        ctx.beginPath(); ctx.arc(sx, sy, rr, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = '#0a1418';
+        ctx.beginPath(); ctx.arc(sx + ddx * rr * 0.3, sy - rr * 0.05, rr * 0.5, 0, 6.2832); ctx.fill();
+    }
+}
+
+/* ---- food ---- */
+var pillarA = [0, 0, 0], pillarB = [0, 0, 0];
+function drawFoodPillar(now, d) {
+    var fx = food.x + 0.5, fz = food.z + 0.5;
+    var pulse = 0.78 + 0.22 * Math.sin(now * 0.004);
+    toCam(fx, 0, fz, pillarA);
+    toCam(fx, 11, fz, pillarB);
+    var a = pillarA, b = pillarB;
+    if (a[2] <= NEAR && b[2] <= NEAR) return;
+    if (a[2] < NEAR || b[2] < NEAR) {
+        var t = (NEAR - a[2]) / (b[2] - a[2]);
+        var ix = a[0] + (b[0] - a[0]) * t, iy = a[1] + (b[1] - a[1]) * t;
+        if (a[2] < NEAR) { a[0] = ix; a[1] = iy; a[2] = NEAR; }
+        else { b[0] = ix; b[1] = iy; b[2] = NEAR; }
+    }
+    var sa = FOCAL / a[2], sb = FOCAL / b[2];
+    var ax = W * 0.5 + a[0] * sa, ay = H * 0.5 - a[1] * sa;
+    var bx = W * 0.5 + b[0] * sb, by = H * 0.5 - b[1] * sb;
+    var wpx = 0.34 * FOCAL / d; if (wpx < 2) wpx = 2; if (wpx > 90) wpx = 90;
+    var g = ctx.createLinearGradient(ax, ay, bx, by);
+    g.addColorStop(0, 'rgba(255,210,62,' + (0.85 * pulse).toFixed(2) + ')');
+    g.addColorStop(0.35, 'rgba(255,210,62,' + (0.3 * pulse).toFixed(2) + ')');
+    g.addColorStop(1, 'rgba(255,210,62,0)');
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = g;
+    ctx.lineWidth = wpx * 2.4;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = wpx;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    var g2 = ctx.createLinearGradient(ax, ay, bx, by);
+    g2.addColorStop(0, 'rgba(255,246,200,' + (0.95 * pulse).toFixed(2) + ')');
+    g2.addColorStop(0.5, 'rgba(255,246,200,0)');
+    ctx.strokeStyle = g2;
+    ctx.lineWidth = wpx * 0.35;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+}
+var OP = [0, 0, 0];
+function drawFoodOrb(now) {
+    var fx = food.x + 0.5, fz = food.z + 0.5;
+    var bob = 0.72 + 0.1 * Math.sin(now * 0.003);
+    toCam(fx, bob, fz, OP);
+    if (OP[2] <= NEAR) return;
+    var s = FOCAL / OP[2];
+    var sx = W * 0.5 + OP[0] * s, sy = H * 0.5 - OP[1] * s;
+    var rr = (0.36 + 0.07 * Math.sin(now * 0.006)) * s;
+    if (rr < 1.5) rr = 1.5; if (rr > 300) return;
+    var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr * 2.4);
+    g.addColorStop(0, 'rgba(255,252,230,0.95)');
+    g.addColorStop(0.22, 'rgba(255,210,62,0.9)');
+    g.addColorStop(0.5, 'rgba(255,160,40,0.35)');
+    g.addColorStop(1, 'rgba(255,160,40,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(sx, sy, rr * 2.4, 0, 6.2832); ctx.fill();
+}
+
+/* ---- off-screen food arrow ---- */
+var AP = [0, 0, 0];
+function drawFoodArrow(now) {
+    toCam(food.x + 0.5, 1, food.z + 0.5, AP);
+    if (AP[2] > NEAR) {
+        var s = FOCAL / AP[2];
+        var sx = W * 0.5 + AP[0] * s, sy = H * 0.5 - AP[1] * s;
+        if (sx > 30 && sx < W - 30 && sy > 30 && sy < H - 30) return; // visible
+    }
+    var ang = Math.atan2(AP[0], AP[2]); // horizontal bearing, 0 = dead ahead
+    var px = W * 0.5 + Math.sin(ang) * (Math.min(W, H) * 0.5 - 56);
+    var py = H * 0.44 - Math.cos(ang) * (H * 0.36);
+    px = Math.max(46, Math.min(W - 46, px));
+    py = Math.max(70, Math.min(H - 60, py));
+    var pulse = 0.7 + 0.3 * Math.sin(now * 0.008);
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(ang);
+    ctx.fillStyle = 'rgba(255,210,62,' + (0.9 * pulse).toFixed(2) + ')';
+    ctx.strokeStyle = 'rgba(255,246,200,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -16); ctx.lineTo(11, 8); ctx.lineTo(0, 2); ctx.lineTo(-11, 8);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+}
+
+/* ---------------- minimap ---------------- */
+function drawMinimap() {
+    var S = 320, pad = 22, sc = (S - pad * 2) / GRID;
+    mctx.setTransform(1, 0, 0, 1, 0, 0);
+    mctx.clearRect(0, 0, S, S);
+    mctx.translate(pad, pad);
+    // arena
+    mctx.strokeStyle = 'rgba(0,229,246,0.8)';
+    mctx.lineWidth = 3;
+    mctx.strokeRect(0, 0, GRID * sc, GRID * sc);
+    mctx.strokeStyle = 'rgba(0,229,246,0.14)';
+    mctx.lineWidth = 1;
+    for (var i = 5; i < GRID; i += 5) {
+        mctx.beginPath(); mctx.moveTo(i * sc, 0); mctx.lineTo(i * sc, GRID * sc); mctx.stroke();
+        mctx.beginPath(); mctx.moveTo(0, i * sc); mctx.lineTo(GRID * sc, i * sc); mctx.stroke();
+    }
+    // camera view cone (from head, along camYaw)
+    var hx = (rpX(0) + 0.5) * sc, hz = (rpZ(0) + 0.5) * sc;
+    mctx.fillStyle = 'rgba(220,235,255,0.10)';
+    mctx.beginPath();
+    mctx.moveTo(hx, hz);
+    mctx.lineTo(hx + Math.sin(camYaw - 0.55) * 11 * sc, hz + Math.cos(camYaw - 0.55) * 11 * sc);
+    mctx.lineTo(hx + Math.sin(camYaw + 0.55) * 11 * sc, hz + Math.cos(camYaw + 0.55) * 11 * sc);
+    mctx.closePath();
+    mctx.fill();
+    // snake
+    for (var j = snake.length - 1; j >= 0; j--) {
+        mctx.fillStyle = j === 0 ? '#b0ffd9' : '#22e59a';
+        var r = j === 0 ? sc * 0.62 : sc * 0.45;
+        mctx.beginPath();
+        mctx.arc((rpX(j) + 0.5) * sc, (rpZ(j) + 0.5) * sc, r, 0, 6.2832);
+        mctx.fill();
+    }
+    // food
+    var pulse = 0.65 + 0.35 * Math.sin(performance.now() * 0.006);
+    mctx.fillStyle = 'rgba(255,210,62,' + pulse.toFixed(2) + ')';
+    mctx.beginPath();
+    mctx.arc((food.x + 0.5) * sc, (food.z + 0.5) * sc, sc * 0.8, 0, 6.2832);
+    mctx.fill();
+}
+
+/* ---------------- HUD ---------------- */
+var hudDirty = true;
+var hudScore = document.getElementById('hud-score');
+var hudLen = document.getElementById('hud-len');
+var hudSpeed = document.getElementById('hud-speed');
+var hudHigh = document.getElementById('hud-high');
+function updateHUD() {
+    if (!hudDirty) return;
+    hudDirty = false;
+    hudScore.textContent = score;
+    hudLen.textContent = snake.length;
+    hudSpeed.textContent = (BASE_STEP / stepMs).toFixed(2) + 'x';
+    hudHigh.textContent = high;
+}
+
+/* ---------------- camera update ---------------- */
+function angLerp(a, b, k) {
+    var d = (b - a + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+    return a + d * k;
+}
+function updateCamera(now, dt) {
+    if (state === 'menu') {
+        camYaw = now * 0.00022;
+        var mx = 15 - Math.sin(camYaw) * 23, mz = 15 - Math.cos(camYaw) * 23;
+        cam.x += (mx - cam.x) * Math.min(1, dt * 3);
+        cam.z += (mz - cam.z) * Math.min(1, dt * 3);
+        cam.y += (12 - cam.y) * Math.min(1, dt * 3);
+        rc.x = cam.x; rc.y = cam.y; rc.z = cam.z;
+        lookAt(15, 0, 15);
+        return;
+    }
+    var hx = rpX(0) + 0.5, hz = rpZ(0) + 0.5;
+    camYaw = angLerp(camYaw, YAWS[dirIdx], 1 - Math.exp(-dt * 4.5));
+    var sn = Math.sin(camYaw), cs = Math.cos(camYaw);
+    var dxp = hx - sn * CAM_BACK, dzp = hz - cs * CAM_BACK;
+    var k = 1 - Math.exp(-dt * 10);
+    cam.x += (dxp - cam.x) * k;
+    cam.z += (dzp - cam.z) * k;
+    cam.y += (CAM_UP - cam.y) * k;
+    rc.x = cam.x; rc.y = cam.y; rc.z = cam.z;
+    if (shake > 0.001) {
+        rc.x += (Math.random() - 0.5) * shake * 1.1;
+        rc.y += (Math.random() - 0.5) * shake * 0.8;
+        rc.z += (Math.random() - 0.5) * shake * 1.1;
+        shake *= Math.exp(-dt * 3.2);
+    }
+    lookAt(hx + sn * CAM_AHEAD, 0.55, hz + cs * CAM_AHEAD);
+}
+
+/* ---------------- main loop ---------------- */
+var lastFrame = 0;
+function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - lastFrame) / 1000 || 0.016);
+    lastFrame = now;
+
+    if (state === 'play') {
+        if (now - lastStep > stepMs * 5) lastStep = now - stepMs; // tab was hidden
+        while (state === 'play' && now - lastStep >= stepMs) {
+            lastStep += stepMs;
+            step();
+        }
+        if (state === 'play') stepT = (now - lastStep) / stepMs;
+    } else if (state === 'dying' && now - dyingAt > 950) {
+        showGameOver();
+    }
+
+    updateCamera(now, dt);
+    updateParticles(dt);
+
+    /* ---- render ---- */
+    ctx.fillStyle = '#05060a';
+    ctx.fillRect(0, 0, W, H);
+    drawSky(now);
+    drawFloor();
+    floorGlow(food.x + 0.5, food.z + 0.5, 2.2, 255, 210, 62, 0.24);
+    if (state !== 'menu') floorGlow(rpX(0) + 0.5, rpZ(0) + 0.5, 1.7, 34, 229, 154, 0.16);
+
+    // build depth-sorted item list
+    itemCount = 0;
+    var i, cxx, czz;
+    for (i = 0; i < GRID; i++) {
+        pushItem(1, distTo(i + 0.5, WALL_H * 0.5, 0), 0, i);
+        pushItem(1, distTo(GRID, WALL_H * 0.5, i + 0.5), 1, i);
+        pushItem(1, distTo(i + 0.5, WALL_H * 0.5, GRID), 2, i);
+        pushItem(1, distTo(0, WALL_H * 0.5, i + 0.5), 3, i);
+    }
+    pushItem(2, distTo(0, 0.5, 0), 0, 0);
+    pushItem(2, distTo(GRID, 0.5, 0), GRID, 0);
+    pushItem(2, distTo(GRID, 0.5, GRID), GRID, GRID);
+    pushItem(2, distTo(0, 0.5, GRID), 0, GRID);
+    for (i = 0; i < snake.length; i++) {
+        cxx = rpX(i) + 0.5; czz = rpZ(i) + 0.5;
+        pushItem(3, distTo(cxx, 0.35, czz), i, 0);
+    }
+    var fd = distTo(food.x + 0.5, 0.7, food.z + 0.5);
+    pushItem(4, fd + 0.01, 0, 0);
+    pushItem(5, fd, 0, 0);
+
+    items.length = itemCount;
+    items.sort(byDepthDesc);
+    for (i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (it.kind === 1) drawWallSeg(it.a, it.b, it.d);
+        else if (it.kind === 2) drawPost(it.a, it.b, it.d);
+        else if (it.kind === 3) drawSnakeSeg(it.a, it.d);
+        else if (it.kind === 4) drawFoodPillar(now, it.d);
+        else drawFoodOrb(now);
+    }
+
+    drawParticles();
+    if (state === 'play') drawFoodArrow(now);
+    drawMinimap();
+    updateHUD();
+}
+
+/* ---------------- boot ---------------- */
+resetGame();
+hudHigh.textContent = high;
+requestAnimationFrame(frame);
+
+// tiny debug hook for automated verification (harmless in production)
+window.SNAKE3D_DEBUG = {
+    getState: function () {
+        return { state: state, score: score, len: snake.length,
+                 head: { x: snake[0].x, z: snake[0].z }, dir: dirIdx,
+                 food: { x: food.x, z: food.z } };
+    },
+    placeFood: function (x, z) { food.x = x | 0; food.z = z | 0; }
+};
+})();
+</script>
+<script>
+if (window.ArcadeStick) {
+    ArcadeStick.create({ mode: 'tap', axes: 4, lockY: true, buttons: [] });
+}
 </script>
 </body>
 </html>
