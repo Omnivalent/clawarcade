@@ -18,24 +18,31 @@ html,body{height:100dvh;overflow:hidden;background:#0a0a1a;color:#fff;font-famil
 #grid-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:4px;position:relative;transition:transform 0.05s}
 #grid-wrap.shake{animation:shake 0.4s ease-out}
 @keyframes shake{0%,100%{transform:translate(0,0)}10%{transform:translate(-8px,4px)}20%{transform:translate(8px,-4px)}30%{transform:translate(-6px,6px)}40%{transform:translate(6px,-6px)}50%{transform:translate(-4px,4px)}60%{transform:translate(4px,-4px)}70%{transform:translate(-2px,2px)}80%{transform:translate(2px,-2px)}90%{transform:translate(-1px,1px)}}
-#grid{display:inline-grid;gap:2px;border:2px solid #0ff;border-radius:4px;padding:2px;box-shadow:0 0 20px rgba(0,255,255,0.2),inset 0 0 15px rgba(0,255,255,0.05);transition:box-shadow 0.3s,border-color 0.3s}
-.cell{display:flex;align-items:center;justify-content:center;border-radius:3px;font-weight:bold;font-size:14px;cursor:pointer;transition:all 0.15s ease}
-.cell.hidden{background:#1a1a3a;border:1px solid #2a2a5a}
-.cell.hidden:active{background:#2a2a5a;transform:scale(0.95)}
-.cell.revealed{background:#0d0d20;border:1px solid #1a1a3a;animation:revealPop 0.2s ease-out}
-@keyframes revealPop{0%{transform:scale(0.8);opacity:0.5}100%{transform:scale(1);opacity:1}}
-.cell.flagged{background:#1a1a3a;border:1px solid #f44;animation:flagPop 0.2s ease-out}
-@keyframes flagPop{0%{transform:scale(0.8)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
-.cell.mine{background:#400;border:1px solid #f44;animation:explode 0.3s ease-out}
-@keyframes explode{0%{transform:scale(0.5);background:#f00}50%{transform:scale(1.2);background:#f44}100%{transform:scale(1);background:#400}}
-.n1{color:#0ff;text-shadow:0 0 6px #0ff}
-.n2{color:#0f0;text-shadow:0 0 6px #0f0}
-.n3{color:#f44;text-shadow:0 0 6px #f44}
-.n4{color:#44f;text-shadow:0 0 6px #44f}
-.n5{color:#f80;text-shadow:0 0 6px #f80}
-.n6{color:#0ff;text-shadow:0 0 6px #0ff}
-.n7{color:#f0f;text-shadow:0 0 6px #f0f}
-.n8{color:#fff;text-shadow:0 0 6px #fff}
+#grid{display:inline-grid;gap:2px;border:2px solid #0ff;border-radius:4px;padding:3px;background:linear-gradient(160deg,#101030,#08081c);box-shadow:0 0 20px rgba(0,255,255,0.2),inset 0 0 15px rgba(0,255,255,0.05);transition:box-shadow 0.3s,border-color 0.3s;perspective:600px}
+#grid.win{border-color:#0f0;box-shadow:0 0 35px rgba(0,255,0,0.55),0 0 70px rgba(0,255,0,0.25),inset 0 0 20px rgba(0,255,0,0.15);animation:winGlow 1.2s ease-in-out infinite}
+@keyframes winGlow{0%,100%{box-shadow:0 0 25px rgba(0,255,0,0.4),inset 0 0 15px rgba(0,255,0,0.1)}50%{box-shadow:0 0 45px rgba(0,255,0,0.7),0 0 90px rgba(0,255,0,0.3),inset 0 0 25px rgba(0,255,0,0.2)}}
+.cell{display:flex;align-items:center;justify-content:center;border-radius:3px;font-weight:bold;font-size:14px;cursor:pointer;transition:transform 0.1s ease,filter 0.15s ease}
+/* raised 3D bevel — light top-left, dark bottom-right */
+.cell.hidden{background:linear-gradient(145deg,#2e2e60 0%,#22224c 45%,#161638 100%);border:1px solid #2a2a5a;border-top-color:#5a5aa8;border-left-color:#46468c;border-bottom-color:#0c0c22;border-right-color:#101028;box-shadow:inset 1px 1px 1px rgba(255,255,255,0.14),inset -2px -2px 3px rgba(0,0,0,0.5),0 2px 3px rgba(0,0,0,0.55)}
+.cell.hidden:hover{filter:brightness(1.25)}
+.cell.hidden:active{background:linear-gradient(145deg,#191940,#242452);border-top-color:#101028;border-left-color:#141430;border-bottom-color:#46468c;border-right-color:#3a3a7c;box-shadow:inset 2px 2px 4px rgba(0,0,0,0.6);transform:scale(0.95)}
+/* pressed / inset look for revealed cells */
+.cell.revealed{background:linear-gradient(145deg,#08081a 0%,#0e0e26 60%,#12122e 100%);border:1px solid #1a1a3a;border-top-color:#060614;border-left-color:#0a0a1e;border-bottom-color:#26264e;border-right-color:#202044;box-shadow:inset 2px 2px 5px rgba(0,0,0,0.65),inset -1px -1px 1px rgba(255,255,255,0.05);animation:revealFlip 0.28s ease-out}
+@keyframes revealFlip{0%{transform:rotateX(70deg) scale(0.85);opacity:0.2;filter:brightness(2)}60%{transform:rotateX(-12deg) scale(1.04);opacity:1}100%{transform:rotateX(0) scale(1);filter:brightness(1)}}
+.cell.flagged{background:linear-gradient(145deg,#3a2040 0%,#241a3e 50%,#160f2e 100%);border:1px solid #f44;border-top-color:#ff8a8a;border-left-color:#f66;border-bottom-color:#611;border-right-color:#822;box-shadow:inset 1px 1px 1px rgba(255,180,180,0.2),inset -2px -2px 3px rgba(0,0,0,0.5),0 0 8px rgba(255,68,68,0.35),0 2px 3px rgba(0,0,0,0.5);animation:flagPlant 0.3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes flagPlant{0%{transform:translateY(-10px) scale(0.5) rotate(-18deg);opacity:0}55%{transform:translateY(2px) scale(1.15) rotate(6deg);opacity:1}80%{transform:translateY(-1px) scale(0.96) rotate(-2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}
+.cell.mine{background:radial-gradient(circle at 40% 35%,#ff5a5a 0%,#a00 35%,#400 80%);border:1px solid #f44;box-shadow:inset 1px 1px 2px rgba(255,150,150,0.4),inset -2px -2px 4px rgba(0,0,0,0.6),0 0 14px rgba(255,60,60,0.6);animation:explode 0.35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes explode{0%{transform:scale(0.2) rotate(-20deg);background:#fff;box-shadow:0 0 30px #fff}45%{transform:scale(1.35) rotate(8deg);background:#f44;box-shadow:0 0 25px rgba(255,80,80,0.9)}100%{transform:scale(1) rotate(0)}}
+.n1{color:#0ff;text-shadow:0 0 6px #0ff,0 0 14px rgba(0,255,255,0.5)}
+.n2{color:#0f0;text-shadow:0 0 6px #0f0,0 0 14px rgba(0,255,0,0.5)}
+.n3{color:#f44;text-shadow:0 0 6px #f44,0 0 14px rgba(255,68,68,0.5)}
+.n4{color:#66f;text-shadow:0 0 6px #44f,0 0 14px rgba(68,68,255,0.6)}
+.n5{color:#f80;text-shadow:0 0 6px #f80,0 0 14px rgba(255,136,0,0.5)}
+.n6{color:#0ff;text-shadow:0 0 6px #0ff,0 0 14px rgba(0,255,255,0.5)}
+.n7{color:#f0f;text-shadow:0 0 6px #f0f,0 0 14px rgba(255,0,255,0.5)}
+.n8{color:#fff;text-shadow:0 0 6px #fff,0 0 14px rgba(255,255,255,0.5)}
+.confetti{position:absolute;top:-12px;pointer-events:none;border-radius:2px;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}80%{opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
 #controls{height:80px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:#0d0d2b;border-top:1px solid #1a1a3a;padding:4px}
 #controls button{min-width:44px;min-height:44px;padding:6px 12px;border:1px solid #0ff;background:transparent;color:#0ff;border-radius:8px;font-size:13px;cursor:pointer;transition:all 0.2s}
 #controls button:active,#controls button.active{background:#0ff3;transform:scale(0.95)}
@@ -78,6 +85,7 @@ html,body{height:100dvh;overflow:hidden;background:#0a0a1a;color:#fff;font-famil
 </div>
 <p id="endMsg"></p>
 </div>
+    <script src="../js/human-check.js"></script>
 <script>
 // === WEB AUDIO API SOUND SYSTEM ===
 let audioCtx = null;
@@ -203,6 +211,7 @@ window.startGame=function(r,c,m){
     for(let i=0;i<rows;i++){board[i]=[];revealed[i]=[];flagged[i]=[];for(let j=0;j<cols;j++){board[i][j]=0;revealed[i][j]=false;flagged[i][j]=false;}}
     overlay.classList.add('hidden');
     particlesEl.innerHTML='';
+    gridEl.classList.remove('win');
     updateMineCount();
     renderGrid();
     animFrame=requestAnimationFrame(animLoop);
@@ -276,7 +285,8 @@ function toggleFlag(r,c){
     }
 }
 
-function reveal(r,c){
+function reveal(r,c,depth){
+    depth=depth||0;
     if(gameOver||flagged[r][c]||revealed[r][c])return;
     if(firstClick){
         firstClick=false;
@@ -285,34 +295,44 @@ function reveal(r,c){
     }
     revealed[r][c]=true;
     const cell=getCell(r,c);
-    cell.classList.remove('hidden','flagged');
-    cell.classList.add('revealed');
-    
-    const rect=cell.getBoundingClientRect();
-    const wrapRect=gridWrap.getBoundingClientRect();
-    
-    if(board[r][c]===-1){
-        cell.classList.add('mine');cell.textContent='💥';
+    const val=board[r][c];
+
+    if(val===-1){
+        cell.classList.remove('hidden','flagged');
+        cell.classList.add('revealed','mine');cell.textContent='💥';
         gameOver=true;clearInterval(timer);
         playExplosion();
         triggerShake();
+        const rect=cell.getBoundingClientRect();
+        const wrapRect=gridWrap.getBoundingClientRect();
         addExplosionParticles(rect.left-wrapRect.left+rect.width/2,rect.top-wrapRect.top+rect.height/2);
-        revealAll();
-        setTimeout(()=>{overlay.classList.remove('hidden');endMsg.textContent='💥 Game Over! Time: '+seconds+'s';},500);
+        const lastPop=revealAll();
+        setTimeout(()=>{overlay.classList.remove('hidden');endMsg.textContent='💥 Game Over! Time: '+seconds+'s';},Math.max(500,lastPop+400));
         return;
     }
-    
-    if(board[r][c]>0){
-        cell.textContent=board[r][c];cell.classList.add('n'+board[r][c]);
-        playNumber(board[r][c]);
-        for(let i=0;i<board[r][c];i++){
-            addParticle(rect.left-wrapRect.left+rect.width/2,rect.top-wrapRect.top+rect.height/2,'#0ff');
-        }
-    }else{
-        playReveal();
+
+    // visual reveal ripples outward: DOM update staggered by flood depth
+    const applyReveal=()=>{
+        cell.classList.remove('hidden','flagged');
+        cell.classList.add('revealed');
+        if(val>0){
+            cell.textContent=val;cell.classList.add('n'+val);
+            if(depth===0){
+                playNumber(val);
+                const rect=cell.getBoundingClientRect();
+                const wrapRect=gridWrap.getBoundingClientRect();
+                for(let i=0;i<val;i++){
+                    addParticle(rect.left-wrapRect.left+rect.width/2,rect.top-wrapRect.top+rect.height/2,'#0ff');
+                }
+            }else if(depth%2===0){playNumber(val);}
+        }else{playReveal();}
+    };
+    if(depth>0)setTimeout(applyReveal,Math.min(depth*18,650));else applyReveal();
+
+    if(val===0){
         for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
             const nr=r+dr,nc=c+dc;
-            if(nr>=0&&nr<rows&&nc>=0&&nc<cols)reveal(nr,nc);
+            if(nr>=0&&nr<rows&&nc>=0&&nc<cols)reveal(nr,nc,depth+1);
         }
     }
     checkWin();
@@ -324,16 +344,48 @@ function checkWin(){
     if(unrevealed===mines){
         gameOver=true;clearInterval(timer);
         playWin();
-        setTimeout(()=>{overlay.classList.remove('hidden');endMsg.textContent='🎉 You Win! Time: '+seconds+'s';},300);
+        winCelebration();
+        setTimeout(()=>{overlay.classList.remove('hidden');endMsg.textContent='🎉 You Win! Time: '+seconds+'s';},1400);
+    }
+}
+
+function winCelebration(){
+    gridEl.classList.add('win');
+    const wrapRect=gridWrap.getBoundingClientRect();
+    const colors=['#0ff','#0f0','#ff0','#f0f','#f80','#fff'];
+    for(let i=0;i<50;i++){
+        const el=document.createElement('div');
+        el.className='confetti';
+        const color=colors[Math.floor(Math.random()*colors.length)];
+        el.style.left=(Math.random()*wrapRect.width)+'px';
+        el.style.width=(4+Math.random()*5)+'px';
+        el.style.height=(6+Math.random()*7)+'px';
+        el.style.background=color;
+        el.style.boxShadow='0 0 6px '+color;
+        el.style.animationDuration=(1.2+Math.random()*1.4)+'s';
+        el.style.animationDelay=(Math.random()*0.5)+'s';
+        particlesEl.appendChild(el);
+        setTimeout(()=>el.remove(),3500);
     }
 }
 
 function revealAll(){
+    // staggered mine pops rippling across the board
+    let i=0,last=0;
     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
         if(board[r][c]===-1&&!revealed[r][c]){
-            const cell=getCell(r,c);cell.classList.remove('hidden');cell.classList.add('mine');cell.textContent='💣';
+            const cell=getCell(r,c);
+            const idx=i;
+            const delay=150+idx*45;
+            last=delay;
+            setTimeout(()=>{
+                cell.classList.remove('hidden');cell.classList.add('mine');cell.textContent='💣';
+                if(idx%3===0)playTone(80+Math.random()*60,'sawtooth',0.15,0.08);
+            },Math.min(delay,1800));
+            i++;
         }
     }
+    return Math.min(last,1800);
 }
 </script>
 </body>

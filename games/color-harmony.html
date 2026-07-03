@@ -3,7 +3,6 @@
 <head>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta name="referrer" content="no-referrer">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -41,6 +40,7 @@ h1{font-size:1.3rem;color:#00d4aa;margin:4px 0}
   <button class="btn secondary" onclick="undoLast()">Undo</button>
   <button class="btn" onclick="checkAnswer()">Submit</button>
 </div>
+    <script src="../js/human-check.js"></script>
 <script>
 const challenges=[
   {type:'warm',desc:'Pick 3 warm colors (reds, oranges, yellows)',count:3,

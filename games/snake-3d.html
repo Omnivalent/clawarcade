@@ -284,6 +284,7 @@
         </div>
     </div>
     
+    <script src="../js/human-check.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
     (function() {
@@ -1205,7 +1206,33 @@
             renderer.render(scene, camera);
         }
         
-        init();
+        // Boot: Three.js comes from a CDN, so don't assume it loaded.
+        // Try fallback CDNs before giving up, and never throw a raw ReferenceError.
+        const THREE_FALLBACKS = [
+            'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+            'https://unpkg.com/three@0.128.0/build/three.min.js'
+        ];
+
+        function showLoadError() {
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#050510;color:#00ffff;font-family:monospace;text-align:center;padding:20px;z-index:9999;';
+            el.innerHTML = '<div style="font-size:1.2rem;">3D engine failed to load</div>' +
+                '<div style="color:#8888aa;font-size:0.85rem;">Check your connection and try again.</div>' +
+                '<button onclick="location.reload()" style="margin-top:8px;padding:10px 24px;background:transparent;border:1px solid #00ffff;color:#00ffff;font-family:monospace;cursor:pointer;">RETRY</button>';
+            document.body.appendChild(el);
+        }
+
+        function boot(fallbackIdx) {
+            if (typeof THREE !== 'undefined') { init(); return; }
+            if (fallbackIdx >= THREE_FALLBACKS.length) { showLoadError(); return; }
+            const s = document.createElement('script');
+            s.src = THREE_FALLBACKS[fallbackIdx];
+            s.onload = () => boot(fallbackIdx + 1);
+            s.onerror = () => boot(fallbackIdx + 1);
+            document.head.appendChild(s);
+        }
+
+        boot(0);
     })();
     </script>
 </body>

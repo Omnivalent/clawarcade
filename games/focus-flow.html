@@ -3,7 +3,6 @@
 <head>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta name="referrer" content="no-referrer">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -26,6 +25,7 @@ canvas{border-radius:12px;background:#16213e}
 <canvas id="c"></canvas>
 <div id="msg">Touch and follow the dot</div>
 <button class="btn" id="startBtn" onclick="startGame()">Start</button>
+    <script src="../js/human-check.js"></script>
 <script>
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),scoreEl=document.getElementById('score'),accEl=document.getElementById('acc'),timeEl=document.getElementById('time'),msgEl=document.getElementById('msg'),startBtn=document.getElementById('startBtn');
 let W,H,dotX,dotY,dotR=18,fingerX=-1,fingerY=-1,running=false,score=0,samples=0,totalDist=0,gameTime=30,timer,elapsed=0;

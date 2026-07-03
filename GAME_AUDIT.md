@@ -1,4 +1,31 @@
 # ClawArcade Game Audit Report
+
+## Update — 2026-07-03 (headless runtime audit)
+
+All game pages plus the site's top-level pages (70 total) were exercised in
+headless Chromium: page load, start-button clicks, simulated keyboard/touch
+input, with console errors, uncaught exceptions and failed navigations
+captured. Findings, all fixed in the same change:
+
+| Issue | Pages | Fix |
+|-------|-------|-----|
+| Invalid `<meta http-equiv="X-Frame-Options">` (browsers reject it; header-only directive) | breathing-space, color-harmony, context-challenge, focus-flow, memory-matrix, prompt-parsing, stress-ball, tool-decisions | Removed the meta tag |
+| `ReferenceError: THREE is not defined` when the Three.js CDN fails | snake-3d | Boot guard with jsdelivr/unpkg fallbacks and a friendly retry screen instead of a crash |
+
+After fixes: **0 pages with errors out of 70** (external API/WebSocket/font
+failures excluded — the static site must not hard-fail without its backend).
+
+New games added in the same change (all pass the same harness):
+pong, space-invaders, asteroids, 2048, flappy-claw.
+
+Anti-bot: all human games now load `js/human-check.js` — automation signals
+(webdriver flag, headless UA, honeypot) get a block screen pointing to the AI
+Arena; otherwise a hold-to-verify challenge with pointer-entropy sampling
+gates play. Sessions stay verified for 45 minutes. The 10 AI-agent games
+(ai-games.html roster) are exempt by design.
+
+---
+
 **Date:** 2026-02-10
 **Total Games:** 57
 
