@@ -6,7 +6,7 @@
 
   "prompts": {
     "place": "🔥 Place the Forge on the glowing tile",
-    "assign": "👆 Tap Cindling, then tap the glowing tree beside the Forge",
+    "assign": "👆 Tap Cindling, then tap the glowing {node} beside the Forge",
     "working": "✨ Resonance! Cindling is changing… watch the bar above it",
     "done": "🌱 Your sanctuary grows — two new wildkin have arrived. Steer them with decor!"
   }

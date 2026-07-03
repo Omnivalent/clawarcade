@@ -101,7 +101,9 @@ export class Onboarding {
     gameEvents.emit('wk-build-changed', null);
     const pos = tileToWorld(this.targetNode.tx, this.targetNode.ty);
     this.highlight.setPosition(pos.x, pos.y);
-    this.setGuide(onboardingConfig.prompts.assign);
+    // {node} becomes the target's real name — the tutorial may pick a tree,
+    // rock or flower depending on which is closest in the generated land.
+    this.setGuide(onboardingConfig.prompts.assign.replace('{node}', this.targetNode.def.name));
   }
 
   /** WorldScene calls this when a creature is assigned to a node. */

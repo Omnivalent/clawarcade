@@ -254,17 +254,21 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     if (!cindling) return;
     cindling.wanderEnabled = false; // stays put between tutorial steps
 
-    // Target node: the reachable node nearest to the Cindling.
+    // Target node: the reachable node nearest to the Cindling. Trees are
+    // preferred (the classic "chop the tree" opening) but any node type works
+    // — the guide prompt names whichever it is.
     let target: ResourceNode | null = null;
-    let bestDist = Infinity;
+    let bestScore = Infinity;
     for (const n of this.nodes) {
       const d = tileDistance(n.tx, n.ty, cindling.tx, cindling.ty);
       const reachable = this.pathfinder.findPathAdjacent(
         { tx: cindling.tx, ty: cindling.ty },
         { tx: n.tx, ty: n.ty },
       );
-      if (reachable !== null && d < bestDist) {
-        bestDist = d;
+      if (reachable === null) continue;
+      const score = d + (n.typeId === 'tree' ? 0 : 100); // any tree beats any non-tree
+      if (score < bestScore) {
+        bestScore = score;
         target = n;
       }
     }
