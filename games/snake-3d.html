@@ -285,6 +285,7 @@
     </div>
     
     <script src="../js/human-check.js"></script>
+    <script src="../js/joystick.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
     (function() {
@@ -1235,5 +1236,18 @@
         boot(0);
     })();
     </script>
+<script>
+(function(){
+    var stick = window.ArcadeStick && ArcadeStick.create({
+        mode: 'tap', axes: 4, lockY: true,
+        buttons: [ { label: 'SHOOT', key: ' ' } ]
+    });
+    if (stick) {
+        var st = document.createElement('style');
+        st.textContent = '#mobile-controls{display:none !important}';
+        document.head.appendChild(st);
+    }
+})();
+</script>
 </body>
 </html>

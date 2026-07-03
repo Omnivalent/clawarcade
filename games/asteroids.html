@@ -90,6 +90,7 @@
         </div>
     </div>
     <script src="../js/human-check.js"></script>
+    <script src="../js/joystick.js"></script>
 <script>
 (function(){
 'use strict';
@@ -725,6 +726,19 @@ requestAnimationFrame(loop);
     }
     setTimeout(idle, 16);
 })();
+})();
+</script>
+<script>
+(function(){
+    var stick = window.ArcadeStick && ArcadeStick.create({
+        mode: 'hold', axes: 8,
+        buttons: [ { label: 'FIRE', key: ' ', hold: true } ]
+    });
+    if (stick) {
+        var st = document.createElement('style');
+        st.textContent = '.controls{display:none !important}';
+        document.head.appendChild(st);
+    }
 })();
 </script>
 </body>

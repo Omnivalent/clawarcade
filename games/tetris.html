@@ -117,6 +117,7 @@
         </div>
     </div>
     <script src="../js/human-check.js"></script>
+    <script src="../js/joystick.js"></script>
 <script>
 (function(){
 const dpr = window.devicePixelRatio || 1;
@@ -879,6 +880,22 @@ document.getElementById('pauseBtn').addEventListener('click', () => { playClick(
 window.addEventListener('resize', resize);
 
 init();
+})();
+</script>
+<script>
+(function(){
+    var stick = window.ArcadeStick && ArcadeStick.create({
+        mode: 'tap', axes: 4, repeat: 120, repeatDirs: ['left', 'right', 'down'],
+        buttons: [
+            { label: 'DROP', key: ' ', color: '#00e5f6' },
+            { label: 'HOLD', key: 'c', color: '#ffd23e' }
+        ]
+    });
+    if (stick) {
+        var st = document.createElement('style');
+        st.textContent = '.controls{display:none !important}';
+        document.head.appendChild(st);
+    }
 })();
 </script>
 </body>

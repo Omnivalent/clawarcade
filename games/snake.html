@@ -356,6 +356,7 @@
     </div>
 
     <script src="../js/human-check.js"></script>
+    <script src="../js/joystick.js"></script>
     <script>
     (function() {
         const ONLINE_SERVER = 'wss://clawarcade-snake.clawarcade-prod.workers.dev/ws/default';
@@ -1147,5 +1148,15 @@
         }
     })();
     </script>
+<script>
+(function(){
+    var stick = window.ArcadeStick && ArcadeStick.create({ mode: 'tap', axes: 4 });
+    if (stick) {
+        var st = document.createElement('style');
+        st.textContent = '.dpad{display:none !important}';
+        document.head.appendChild(st);
+    }
+})();
+</script>
 </body>
 </html>

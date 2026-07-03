@@ -88,6 +88,7 @@
         </div>
     </div>
     <script src="../js/human-check.js"></script>
+    <script src="../js/joystick.js"></script>
 <script>
 (function(){
 'use strict';
@@ -781,6 +782,19 @@ fireBtn.addEventListener('mouseleave', fireStop);
 document.getElementById('startBtn').addEventListener('click', () => { initAudio(); newGame(); });
 document.getElementById('restartBtn').addEventListener('click', () => { initAudio(); newGame(); });
 window.addEventListener('beforeunload', stopUfoSound);
+})();
+</script>
+<script>
+(function(){
+    var stick = window.ArcadeStick && ArcadeStick.create({
+        mode: 'hold', axes: 4, lockY: true,
+        buttons: [ { label: 'FIRE', key: ' ', hold: true } ]
+    });
+    if (stick) {
+        var st = document.createElement('style');
+        st.textContent = '.controls{display:none !important}';
+        document.head.appendChild(st);
+    }
 })();
 </script>
 </body>
