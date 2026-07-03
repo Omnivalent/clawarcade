@@ -271,6 +271,19 @@
         .scr-jump .hop { width: 13px; height: 13px; border-radius: 4px; background: var(--magenta); box-shadow: 0 0 10px rgba(255,42,109,0.6); left: 26%; animation: hop-up 1.15s cubic-bezier(.5,0,.6,1) infinite alternate; }
         @keyframes hop-up { from { bottom: 22px; } to { bottom: 88px; } }
 
+        /* isles preview */
+        .scr-isle { background: radial-gradient(ellipse 90% 80% at 50% 30%, #0d2438, #071018 75%); }
+        .scr-isle .tile { position: absolute; width: 34px; height: 34px; transform: rotate(45deg) scale(1, 0.55); border-radius: 4px; }
+        .scr-isle .g1 { background: #3f9e57; top: 46px; left: 44%; box-shadow: 0 0 10px rgba(63,158,87,0.35); }
+        .scr-isle .g2 { background: #47b062; top: 34px; left: 32%; }
+        .scr-isle .g3 { background: #388f4e; top: 58px; left: 56%; }
+        .scr-isle .s1 { background: #d8bf80; top: 70px; left: 30%; }
+        .scr-isle .s2 { background: #cbb173; top: 22px; left: 56%; }
+        .scr-isle .w1 { background: #1d6f9e; top: 82px; left: 54%; opacity: 0.85; }
+        .scr-isle .tree { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #2fbf5f; box-shadow: 0 0 8px rgba(47,191,95,0.6); }
+        .scr-isle .t1 { top: 32px; left: 40%; } .scr-isle .t2 { top: 52px; left: 63%; }
+        .scr-isle .fire { position: absolute; top: 44px; left: 52%; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 14px var(--gold); animation: t-pulse 1.4s ease-in-out infinite; }
+
         /* ---------- sections ---------- */
         .section { padding: clamp(2.8rem, 7vw, 4.6rem) 0; }
         .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1.8rem; }
@@ -383,8 +396,8 @@
 
         <div class="ticker" aria-hidden="true">
             <div class="ticker-track">
-                <span class="c">★ 50+ games — free, no signup</span><span class="g">🕹️ new: claw storm · muncher · racer · claw jump · crossing + more</span><span class="m">🏆 leaderboards on every cabinet</span><span class="c">📱 plays great on mobile</span>
-                <span class="c">★ 50+ games — free, no signup</span><span class="g">🕹️ new: claw storm · muncher · racer · claw jump · crossing + more</span><span class="m">🏆 leaderboards on every cabinet</span><span class="c">📱 plays great on mobile</span>
+                <span class="c">★ 50+ games — free, no signup</span><span class="g">🕹️ new: claw isles · claw storm · muncher · racer + more</span><span class="m">🏆 leaderboards on every cabinet</span><span class="c">📱 plays great on mobile</span>
+                <span class="c">★ 50+ games — free, no signup</span><span class="g">🕹️ new: claw isles · claw storm · muncher · racer + more</span><span class="m">🏆 leaderboards on every cabinet</span><span class="c">📱 plays great on mobile</span>
             </div>
         </div>
 
@@ -402,7 +415,7 @@
                 <div class="insert-coin" id="insertCoin">— insert coin —</div>
                 <div class="stats">
                     <div class="stat"><b>50+</b><span>Games</span></div>
-                    <div class="stat"><b>11</b><span>New cabinets</span></div>
+                    <div class="stat"><b>12</b><span>New cabinets</span></div>
                     <div class="stat"><b>0</b><span>Signups needed</span></div>
                 </div>
             </div>
@@ -421,6 +434,12 @@
                     <a class="sec-more" href="arcade-games.html">All games →</a>
                 </div>
                 <div class="grid featured">
+                    <a class="card rv" style="--card-hue:#22e59a" href="games/claw-isles.html">
+                        <div class="scr scr-isle" aria-hidden="true"><div class="tile w1"></div><div class="tile s1"></div><div class="tile s2"></div><div class="tile g1"></div><div class="tile g2"></div><div class="tile g3"></div><div class="tree t1"></div><div class="tree t2"></div><div class="fire"></div></div>
+                        <div class="card-top"><div class="card-ico">🏝️</div><h3>Claw Isles</h3></div>
+                        <p>An isometric island adventure — tap to explore, gather, fish, fight slimes and finish the quest chain.</p>
+                        <div class="chips"><span class="chip new">New</span><span class="chip hot">Adventure</span></div>
+                    </a>
                     <a class="card rv" style="--card-hue:#00e5f6" href="games/claw-storm.html">
                         <div class="scr scr-ast" aria-hidden="true"><div class="px rock a1" style="border-color:var(--cyan);box-shadow:0 0 8px rgba(0,229,246,0.5)"></div><div class="px rock a2"></div><div class="px rock a3" style="border-color:var(--green)"></div><div class="px shipp"></div></div>
                         <div class="card-top"><div class="card-ico">🌀</div><h3>Claw Storm</h3></div>
@@ -649,7 +668,7 @@
         nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { burger.classList.remove('open'); nav.classList.remove('open'); }));
 
         // press start -> random cabinet
-        const CABINETS = ['claw-storm', 'space-invaders', 'asteroids', 'pong', '2048', 'flappy-claw', 'snake', 'tetris', 'breakout', 'minesweeper', 'snake-3d'];
+        const CABINETS = ['claw-isles', 'claw-storm', 'space-invaders', 'asteroids', 'pong', '2048', 'flappy-claw', 'snake', 'tetris', 'breakout', 'minesweeper', 'snake-3d'];
         function randomGame() { location.href = 'games/' + CABINETS[Math.floor(Math.random() * CABINETS.length)] + '.html'; }
         document.getElementById('randomBtn').addEventListener('click', randomGame);
         document.getElementById('insertCoin').addEventListener('click', randomGame);
