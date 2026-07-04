@@ -1,0 +1,8 @@
+{
+  "_comment": "PASS 3 — scarcity knobs that turn placement into a real choice. `maxCreatures`: soft cap on wildkin in the sanctuary (starting trio + summons). `maxDecor`: cap on placed decor. Hitting either cap shows a clear 'Sanctuary full' message — never a silent fail; remove decor (Build menu → Remove mode, 50% refund) to make room. `moveCooldownSeconds`: after a creature is assigned or moved it can't be redirected for this long, so steering is deliberate rather than instant flip-flopping. The remaining cooldown is shown in the creature's panel and above its head.",
+
+  "maxCreatures": 6,
+  "maxDecor": 8,
+  "moveCooldownSeconds": 20,
+  "removeRefundFraction": 0.5
+}

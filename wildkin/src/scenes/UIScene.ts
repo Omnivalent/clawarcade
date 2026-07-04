@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
+import creaturesConfig from '../config/creatures.json';
 import decorConfig from '../config/decor.json';
 import nodesConfig from '../config/nodes.json';
 import { gameEvents, inventory } from '../core/GameState';
 import * as SaveManager from '../core/SaveManager';
+import * as Dex from '../core/dex';
 import { effectiveUIMode, getUIModeSetting, setUIModeSetting, type UIMode } from '../core/device';
 import { shareSnapshot } from '../core/share';
-import type { BuildItem, DailyBoost, DecorDef, EvolutionEvent, NodeTypeDef } from '../types';
+import type { BuildItem, DailyBoost, DecorDef, EvolutionEvent, NodeTypeDef, SpeciesDef } from '../types';
 
 /**
  * UIScene — the HUD, layered on top of WorldScene (Build Pass 2).
@@ -36,6 +38,7 @@ interface SelectionInfo {
   state: string;
   formName: string | null;
   formRare: boolean;
+  cooldownSeconds: number;
   branches: {
     id: string;
     name: string;
@@ -66,6 +69,10 @@ export class UIScene extends Phaser.Scene {
   private guidePanel: Phaser.GameObjects.Container | null = null;
   private guideText: string | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
+  private dexPanel: Phaser.GameObjects.Container | null = null;
+  private dexBtnLabel: Phaser.GameObjects.Text | null = null;
+  private buildCapsLabel: Phaser.GameObjects.Text | null = null;
+  private removeActive = false;
   private resetArmed = false;
 
   constructor() {
@@ -87,7 +94,11 @@ export class UIScene extends Phaser.Scene {
     const onGuide = (msg: string | null) => this.showGuide(msg);
     const onModal = (ev: EvolutionEvent) => this.showEvolutionModal(ev);
     const onOnboardingChanged = () => this.rebuild();
+    const onDexChanged = () => this.refreshDexButton();
+    const onCapsChanged = () => this.refreshCapsLabel();
 
+    gameEvents.on('wk-dex-changed', onDexChanged);
+    gameEvents.on('wk-caps-changed', onCapsChanged);
     gameEvents.on('wk-inventory', onInventory);
     gameEvents.on('wk-selected', onSelected);
     gameEvents.on('wk-selected-update', onSelectedUpdate);
@@ -97,6 +108,8 @@ export class UIScene extends Phaser.Scene {
     gameEvents.on('wk-onboarding-changed', onOnboardingChanged);
 
     this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+      gameEvents.off('wk-dex-changed', onDexChanged);
+      gameEvents.off('wk-caps-changed', onCapsChanged);
       gameEvents.off('wk-inventory', onInventory);
       gameEvents.off('wk-selected', onSelected);
       gameEvents.off('wk-selected-update', onSelectedUpdate);
@@ -122,8 +135,15 @@ export class UIScene extends Phaser.Scene {
     this.buildPanel = null;
     this.settingsPanel = null;
     this.guidePanel = null;
+    this.dexPanel = null;
+    this.dexBtnLabel = null;
+    this.buildCapsLabel = null;
     this.barLabels = [];
     this.activeBuildId = null;
+    if (this.removeActive) {
+      this.removeActive = false;
+      gameEvents.emit('wk-remove-toggled', false);
+    }
 
     this.buildResourceBar();
     this.buildDailyBanner();
@@ -223,13 +243,34 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  // --- Top-right: Build + Settings buttons (hidden during onboarding) ----------
+  // --- Top-right: Auras · Dex · Build · Settings (hidden during onboarding) ----
   private buildTopRightButtons(): void {
     const s = this.s;
-    const bw = 110 * s;
     const bh = 44 * s;
-    this.makeButton(W - 12 - bw - 10 * s - bh, 12, bw, bh, '🔨 Build', () => this.toggleBuildPanel());
-    this.makeButton(W - 12 - bh, 12, bh, bh, '⚙', () => this.toggleSettingsPanel());
+    const gap = 8 * s;
+    // Laid out right-to-left: ⚙, Build, Dex, 👁(aura toggle).
+    let x = W - 12 - bh;
+    this.makeButton(x, 12, bh, bh, '⚙', () => this.toggleSettingsPanel());
+    x -= 110 * s + gap;
+    this.makeButton(x, 12, 110 * s, bh, '🔨 Build', () => this.toggleBuildPanel());
+    x -= 118 * s + gap;
+    this.dexBtnLabel = this.makeButton(x, 12, 118 * s, bh, this.dexButtonText(), () => this.toggleDexPanel());
+    x -= bh + gap;
+    const aurasOn = this.registry.get('wk-show-auras') !== false;
+    this.makeButton(x, 12, bh, bh, aurasOn ? '👁' : '🚫', () => {
+      const on = this.registry.get('wk-show-auras') !== false;
+      gameEvents.emit('wk-auras-toggled', !on);
+      this.toast(!on ? 'Influence auras shown' : 'Influence auras hidden');
+      this.rebuild(); // refresh the button glyph
+    });
+  }
+
+  private dexButtonText(): string {
+    return `📖 ${Dex.discoveredCount()}/${Dex.totalForms()}`;
+  }
+
+  private refreshDexButton(): void {
+    this.dexBtnLabel?.setText(this.dexButtonText());
   }
 
   // --- Build menu ----------------------------------------------------------------
@@ -242,6 +283,16 @@ export class UIScene extends Phaser.Scene {
       if (def.buildable) {
         this.buildItems.push({ kind: 'node', id, name: def.name, cost: def.cost, color: def.color });
       }
+    }
+    // PASS 3 — summon a new wildkin (needed to chase the full dex).
+    for (const [id, def] of Object.entries(creaturesConfig.species as Record<string, SpeciesDef>)) {
+      this.buildItems.push({
+        kind: 'creature',
+        id,
+        name: `Summon ${def.name}`,
+        cost: def.summonCost,
+        color: def.color,
+      });
     }
   }
 
@@ -261,14 +312,19 @@ export class UIScene extends Phaser.Scene {
 
   private toggleBuildPanel(): void {
     this.closeSettingsPanel();
+    this.closeDexPanel();
     if (this.buildPanel) {
       this.closeBuildPanel();
       return;
     }
     const s = this.s;
-    const rowH = 50 * s;
-    const panelW = 320 * s;
-    const panelH = rowH * this.buildItems.length + 58 * s;
+    // 2-column grid so 12 items + summons fit on a phone-scaled canvas too.
+    const cols = 2;
+    const rows = Math.ceil(this.buildItems.length / cols);
+    const cellH = 46 * s;
+    const cellW = 236 * s;
+    const panelW = cols * cellW + 24 * s;
+    const panelH = rows * cellH + 108 * s;
     const px = W - 12 - panelW;
     const py = 12 + 44 * s + 8;
 
@@ -276,17 +332,28 @@ export class UIScene extends Phaser.Scene {
     this.root.add(this.buildPanel);
     this.panelBg(px, py, panelW, panelH, this.buildPanel);
 
-    const title = this.add.text(px + 14 * s, py + 10 * s, 'Place in your sanctuary', {
+    const title = this.add.text(px + 14 * s, py + 8 * s, 'Place in your sanctuary', {
       fontSize: `${15 * s}px`,
       fontFamily: 'Segoe UI, sans-serif',
       color: '#9fd8c8',
     });
-    this.buildPanel.add(title);
+    // Live cap counters — scarcity is always visible (PASS 3).
+    this.buildCapsLabel = this.add.text(px + 14 * s, py + 28 * s, '', {
+      fontSize: `${11 * s}px`,
+      fontFamily: 'Segoe UI, sans-serif',
+      color: '#9ab8ae',
+    });
+    this.buildPanel.add([title, this.buildCapsLabel]);
+    this.refreshCapsLabel();
 
     this.buildItems.forEach((item, i) => {
-      const ry = py + 38 * s + i * rowH;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const rx = px + 12 * s + col * cellW;
+      const ry = py + 46 * s + row * cellH;
+
       const zone = this.add
-        .zone(px + 6, ry, panelW - 12, rowH - 4)
+        .zone(rx, ry, cellW - 6 * s, cellH - 4)
         .setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
       this.stopThrough(zone);
@@ -296,24 +363,24 @@ export class UIScene extends Phaser.Scene {
       });
 
       const swatch = this.add
-        .rectangle(px + 22 * s, ry + rowH / 2 - 2, 22 * s, 22 * s, Phaser.Display.Color.HexStringToColor(item.color).color)
+        .rectangle(rx + 14 * s, ry + cellH / 2 - 2, 18 * s, 18 * s, Phaser.Display.Color.HexStringToColor(item.color).color)
         .setStrokeStyle(1.5, 0xffffff, 0.6);
-      const name = this.add.text(px + 42 * s, ry + 6 * s, item.name, {
-        fontSize: `${15 * s}px`,
+      const name = this.add.text(rx + 28 * s, ry + 4 * s, item.name, {
+        fontSize: `${13 * s}px`,
         fontFamily: 'Segoe UI, sans-serif',
         color: '#e8f6f0',
       });
       const sub =
         item.kind === 'decor'
-          ? `${this.costLabel(item.cost)}   ${this.decorBranchLabel(item.id)}`
+          ? `${this.costLabel(item.cost)}  ${this.decorBranchLabel(item.id)}`
           : this.costLabel(item.cost);
-      const cost = this.add.text(px + 42 * s, ry + 25 * s, sub, {
-        fontSize: `${11.5 * s}px`,
+      const cost = this.add.text(rx + 28 * s, ry + 22 * s, sub, {
+        fontSize: `${10 * s}px`,
         fontFamily: 'Segoe UI, sans-serif',
         color: '#9ab8ae',
       });
       const hl = this.add
-        .rectangle(px + 6, ry, panelW - 12, rowH - 4, 0x4fd8c4, 0.15)
+        .rectangle(rx, ry, cellW - 6 * s, cellH - 4, 0x4fd8c4, 0.15)
         .setOrigin(0, 0)
         .setStrokeStyle(1.5, 0x4fd8c4, item.id === this.activeBuildId ? 0.9 : 0)
         .setFillStyle(0x4fd8c4, item.id === this.activeBuildId ? 0.15 : 0);
@@ -321,9 +388,34 @@ export class UIScene extends Phaser.Scene {
       this.buildPanel!.add([hl, zone, swatch, name, cost]);
     });
 
-    this.makeButton(px + 14 * s, py + panelH - 46 * s, panelW - 28 * s, 36 * s, '✕ Close build mode', () => {
+    // Footer: remove-decor toggle + close.
+    const fy = py + panelH - 48 * s;
+    const half = (panelW - 40 * s) / 2;
+    this.makeButton(px + 14 * s, fy, half, 38 * s, '🗑 Remove decor', () => {
+      this.removeActive = !this.removeActive;
+      // Removing and placing are mutually exclusive modes.
+      this.activeBuildId = null;
+      gameEvents.emit('wk-build-changed', null);
+      gameEvents.emit('wk-remove-toggled', this.removeActive);
+      this.toast(this.removeActive
+        ? 'Remove mode: tap a decor to demolish it (50% refund). Toggle again to stop.'
+        : 'Remove mode off');
+      this.closeBuildPanel(true);
+    }, this.buildPanel, this.removeActive);
+    this.makeButton(px + 26 * s + half, fy, half, 38 * s, '✕ Close', () => {
       this.closeBuildPanel();
     }, this.buildPanel);
+  }
+
+  private refreshCapsLabel(): void {
+    const caps = this.registry.get('wk-caps') as
+      | { creatures: number; maxCreatures: number; decor: number; maxDecor: number }
+      | undefined;
+    if (caps && this.buildCapsLabel?.active) {
+      this.buildCapsLabel.setText(
+        `Decor ${caps.decor}/${caps.maxDecor} · Wildkin ${caps.creatures}/${caps.maxCreatures} — space is limited, choose well`,
+      );
+    }
   }
 
   private selectBuildItem(item: BuildItem): void {
@@ -341,16 +433,22 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  private closeBuildPanel(): void {
+  private closeBuildPanel(keepRemoveMode = false): void {
     this.buildPanel?.destroy(true);
     this.buildPanel = null;
+    this.buildCapsLabel = null;
     this.activeBuildId = null;
     gameEvents.emit('wk-build-changed', null);
+    if (!keepRemoveMode && this.removeActive) {
+      this.removeActive = false;
+      gameEvents.emit('wk-remove-toggled', false);
+    }
   }
 
   // --- Settings ------------------------------------------------------------------
   private toggleSettingsPanel(): void {
     this.closeBuildPanel();
+    this.closeDexPanel();
     if (this.settingsPanel) {
       this.closeSettingsPanel();
       return;
@@ -495,11 +593,14 @@ export class UIScene extends Phaser.Scene {
 
     this.counterBars.clear();
 
+    // PASS 3 — the move cooldown is always visible while active.
+    const cd = info.cooldownSeconds > 0 ? ` · ⏳ ${info.cooldownSeconds}s to redirect` : '';
+
     if (info.stage >= 2) {
       // Evolved: show the form instead of progress bars.
       this.infoTitle.setText(`${info.name} — ${info.formName}${info.formRare ? ' ✨' : ''}`);
       this.infoState.setText(
-        `${info.formRare ? 'RARE form · ' : ''}evolved from ${info.speciesName} · ${stateLabels[info.state] ?? info.state}`,
+        `${info.formRare ? 'RARE form · ' : ''}evolved from ${info.speciesName} · ${stateLabels[info.state] ?? info.state}${cd}`,
       );
       this.getBarLabel(0).setPosition(px, py + 6 * s).setText(info.formRare ? '✨ A rare variant — one in seven!' : 'Fully evolved');
       this.getBarLabel(1).setText('');
@@ -507,7 +608,7 @@ export class UIScene extends Phaser.Scene {
     }
 
     this.infoTitle.setText(`${info.name} — ${info.speciesName}`);
-    this.infoState.setText(stateLabels[info.state] ?? info.state);
+    this.infoState.setText((stateLabels[info.state] ?? info.state) + cd);
 
     // The two branch bars: affinity progress toward each possible evolution.
     info.branches.forEach((br, i) => {
@@ -537,6 +638,123 @@ export class UIScene extends Phaser.Scene {
       this.infoPanel?.add(this.barLabels[i]);
     }
     return this.barLabels[i];
+  }
+
+  // --- Form Dex (PASS 3): the collection screen / long-term goal ---------------
+  private toggleDexPanel(): void {
+    this.closeBuildPanel();
+    this.closeSettingsPanel();
+    if (this.dexPanel) {
+      this.closeDexPanel();
+      return;
+    }
+    const s = this.s;
+    // Clamp so the panel fits the canvas even at phone scale (1.5x).
+    const pw = Math.min(1256, 860 * s);
+    const ph = Math.min(656, 560 * s);
+    const px = (W - pw) / 2;
+    const py = (H - ph) / 2;
+
+    this.dexPanel = this.add.container(0, 0).setDepth(900);
+    this.root.add(this.dexPanel);
+    this.panelBg(px, py, pw, ph, this.dexPanel);
+
+    const entries = Dex.allEntries();
+    const title = this.add
+      .text(
+        px + 18 * s,
+        py + 12 * s,
+        `📖 Form Dex — ${Dex.discoveredCount()}/${Dex.totalForms()} discovered`,
+        {
+          fontSize: `${18 * s}px`,
+          fontFamily: 'Segoe UI, sans-serif',
+          fontStyle: 'bold',
+          color: '#e8f6f0',
+        },
+      );
+    this.dexPanel.add(title);
+
+    // 4 columns x 3 rows: each base creature reads as one row of its 4 forms.
+    const cols = 4;
+    const gridTop = py + 46 * s;
+    const gridH = ph - 46 * s - 58 * s;
+    const cellW = (pw - 24 * s) / cols;
+    const cellH = gridH / Math.ceil(entries.length / cols);
+
+    entries.forEach((e, i) => {
+      const cx = px + 12 * s + (i % cols) * cellW;
+      const cy = gridTop + Math.floor(i / cols) * cellH;
+
+      // Cell background — branch-colored border once discovered.
+      const g = this.add.graphics();
+      g.fillStyle(0x0d1a20, 0.9);
+      g.lineStyle(
+        e.rare && e.discovered ? 2.5 : 1.5,
+        e.discovered ? Phaser.Display.Color.HexStringToColor(e.rare ? '#ffd166' : e.color).color : 0x27424d,
+        e.discovered ? 0.95 : 0.6,
+      );
+      g.fillRoundedRect(cx + 3, cy + 3, cellW - 6, cellH - 6, 8);
+      g.strokeRoundedRect(cx + 3, cy + 3, cellW - 6, cellH - 6, 8);
+      this.dexPanel!.add(g);
+
+      // The form sprite — full color when discovered, dark silhouette when not.
+      const img = this.add.image(cx + cellW / 2, cy + cellH * 0.42, `cr-form-${e.formId}`);
+      img.setScale(Math.min(1.6, (cellH * 0.55) / img.height));
+      if (!e.discovered) img.setTintFill(0x1c2f38); // locked = silhouette
+      this.dexPanel!.add(img);
+
+      const nameText = this.add
+        .text(cx + cellW / 2, cy + cellH - 34 * s, e.discovered ? e.formName : '???', {
+          fontSize: `${12 * s}px`,
+          fontFamily: 'Segoe UI, sans-serif',
+          fontStyle: e.discovered ? 'bold' : 'normal',
+          color: e.discovered ? '#e8f6f0' : '#5e7d73',
+        })
+        .setOrigin(0.5, 0);
+      const tagText = this.add
+        .text(cx + cellW / 2, cy + cellH - 18 * s, e.rare ? '✨ RARE ✨' : 'COMMON', {
+          fontSize: `${9.5 * s}px`,
+          fontFamily: 'Segoe UI, sans-serif',
+          color: e.rare ? '#ffd166' : '#7fa89b',
+        })
+        .setOrigin(0.5, 0);
+      this.dexPanel!.add([nameText, tagText]);
+
+      // Freshly-discovered flourish: NEW! badge + a little pulse.
+      if (e.isNew) {
+        const badge = this.add
+          .text(cx + cellW - 12 * s, cy + 10 * s, 'NEW!', {
+            fontSize: `${10 * s}px`,
+            fontFamily: 'Segoe UI, sans-serif',
+            fontStyle: 'bold',
+            color: '#0a1418',
+            backgroundColor: '#ffd166',
+            padding: { x: 5, y: 2 },
+          })
+          .setOrigin(1, 0);
+        this.dexPanel!.add(badge);
+        this.tweens.add({
+          targets: [img, badge],
+          scale: '*=1.12',
+          duration: 380,
+          yoyo: true,
+          repeat: 3,
+          ease: 'Sine.easeInOut',
+        });
+      }
+    });
+
+    this.makeButton(px + pw / 2 - 90 * s, py + ph - 50 * s, 180 * s, 38 * s, 'Close', () =>
+      this.closeDexPanel(),
+    this.dexPanel);
+  }
+
+  private closeDexPanel(): void {
+    if (!this.dexPanel) return;
+    this.dexPanel.destroy(true);
+    this.dexPanel = null;
+    Dex.markAllSeen(); // NEW! badges shown once, then cleared
+    this.refreshDexButton();
   }
 
   // --- Evolution celebration modal ------------------------------------------------
@@ -705,7 +923,7 @@ export class UIScene extends Phaser.Scene {
     onClick: () => void,
     parent?: Phaser.GameObjects.Container,
     active = false,
-  ): void {
+  ): Phaser.GameObjects.Text {
     const g = this.add.graphics();
     g.fillStyle(active ? 0x2e5c50 : 0x1d3a33, 1);
     g.lineStyle(1.5, active ? 0x7fe3c8 : 0x3f7a68, 1);
@@ -725,6 +943,7 @@ export class UIScene extends Phaser.Scene {
       onClick();
     });
     (parent ?? this.root).add([g, t, zone]);
+    return t;
   }
 
   /** Stop pointer events on a UI element from reaching the WorldScene below. */

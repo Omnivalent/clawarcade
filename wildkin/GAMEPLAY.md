@@ -1,6 +1,6 @@
 # 🌿 Wildkin — Game Summary & Gameplay Guide
 
-*Build Pass 2 — fused resonance-evolution + 90-second onboarding. Placeholder art.*
+*Build Pass 3 (Phase 0) — the depth loop: recursive creature influence, limited space, and the Form Dex. Placeholder art.*
 
 ## What Wildkin is
 
@@ -41,6 +41,33 @@ affinity bar above Cindling fills, and your **first evolution bursts in well
 under 90 seconds** (measured ~15–20s of play). Then two more wildkin arrive
 and the sanctuary is yours. It never replays (stored in the browser).
 
+## The depth loop (Phase 0)
+
+**Evolved creatures shape the next generation.** Every evolved form emits a
+visible **influence aura** (a tinted diamond on the map — toggle with the 👁
+button). Any wildkin working inside that aura gains affinity toward the
+aura's branch, **stacking with decor** through the exact same rules. Evolve
+one Magmaton and its fire aura nudges every Cindling working nearby toward
+Magmaton too — chains are the fastest way to steer (aura + decor beats decor
+alone), and rare forms have wider, stronger auras.
+
+**Space is scarce, steering costs time.** The sanctuary holds at most
+**8 decor** and **6 wildkin** (config: `sanctuaryLimits.json`) and nothing
+can share a tile — hitting a cap tells you plainly to make room. The Build
+menu's **🗑 Remove** mode demolishes decor for a 50% refund. After you assign
+or move a creature it needs **20 seconds to settle** before it can be
+redirected (countdown shown in its panel), so every placement and order is a
+real decision.
+
+**Summons.** The Build menu can invite another Cindling, Sporeling or
+Nimbling (for resources) — you'll need more than three wildkin to fill the
+dex.
+
+**The Form Dex (📖 button)** is the long-term goal: all 12 evolved forms,
+locked silhouettes until you discover them, COMMON/✨RARE✨ tags, NEW! badges
+on fresh discoveries, and an X/12 counter. Dex progress is a lifetime record
+— it survives refreshes AND traveling to a new land.
+
 ## Daily driver
 
 Each real-world day one branch gets **+50% affinity gain**, announced in a
@@ -75,10 +102,16 @@ land" (keeps your tutorial-done status).
 | `src/config/evolutionForms.json` | The 12 forms, rare chance, stats |
 | `src/config/dailyModifier.json` | Daily boost size + banner text |
 | `src/config/onboarding.json` | Tutorial prompts + the low first-evolution threshold |
+| `src/config/sanctuaryLimits.json` | Decor/creature caps, move cooldown, remove refund |
 | `src/config/nodes.json`, `biomes.json` | Resources/nodes, landscape generation |
 
+Auras live inside `evolutionForms.json` (`influence: {radius, branchId,
+affinityPerTick}` per form); summon costs live in `creatures.json`. The dex
+is generated from `evolutionForms.json` — add a branch and it grows itself.
+
 URL testing helpers: `?fresh=1` (ignore save), `?biome=frost&seed=42`
-(pin a landscape), `?rare=1` (force the rare roll — testing only).
+(pin a landscape), `?rare=1` (force the rare roll), `?rich=1` (deep starting
+pockets) — testing only.
 
 ## Deliberately not in this pass
 

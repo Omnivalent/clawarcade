@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { tileToWorld } from '../core/iso';
-import type { EvolvedFormDef, SpeciesDef, TileCoord } from '../types';
+import type { EvolvedFormDef, InfluenceDef, SpeciesDef, TileCoord } from '../types';
 import type { ResourceNode } from './ResourceNode';
 
 /**
@@ -59,6 +59,11 @@ export class Creature extends Phaser.GameObjects.Container {
   assignedNode: ResourceNode | null = null;
   /** Onboarding sets this false so the tutorial Cindling stays put between steps. */
   wanderEnabled = true;
+  /**
+   * PASS 3 — move cooldown: after being assigned/moved, the creature can't be
+   * redirected until this hits 0. Counts down in update(); saved & restored.
+   */
+  cooldownMs = 0;
 
   private path: TileCoord[] = [];
   private idleTimer = 1000; // ms until next wander attempt
@@ -71,6 +76,9 @@ export class Creature extends Phaser.GameObjects.Container {
   private nameLabel: Phaser.GameObjects.Text;
   private affinityBar: Phaser.GameObjects.Graphics;
   private workTween: Phaser.Tweens.Tween | null = null;
+  /** PASS 3 — the influence aura drawn under an evolved creature. */
+  private auraGfx: Phaser.GameObjects.Graphics | null = null;
+  private auraTween: Phaser.Tweens.Tween | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -166,6 +174,72 @@ export class Creature extends Phaser.GameObjects.Container {
   }
 
   // ==========================================================================
+  // Move cooldown (PASS 3) — steering is deliberate, not free
+  // ==========================================================================
+
+  /** Can the player redirect this creature right now? */
+  canRedirect(): boolean {
+    return this.cooldownMs <= 0;
+  }
+
+  cooldownSeconds(): number {
+    return Math.ceil(this.cooldownMs / 1000);
+  }
+
+  startCooldown(ms: number): void {
+    this.cooldownMs = ms;
+  }
+
+  // ==========================================================================
+  // Influence aura (PASS 3) — evolved creatures shape their neighbors
+  // ==========================================================================
+
+  /**
+   * Draw the aura diamond for this creature's evolved influence. The diamond
+   * exactly matches the Chebyshev tile radius the affinity check uses, so
+   * what the player SEES is what the game COMPUTES.
+   */
+  showAura(influence: InfluenceDef, color: number, visible: boolean): void {
+    this.hideAura();
+    const g = this.scene.add.graphics();
+    const rx = influence.radius * 64; // TILE_W * radius (half-width of the diamond)
+    const ry = influence.radius * 32; // TILE_H * radius (half-height)
+    g.fillStyle(color, 0.08);
+    g.lineStyle(2, color, 0.4);
+    g.beginPath();
+    g.moveTo(0, -ry);
+    g.lineTo(rx, 0);
+    g.lineTo(0, ry);
+    g.lineTo(-rx, 0);
+    g.closePath();
+    g.fillPath();
+    g.strokePath();
+    this.addAt(g, 0); // underneath the body
+    this.auraGfx = g;
+    g.setVisible(visible);
+    // Slow breathing pulse so the aura reads as alive, not a UI overlay.
+    this.auraTween = this.scene.tweens.add({
+      targets: g,
+      alpha: { from: 1, to: 0.45 },
+      duration: 1300,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  setAuraVisible(visible: boolean): void {
+    this.auraGfx?.setVisible(visible);
+  }
+
+  private hideAura(): void {
+    this.auraTween?.stop();
+    this.auraGfx?.destroy();
+    this.auraGfx = null;
+    this.auraTween = null;
+  }
+
+  // ==========================================================================
   // Affinity + evolution (called by WorldScene — the fused system's outcome)
   // ==========================================================================
 
@@ -234,6 +308,7 @@ export class Creature extends Phaser.GameObjects.Container {
   // ==========================================================================
 
   update(dtMs: number): void {
+    if (this.cooldownMs > 0) this.cooldownMs = Math.max(0, this.cooldownMs - dtMs);
     switch (this.state) {
       case 'idle': {
         // Occasionally wander somewhere nearby (disabled during onboarding).

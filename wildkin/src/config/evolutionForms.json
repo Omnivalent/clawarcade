@@ -1,6 +1,5 @@
 {
-  "_comment": "The 6 evolution branches and their 12 final forms. When a creature's affinity for a branch crosses its threshold, it evolves down that branch — the FORM within the branch is rolled: common (usually 85%) or the rare variant (`rareChance`). The rare is the shareable 'look what I got' moment: bigger, wilder color, gold ring, better stats. `color` on the branch itself is used for affinity bars, banners and particles. All placeholder shapes — swap for art later; keep the ids stable.",
-
+  "_comment": "The 6 evolution branches and their 12 final forms. When a creature's affinity for a branch crosses its threshold, it evolves down that branch — the FORM within the branch is rolled: common (usually 85%) or the rare variant (`rareChance`). PASS 3: every evolved form now has an `influence` — an aura that channels branch affinity into OTHER creatures working within `radius` tiles (Chebyshev), stacking with decor. This is the recursive loop: evolve one fire creature and its aura nudges neighbors toward fire too. Rare forms have stronger, wider auras. `color` on the branch is used for affinity bars, auras and particles. Placeholder shapes — swap for art later; keep ids stable.",
   "branches": {
     "magmaton": {
       "name": "Magmaton",
@@ -13,7 +12,15 @@
         "shape": "square",
         "color": "#d84315",
         "sizeMult": 1.35,
-        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 1.0 }
+        "stats": {
+          "workSpeedMult": 1.5,
+          "moveSpeedMult": 1.0
+        },
+        "influence": {
+          "radius": 2,
+          "branchId": "magmaton",
+          "affinityPerTick": 8
+        }
       },
       "rare": {
         "id": "obsidian-magmaton",
@@ -21,7 +28,15 @@
         "shape": "square",
         "color": "#2f2440",
         "sizeMult": 1.5,
-        "stats": { "workSpeedMult": 1.8, "moveSpeedMult": 1.1 }
+        "stats": {
+          "workSpeedMult": 1.8,
+          "moveSpeedMult": 1.1
+        },
+        "influence": {
+          "radius": 3,
+          "branchId": "magmaton",
+          "affinityPerTick": 12
+        }
       }
     },
     "flarewisp": {
@@ -35,7 +50,15 @@
         "shape": "star",
         "color": "#ffd166",
         "sizeMult": 1.3,
-        "stats": { "workSpeedMult": 1.2, "moveSpeedMult": 1.3 }
+        "stats": {
+          "workSpeedMult": 1.2,
+          "moveSpeedMult": 1.3
+        },
+        "influence": {
+          "radius": 2,
+          "branchId": "flarewisp",
+          "affinityPerTick": 8
+        }
       },
       "rare": {
         "id": "solar-flarewisp",
@@ -43,7 +66,15 @@
         "shape": "star",
         "color": "#fff0a0",
         "sizeMult": 1.45,
-        "stats": { "workSpeedMult": 1.4, "moveSpeedMult": 1.5 }
+        "stats": {
+          "workSpeedMult": 1.4,
+          "moveSpeedMult": 1.5
+        },
+        "influence": {
+          "radius": 3,
+          "branchId": "flarewisp",
+          "affinityPerTick": 12
+        }
       }
     },
     "mycelord": {
@@ -57,7 +88,15 @@
         "shape": "circle",
         "color": "#7d5ba6",
         "sizeMult": 1.4,
-        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 0.9 }
+        "stats": {
+          "workSpeedMult": 1.5,
+          "moveSpeedMult": 0.9
+        },
+        "influence": {
+          "radius": 2,
+          "branchId": "mycelord",
+          "affinityPerTick": 8
+        }
       },
       "rare": {
         "id": "elder-mycelord",
@@ -65,7 +104,15 @@
         "shape": "circle",
         "color": "#4a3d78",
         "sizeMult": 1.55,
-        "stats": { "workSpeedMult": 1.8, "moveSpeedMult": 1.0 }
+        "stats": {
+          "workSpeedMult": 1.8,
+          "moveSpeedMult": 1.0
+        },
+        "influence": {
+          "radius": 3,
+          "branchId": "mycelord",
+          "affinityPerTick": 12
+        }
       }
     },
     "toxifang": {
@@ -79,7 +126,15 @@
         "shape": "triangle",
         "color": "#61d84e",
         "sizeMult": 1.3,
-        "stats": { "workSpeedMult": 1.3, "moveSpeedMult": 1.2 }
+        "stats": {
+          "workSpeedMult": 1.3,
+          "moveSpeedMult": 1.2
+        },
+        "influence": {
+          "radius": 2,
+          "branchId": "toxifang",
+          "affinityPerTick": 8
+        }
       },
       "rare": {
         "id": "venom-toxifang",
@@ -87,7 +142,15 @@
         "shape": "triangle",
         "color": "#9c27b0",
         "sizeMult": 1.45,
-        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 1.4 }
+        "stats": {
+          "workSpeedMult": 1.5,
+          "moveSpeedMult": 1.4
+        },
+        "influence": {
+          "radius": 3,
+          "branchId": "toxifang",
+          "affinityPerTick": 12
+        }
       }
     },
     "tempestcoil": {
@@ -101,7 +164,15 @@
         "shape": "diamond",
         "color": "#4a63d8",
         "sizeMult": 1.35,
-        "stats": { "workSpeedMult": 1.5, "moveSpeedMult": 1.1 }
+        "stats": {
+          "workSpeedMult": 1.5,
+          "moveSpeedMult": 1.1
+        },
+        "influence": {
+          "radius": 2,
+          "branchId": "tempestcoil",
+          "affinityPerTick": 8
+        }
       },
       "rare": {
         "id": "voltaic-tempestcoil",
@@ -109,7 +180,15 @@
         "shape": "diamond",
         "color": "#ffe94d",
         "sizeMult": 1.5,
-        "stats": { "workSpeedMult": 1.8, "moveSpeedMult": 1.2 }
+        "stats": {
+          "workSpeedMult": 1.8,
+          "moveSpeedMult": 1.2
+        },
+        "influence": {
+          "radius": 3,
+          "branchId": "tempestcoil",
+          "affinityPerTick": 12
+        }
       }
     },
     "zephyrscout": {
@@ -123,7 +202,15 @@
         "shape": "triangle",
         "color": "#8fe3d0",
         "sizeMult": 1.25,
-        "stats": { "workSpeedMult": 1.1, "moveSpeedMult": 1.6 }
+        "stats": {
+          "workSpeedMult": 1.1,
+          "moveSpeedMult": 1.6
+        },
+        "influence": {
+          "radius": 2,
+          "branchId": "zephyrscout",
+          "affinityPerTick": 8
+        }
       },
       "rare": {
         "id": "gale-zephyrscout",
@@ -131,7 +218,15 @@
         "shape": "triangle",
         "color": "#e8f7ff",
         "sizeMult": 1.4,
-        "stats": { "workSpeedMult": 1.3, "moveSpeedMult": 1.9 }
+        "stats": {
+          "workSpeedMult": 1.3,
+          "moveSpeedMult": 1.9
+        },
+        "influence": {
+          "radius": 3,
+          "branchId": "zephyrscout",
+          "affinityPerTick": 12
+        }
       }
     }
   }

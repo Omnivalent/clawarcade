@@ -63,6 +63,8 @@ export interface SpeciesDef {
   flavor: string;
   branches: string[]; // exactly two branch ids
   affinityThreshold: number;
+  /** PASS 3: cost to summon another wildkin of this base from the Build menu. */
+  summonCost: Record<string, number>;
 }
 
 /** One resource kind from nodes.json (wood, stone, herbs…). */
@@ -113,6 +115,17 @@ export interface ResonanceRecipe {
   particleColor: string;
 }
 
+/**
+ * PASS 3 — an evolved creature's environmental influence: an aura that
+ * channels `affinityPerTick` toward `branchId` into any creature working
+ * within `radius` tiles. Runs through the SAME pipeline as decor influence.
+ */
+export interface InfluenceDef {
+  radius: number;
+  branchId: string;
+  affinityPerTick: number;
+}
+
 /** One evolved form (common or rare) from evolutionForms.json. */
 export interface EvolvedFormDef {
   id: string;
@@ -121,6 +134,7 @@ export interface EvolvedFormDef {
   color: string;
   sizeMult: number;
   stats: { workSpeedMult: number; moveSpeedMult: number };
+  influence: InfluenceDef;
 }
 
 /** One evolution branch: which base it belongs to, its two forms, the rare roll. */
@@ -133,9 +147,17 @@ export interface BranchDef {
   rare: EvolvedFormDef;
 }
 
-/** An entry in the Build menu (either a decor item or a buildable node). */
+/** One affinity contribution for a single work tick — from decor OR an evolved creature's aura. Both flow through the same pipeline. */
+export interface AffinityContribution {
+  branchId: string;
+  amount: number;
+  color: string;
+  fromAura: boolean;
+}
+
+/** An entry in the Build menu (decor, buildable node, or a creature summon). */
 export interface BuildItem {
-  kind: 'decor' | 'node';
+  kind: 'decor' | 'node' | 'creature';
   id: string;
   name: string;
   cost: Record<string, number>;
@@ -171,6 +193,8 @@ export interface SavedCreature {
   formRare: boolean;
   affinities: Record<string, number>; // branchId -> accumulated affinity
   assignedNodeId: number | null;
+  /** PASS 3: remaining move-cooldown milliseconds at save time. */
+  cooldownMs: number;
 }
 
 /** Serialized node state. */
