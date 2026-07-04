@@ -1,5 +1,5 @@
 {
-  "_comment": "Base creatures for the FUSED resonance-evolution system (Build Pass 2). Each base has exactly TWO evolution branches (see evolutionForms.json) — which one it takes is steered by the player: working next to a decor that channels branch A fills branch-A affinity, branch B decor fills branch B. `affinityThreshold` is how much affinity evolves a creature under NORMAL play (onboarding uses the much lower override in onboarding.json). Placeholder shapes/colors — swap for real art later. `speed` is walk speed in px/sec, `wanderRadius` is idle roaming range in tiles. PASS 3: `summonCost` lets the player invite another wildkin of that base from the Build menu (needed to fill the dex — you can't discover 12 forms with 3 creatures). Summons respect the creature cap in sanctuaryLimits.json.",
+  "_comment": "Base creatures for the FUSED resonance-evolution system (Build Pass 2). Each base has exactly TWO evolution branches (see evolutionForms.json) — which one it takes is steered by the player: working next to a decor that channels branch A fills branch-A affinity, branch B decor fills branch B. `affinityThreshold` is how much affinity evolves a creature under NORMAL play (onboarding uses the much lower override in onboarding.json). Placeholder shapes/colors — swap for real art later. `speed` is walk speed in px/sec, `wanderRadius` is idle roaming range in tiles. PASS 3: `summonCost` lets the player invite another wildkin of that base from the Build menu (needed to fill the dex — you can't discover 12 forms with 3 creatures). Summons respect the creature cap in sanctuaryLimits.json. ART PASS: `sprite` is the texture file (public/assets/wildkin/creatures/<sprite>.png). If the file is missing the game falls back to the old placeholder shape.",
   "species": {
     "cindling": {
       "name": "Cindling",
@@ -18,7 +18,8 @@
         "wood": 8,
         "stone": 8,
         "herbs": 8
-      }
+      },
+      "sprite": "cindling"
     },
     "sporeling": {
       "name": "Sporeling",
@@ -37,7 +38,8 @@
         "wood": 8,
         "stone": 8,
         "herbs": 8
-      }
+      },
+      "sprite": "sporeling"
     },
     "nimbling": {
       "name": "Nimbling",
@@ -56,7 +58,8 @@
         "wood": 8,
         "stone": 8,
         "herbs": 8
-      }
+      },
+      "sprite": "nimbling"
     }
   },
   "startingCreatures": [

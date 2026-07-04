@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { tileToWorld } from '../core/iso';
+import { TILE_H, tileToWorld } from '../core/iso';
 import type { NodeTypeDef } from '../types';
 
 /**
@@ -42,8 +42,11 @@ export class ResourceNode extends Phaser.GameObjects.Container {
     this.ty = ty;
     this.amount = amount ?? def.capacity;
 
-    // Placeholder sprite, drawn once at boot (key: node-tree / node-rock / …).
-    const sprite = scene.add.image(0, -14, `node-${typeId}`);
+    // Real art if loaded, placeholder otherwise (same key). Bottom-center
+    // origin so the tree/rock/patch stands on its tile; fitted to ~1.3 tiles
+    // tall regardless of the art file's native size.
+    const sprite = scene.add.image(0, 14, `node-${typeId}`).setOrigin(0.5, 1);
+    sprite.setScale((TILE_H * 1.3) / sprite.height);
     this.add(sprite);
 
     // Little stock bar floating above the node.

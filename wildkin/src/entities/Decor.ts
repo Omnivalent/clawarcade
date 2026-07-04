@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { tileToWorld } from '../core/iso';
+import { TILE_H, tileToWorld } from '../core/iso';
 import type { DecorDef } from '../types';
 
 /**
@@ -25,14 +25,16 @@ export class Decor extends Phaser.GameObjects.Container {
     this.tx = tx;
     this.ty = ty;
 
-    // Placeholder sprite generated at boot (key: decor-crystal / decor-lantern / …).
-    const sprite = scene.add.image(0, -10, `decor-${typeId}`);
+    // Real art if loaded, placeholder otherwise (same key). Bottom-center
+    // origin, fitted to ~1.1 tiles tall so all decor reads at one scale.
+    const sprite = scene.add.image(0, 12, `decor-${typeId}`).setOrigin(0.5, 1);
+    sprite.setScale((TILE_H * 1.1) / sprite.height);
     this.add(sprite);
 
-    // Gentle bobbing so decor feels alive even as placeholder shapes.
+    // Gentle bobbing so decor feels alive.
     scene.tweens.add({
       targets: sprite,
-      y: -14,
+      y: 9,
       duration: 1400,
       yoyo: true,
       repeat: -1,

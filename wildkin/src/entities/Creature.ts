@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { tileToWorld } from '../core/iso';
+import { TILE_H, tileToWorld } from '../core/iso';
 import type { EvolvedFormDef, InfluenceDef, SpeciesDef, TileCoord } from '../types';
 import type { ResourceNode } from './ResourceNode';
 
@@ -35,6 +35,11 @@ export interface CreatureWorld {
 }
 
 export type CreatureState = 'idle' | 'wandering' | 'toJob' | 'toTile' | 'working';
+
+/** ART PASS — uniform on-screen size per category: creatures stand ~1.3 tiles tall regardless of the art file's native pixel size. */
+const CREATURE_TARGET_H = TILE_H * 1.3;
+/** Where feet touch the ground, relative to the tile center the container sits on. */
+const GROUND_Y = 12;
 
 export class Creature extends Phaser.GameObjects.Container {
   readonly creatureId: number;
@@ -76,6 +81,9 @@ export class Creature extends Phaser.GameObjects.Container {
   private nameLabel: Phaser.GameObjects.Text;
   private affinityBar: Phaser.GameObjects.Graphics;
   private workTween: Phaser.Tweens.Tween | null = null;
+  /** ART PASS — the sprite's resting scale after fitting to CREATURE_TARGET_H (all bounce/pop tweens are relative to this). */
+  private baseScale = 1;
+  private spriteTopY = -CREATURE_TARGET_H;
   /** PASS 3 — the influence aura drawn under an evolved creature. */
   private auraGfx: Phaser.GameObjects.Graphics | null = null;
   private auraTween: Phaser.Tweens.Tween | null = null;
@@ -111,8 +119,10 @@ export class Creature extends Phaser.GameObjects.Container {
     this.ring.setVisible(false);
     this.add(this.ring);
 
-    // The placeholder body (texture generated at boot from creatures.json).
-    this.sprite = scene.add.image(0, -def.size * 0.55, `cr-${speciesId}`);
+    // The body — real art if it loaded, placeholder shape otherwise (same
+    // key either way). Bottom-center origin so the creature STANDS on its
+    // tile and taller art rises upward.
+    this.sprite = scene.add.image(0, GROUND_Y, `cr-${speciesId}`).setOrigin(0.5, 1);
     this.add(this.sprite);
 
     // Name tag, shown only while selected.
@@ -132,8 +142,23 @@ export class Creature extends Phaser.GameObjects.Container {
     this.affinityBar = scene.add.graphics();
     this.add(this.affinityBar);
 
+    this.applySpriteScale(1);
     this.setDepth(pos.y);
     scene.add.existing(this);
+  }
+
+  /**
+   * ART PASS — fit whatever texture is currently on the sprite to the
+   * category's on-screen height (x the evolved form's sizeMult), preserving
+   * aspect ratio. Art files and placeholder shapes both pass through here,
+   * so a 350px PNG and a 30px generated shape render at the same game scale.
+   */
+  private applySpriteScale(sizeMult: number): void {
+    const target = CREATURE_TARGET_H * sizeMult;
+    this.baseScale = target / this.sprite.height;
+    this.sprite.setScale(this.baseScale);
+    this.spriteTopY = GROUND_Y - target;
+    this.nameLabel.setY(this.spriteTopY - 16);
   }
 
   // ==========================================================================
@@ -273,15 +298,16 @@ export class Creature extends Phaser.GameObjects.Container {
     this.formRare = isRare;
     this.stats = { ...form.stats };
 
-    // Swap to the evolved placeholder sprite (generated at boot).
+    // Swap to the evolved form's art (or its placeholder) and re-fit the
+    // scale — the new texture may have completely different native pixels.
     this.sprite.setTexture(`cr-form-${form.id}`);
-    this.sprite.y = -this.def.size * 0.7;
+    this.applySpriteScale(form.sizeMult);
     this.affinityBar.clear(); // evolved creatures no longer show progress
 
     if (!silent) {
       this.scene.tweens.add({
         targets: this.sprite,
-        scale: { from: 0.2, to: 1 },
+        scale: { from: this.baseScale * 0.2, to: this.baseScale },
         duration: 550,
         ease: 'Back.easeOut',
       });
@@ -296,7 +322,7 @@ export class Creature extends Phaser.GameObjects.Container {
     if (lead.value <= 0) return;
     const frac = Math.min(1, lead.value / threshold);
     const w = 34;
-    const y = -this.def.size - 14;
+    const y = this.spriteTopY - 10; // always just above the art's head
     this.affinityBar.fillStyle(0x0a1418, 0.75);
     this.affinityBar.fillRoundedRect(-w / 2 - 1, y - 1, w + 2, 7, 3);
     this.affinityBar.fillStyle(branchColor, 1);
@@ -398,10 +424,12 @@ export class Creature extends Phaser.GameObjects.Container {
 
   private startWorkingVisuals(): void {
     this.stopWorkingVisuals();
+    // Bounce relative to the fitted base scale (absolute values would blow
+    // up now that art textures render at ~0.1x native scale).
     this.workTween = this.scene.tweens.add({
       targets: this.sprite,
-      scaleY: 0.85,
-      scaleX: 1.1,
+      scaleY: this.baseScale * 0.86,
+      scaleX: this.baseScale * 1.08,
       duration: 260,
       yoyo: true,
       repeat: -1,
@@ -413,7 +441,7 @@ export class Creature extends Phaser.GameObjects.Container {
     if (this.workTween) {
       this.workTween.stop();
       this.workTween = null;
-      this.sprite.setScale(1, 1);
+      this.sprite.setScale(this.baseScale);
     }
     this.workElapsedMs = 0;
   }

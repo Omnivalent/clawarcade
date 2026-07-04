@@ -63,6 +63,8 @@ export interface SpeciesDef {
   flavor: string;
   branches: string[]; // exactly two branch ids
   affinityThreshold: number;
+  /** ART PASS: texture filename (no .png) under public/assets/wildkin/creatures/. */
+  sprite: string;
   /** PASS 3: cost to summon another wildkin of this base from the Build menu. */
   summonCost: Record<string, number>;
 }
@@ -88,6 +90,8 @@ export interface NodeTypeDef {
   trunkColor: string;
   buildable: boolean;
   cost: Record<string, number>;
+  /** ART PASS: texture filename (no .png) under public/assets/wildkin/nodes/. */
+  sprite: string;
 }
 
 /** One decor item from decor.json. `branchId` is the evolution branch this decor channels — the heart of player steering. */
@@ -98,6 +102,8 @@ export interface DecorDef {
   size: number;
   cost: Record<string, number>;
   branchId: string;
+  /** ART PASS: texture filename (no .png) under public/assets/wildkin/decor/. */
+  sprite: string;
 }
 
 /**
@@ -135,6 +141,8 @@ export interface EvolvedFormDef {
   sizeMult: number;
   stats: { workSpeedMult: number; moveSpeedMult: number };
   influence: InfluenceDef;
+  /** ART PASS: texture filename (no .png) under public/assets/wildkin/creatures/. */
+  sprite: string;
 }
 
 /** One evolution branch: which base it belongs to, its two forms, the rare roll. */
