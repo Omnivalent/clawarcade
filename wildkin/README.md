@@ -1,4 +1,4 @@
-# 🌿 Wildkin — Creature Sanctuary (Build Pass 2)
+# 🌿 Wildkin — Creature Sanctuary (Build Pass 3 / Phase 0)
 
 A browser-based isometric creature-sanctuary game built on ONE fused system:
 **resonance drives evolution**. Working a creature next to a matching decor
@@ -7,6 +7,11 @@ player literally steers each creature's destiny by arranging the sanctuary.
 Three bases (Cindling, Sporeling, Nimbling) × two branches × common/rare
 forms = 12 evolutions. First-ever visit runs a scripted 90-second onboarding
 that lands the first evolution in ~15–20 seconds of play.
+
+Phase 0 makes the loop deep: **evolved creatures emit influence auras** that
+steer their neighbors through the same pipeline as decor (chains!), space is
+scarce (decor/creature caps + a move cooldown make placement a real puzzle),
+and the **Form Dex** tracks all 12 discoverable forms as the long-term goal.
 
 All art is placeholder shapes, designed to be swapped for real art later
 without touching game logic. See `GAMEPLAY.md` for the full player guide.
@@ -81,6 +86,7 @@ JSON — no code changes needed.
 | `src/config/evolutionForms.json` | The 6 branches, 12 forms (common+rare), rare chance, stats |
 | `src/config/dailyModifier.json` | Daily boost multiplier + banner text |
 | `src/config/onboarding.json` | Tutorial prompts + the low first-evolution threshold |
+| `src/config/sanctuaryLimits.json` | Decor/creature caps, move cooldown, remove refund |
 
 Want a new resonance pairing? Add a row to `resonanceRecipes.json`. Want
 evolution to take longer? Raise `affinityThreshold` in `creatures.json`. Want
@@ -114,6 +120,7 @@ src/
     iso.ts                 Isometric grid ↔ pixel math
     GameState.ts           Global inventory + the event bus between scenes
     daily.ts               Date-seeded daily branch boost
+    dex.ts                 Form Dex collection state (lifetime, own storage)
     share.ts               Canvas screenshot -> share sheet / download
     SaveManager.ts         localStorage save/load
     device.ts              Phone detection, UI-mode setting, performance caps

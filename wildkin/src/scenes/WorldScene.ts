@@ -2,10 +2,12 @@ import Phaser from 'phaser';
 import creaturesConfig from '../config/creatures.json';
 import decorConfig from '../config/decor.json';
 import formsConfig from '../config/evolutionForms.json';
+import limitsConfig from '../config/sanctuaryLimits.json';
 import nodesConfig from '../config/nodes.json';
 import * as GameState from '../core/GameState';
 import { gameEvents } from '../core/GameState';
 import * as SaveManager from '../core/SaveManager';
+import * as Dex from '../core/dex';
 import { getDailyBoost } from '../core/daily';
 import { detectPhone, perfCaps } from '../core/device';
 import { TILE_H, TILE_W, tileDistance, tileToWorld, worldToTile } from '../core/iso';
@@ -16,7 +18,7 @@ import { CameraController } from '../systems/CameraController';
 import { biomeDef, biomeIds, generateWorld, tileTypeDef } from '../systems/MapGenerator';
 import { Onboarding, type OnboardingHost } from '../systems/Onboarding';
 import { Pathfinder } from '../systems/Pathfinder';
-import { matchRecipe, type DecorPlacement } from '../systems/ResonanceSystem';
+import { gatherInfluence, type AuraSource, type DecorPlacement } from '../systems/ResonanceSystem';
 import type {
   BranchDef,
   BuildItem,
@@ -67,6 +69,10 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
   private onboarding: Onboarding | null = null;
   /** Testing override (?rare=1 / ?rare=0): pins the evolution rare roll. Unset in normal play. */
   private forceRare: boolean | null = null;
+  /** PASS 3 — "show influence" toggle state (auras + steering ranges). */
+  private showAuras = true;
+  /** PASS 3 — remove-decor mode (toggled from the Build menu). */
+  private removeMode = false;
   /** Which creature+branch combos already showed their "Resonance!" callout (so it doesn't spam every tick). */
   private resonanceAnnounced = new Set<string>();
 
@@ -90,10 +96,17 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     const save =
       params.has('fresh') || !SaveManager.hasOnboarded() ? null : SaveManager.load();
     GameState.initInventory(save?.inventory);
+    // ?rich=1 — testing override: a fresh game starts with deep pockets so
+    // automated tests can exercise the placement caps without grinding.
+    if (params.has('rich') && !save) {
+      for (const res of nodesConfig.resources) GameState.addResource(res.id, 989);
+    }
 
     // Today's rotating boost — one branch evolves faster all day.
     this.daily = getDailyBoost();
     this.registry.set('wk-daily', this.daily);
+    this.registry.set('wk-show-auras', this.showAuras);
+    this.publishCaps();
 
     // Which land are we on? A save pins it; otherwise roll a random one.
     const urlBiome = params.get('biome');
@@ -157,12 +170,18 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       const cr = this.spawnCreature(c.species, c.name, c.tile[0], c.tile[1], c.id);
       if (!cr) continue;
       cr.affinities = { ...cr.affinities, ...c.affinities };
+      cr.cooldownMs = c.cooldownMs ?? 0;
       if (c.formId) {
         // Find the form (common or rare) across this base's branches.
         const form = Object.values(BRANCHES)
           .flatMap((b) => [b.common, b.rare])
           .find((f) => f.id === c.formId);
-        if (form) cr.evolveToForm(form, c.formRare, true); // silent on load
+        if (form) {
+          cr.evolveToForm(form, c.formRare, true); // silent on load
+          // Re-light the aura and keep the dex in sync (silently).
+          cr.showAura(form.influence, this.branchColor(form.influence.branchId), this.showAuras);
+          Dex.unlock(form.id, c.formRare);
+        }
       } else {
         // Redraw the progress bar for partially-steered creatures.
         const lead = cr.leadingBranch();
@@ -372,18 +391,45 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
 
     gameEvents.on('wk-build-changed', this.onBuildChanged, this);
     gameEvents.on('wk-modal-closed', this.onModalClosed, this);
+    gameEvents.on('wk-auras-toggled', this.onAurasToggled, this);
+    gameEvents.on('wk-remove-toggled', this.onRemoveToggled, this);
 
     this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('beforeunload', this.beforeUnloadHandler);
       document.removeEventListener('visibilitychange', this.beforeUnloadHandler);
       gameEvents.off('wk-build-changed', this.onBuildChanged, this);
       gameEvents.off('wk-modal-closed', this.onModalClosed, this);
+      gameEvents.off('wk-auras-toggled', this.onAurasToggled, this);
+      gameEvents.off('wk-remove-toggled', this.onRemoveToggled, this);
     });
   }
 
   private onBuildChanged(item: BuildItem | null): void {
     this.buildSelection = item;
     if (!item) this.ghost.setVisible(false);
+  }
+
+  /** PASS 3 — "show influence" button: toggles every evolved creature's aura. */
+  private onAurasToggled(on: boolean): void {
+    this.showAuras = on;
+    this.registry.set('wk-show-auras', on);
+    for (const c of this.creatures) c.setAuraVisible(on);
+  }
+
+  /** PASS 3 — remove-decor mode from the Build menu. */
+  private onRemoveToggled(on: boolean): void {
+    this.removeMode = on;
+  }
+
+  /** Keep the HUD's cap counters current. */
+  private publishCaps(): void {
+    this.registry.set('wk-caps', {
+      creatures: this.creatures.length,
+      maxCreatures: limitsConfig.maxCreatures,
+      decor: this.decorItems.length,
+      maxDecor: limitsConfig.maxDecor,
+    });
+    gameEvents.emit('wk-caps-changed');
   }
 
   private onModalClosed(): void {
@@ -420,7 +466,13 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     // The celebration modal blocks the world underneath.
     if (this.registry.get('wk-modal')) return;
 
-    // 1) Build mode: taps place the selected item.
+    // 1) Remove-decor mode (PASS 3) takes priority over everything.
+    if (this.removeMode) {
+      this.tryRemoveDecorAt(worldToTile(wx, wy));
+      return;
+    }
+
+    // 2) Build mode: taps place the selected item.
     if (this.buildSelection) {
       this.tryPlace(this.buildSelection, worldToTile(wx, wy));
       return;
@@ -437,7 +489,16 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     const node = this.pickNode(wx, wy);
     if (node) {
       if (this.selected) {
+        // PASS 3 — steering costs time: redirecting is blocked during cooldown.
+        if (!this.selected.canRedirect()) {
+          gameEvents.emit(
+            'wk-toast',
+            `${this.selected.creatureName} is settling in — ${this.selected.cooldownSeconds()}s before it can be redirected`,
+          );
+          return;
+        }
         if (this.selected.assignJob(node)) {
+          this.selected.startCooldown(limitsConfig.moveCooldownSeconds * 1000);
           gameEvents.emit('wk-toast', `${this.selected.creatureName} → ${node.def.name}`);
           this.onboarding?.onJobAssigned(this.selected, node);
         } else {
@@ -456,7 +517,15 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     //    Disabled while the tutorial is scripting the flow.
     const t = worldToTile(wx, wy);
     if (!this.onboarding && this.selected && this.isWalkable(t.tx, t.ty)) {
+      if (!this.selected.canRedirect()) {
+        gameEvents.emit(
+          'wk-toast',
+          `${this.selected.creatureName} is settling in — ${this.selected.cooldownSeconds()}s before it can be redirected`,
+        );
+        return;
+      }
       if (this.selected.moveToTile(t)) {
+        this.selected.startCooldown(limitsConfig.moveCooldownSeconds * 1000);
         gameEvents.emit('wk-toast', `${this.selected.creatureName} is heading over`);
       }
       return;
@@ -511,6 +580,7 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
         ? Object.values(BRANCHES).flatMap((b) => [b.common, b.rare]).find((f) => f.id === c.formId)?.name ?? null
         : null,
       formRare: c.formRare,
+      cooldownSeconds: c.canRedirect() ? 0 : c.cooldownSeconds(),
       branches: c.def.branches.map((id) => ({
         id,
         name: BRANCHES[id].name,
@@ -527,7 +597,13 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
   // ==========================================================================
 
   private canPlaceAt(tx: number, ty: number): boolean {
-    return this.inBounds(tx, ty) && this.tiles[ty][tx].buildable && !this.occupied.has(`${tx},${ty}`);
+    return (
+      this.inBounds(tx, ty) &&
+      this.tiles[ty][tx].buildable &&
+      !this.occupied.has(`${tx},${ty}`) &&
+      // Decor and creatures share the grid — no stacking on a wildkin's tile.
+      !this.creatures.some((c) => c.tx === tx && c.ty === ty)
+    );
   }
 
   private tryPlace(item: BuildItem, t: TileCoord): void {
@@ -538,6 +614,21 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     }
     if (!this.canPlaceAt(t.tx, t.ty)) {
       gameEvents.emit('wk-toast', 'Can’t place there — needs open buildable ground');
+      return;
+    }
+    // PASS 3 — scarcity: caps are hard choices, never silent fails.
+    if (item.kind === 'decor' && this.decorItems.length >= limitsConfig.maxDecor) {
+      gameEvents.emit(
+        'wk-toast',
+        `Sanctuary full — remove a decor to place more (${this.decorItems.length}/${limitsConfig.maxDecor}). Use 🗑 Remove in the Build menu.`,
+      );
+      return;
+    }
+    if (item.kind === 'creature' && this.creatures.length >= limitsConfig.maxCreatures) {
+      gameEvents.emit(
+        'wk-toast',
+        `Sanctuary full — no room for more wildkin (${this.creatures.length}/${limitsConfig.maxCreatures})`,
+      );
       return;
     }
     if (!GameState.spend(item.cost)) {
@@ -551,14 +642,56 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
 
     if (item.kind === 'decor') {
       this.spawnDecor(item.id, t.tx, t.ty);
-    } else {
+    } else if (item.kind === 'node') {
       this.spawnNode(item.id, t.tx, t.ty, this.nextEntityId++);
+    } else {
+      // PASS 3 — summon a new wildkin of this base onto the tapped tile.
+      const count = this.creatures.filter((c) => c.speciesId === item.id).length;
+      const def = (creaturesConfig.species as Record<string, SpeciesDef>)[item.id];
+      const name = `${def.name} ${count + 1}`;
+      const cr = this.spawnCreature(item.id, name, t.tx, t.ty, this.nextEntityId++);
+      if (cr) {
+        cr.setScale(0);
+        this.tweens.add({ targets: cr, scale: 1, duration: 600, ease: 'Back.easeOut' });
+        gameEvents.emit('wk-toast', `${name} has joined the sanctuary!`);
+      }
     }
 
     const pos = tileToWorld(t.tx, t.ty);
     this.fx.particleTint = 0xffffff;
     this.fx.explode(perfCaps().sparkleParticles * 2, pos.x, pos.y - 10);
+    this.publishCaps();
     this.onboarding?.onDecorPlaced();
+    this.saveNow();
+  }
+
+  /**
+   * PASS 3 — remove-decor mode: tap a decor to demolish it and refund part
+   * of its cost (fraction from sanctuaryLimits.json). Frees the tile and cap.
+   */
+  private tryRemoveDecorAt(t: TileCoord): void {
+    const idx = this.decorItems.findIndex((d) => d.tx === t.tx && d.ty === t.ty);
+    if (idx === -1) {
+      gameEvents.emit('wk-toast', 'Tap a decor item to remove it (🗑 mode active)');
+      return;
+    }
+    const decor = this.decorItems[idx];
+    const refunds: string[] = [];
+    for (const [res, amt] of Object.entries(decor.def.cost)) {
+      const back = Math.floor(amt * limitsConfig.removeRefundFraction);
+      if (back > 0) {
+        GameState.addResource(res, back);
+        refunds.push(`${back} ${res}`);
+      }
+    }
+    this.occupied.delete(`${t.tx},${t.ty}`);
+    this.decorItems.splice(idx, 1);
+    decor.destroy();
+    this.publishCaps();
+    gameEvents.emit(
+      'wk-toast',
+      `${decor.def.name} removed${refunds.length ? ` — refunded ${refunds.join(', ')}` : ''}`,
+    );
     this.saveNow();
   }
 
@@ -610,40 +743,73 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       tx: d.tx,
       ty: d.ty,
     }));
-    const recipe = matchRecipe(creature.speciesId, creature.tx, creature.ty, decorPlacements);
+    // PASS 3 — every OTHER evolved creature is an influence source, exactly
+    // like decor. Both flow through gatherInfluence(): ONE pipeline.
+    const auras: AuraSource[] = this.creatures
+      .filter((c) => c !== creature && c.stage >= 2 && c.formId)
+      .map((c) => {
+        const form = Object.values(BRANCHES)
+          .flatMap((b) => [b.common, b.rare])
+          .find((f) => f.id === c.formId)!;
+        return {
+          tx: c.tx,
+          ty: c.ty,
+          influence: form.influence,
+          color: BRANCHES[form.influence.branchId].color,
+        };
+      });
 
-    // (a) NOW: production multiplier. Fractions carry across ticks.
+    const { recipe, contributions } = gatherInfluence(
+      creature.speciesId,
+      creature.def.branches,
+      creature.tx,
+      creature.ty,
+      decorPlacements,
+      auras,
+    );
+
+    // (a) NOW: production multiplier (decor recipes only — auras give
+    // affinity, not yield). Fractions carry across ticks.
     const gained = creature.bankYield(taken * (recipe?.productionMultiplier ?? 1));
     if (gained > 0) {
       GameState.addResource(node.def.resource, gained);
       this.floatText(creature.x, creature.y - 44, `+${gained}`, node.def.color);
     }
 
-    if (recipe) {
-      // Resonance sparkles every tick — the instant feedback half.
-      this.fx.particleTint = Phaser.Display.Color.HexStringToColor(recipe.particleColor).color;
+    if (contributions.length > 0) {
+      // Resonance sparkles every tick — tinted by the strongest contribution.
+      const lead = contributions.reduce((a, b) => (b.amount > a.amount ? b : a));
+      this.fx.particleTint = Phaser.Display.Color.HexStringToColor(lead.color).color;
       this.fx.explode(perfCaps().sparkleParticles, creature.x, creature.y - 20);
 
-      // (b) LATER: branch affinity — the steering half (stage-1 only; the
-      // daily boost multiplies gains for its chosen branch).
+      // (b) LATER: branch affinity — decor + auras stacking, daily boost per
+      // branch, one code path for every source (stage-1 creatures only).
       if (creature.stage === 1) {
-        const boost = this.daily.branchId === recipe.branchId ? this.daily.multiplier : 1;
-        const value = creature.addAffinity(recipe.branchId, recipe.affinityPerTick * boost);
         const threshold = this.affinityThreshold(creature);
-        creature.updateAffinityBar(threshold, this.branchColor(recipe.branchId));
+        let crossedBranch: string | null = null;
+        let crossedValue = -1;
+        for (const c of contributions) {
+          const boost = this.daily.branchId === c.branchId ? this.daily.multiplier : 1;
+          const value = creature.addAffinity(c.branchId, c.amount * boost);
 
-        const onceKey = `${creature.creatureId}:${recipe.branchId}`;
-        if (!this.resonanceAnnounced.has(onceKey)) {
-          this.resonanceAnnounced.add(onceKey);
-          this.floatText(
-            creature.x,
-            creature.y - 66,
-            `✨ Resonance! → ${BRANCHES[recipe.branchId].name}`,
-            recipe.particleColor,
-          );
+          const onceKey = `${creature.creatureId}:${c.branchId}`;
+          if (!this.resonanceAnnounced.has(onceKey)) {
+            this.resonanceAnnounced.add(onceKey);
+            this.floatText(
+              creature.x,
+              creature.y - 66,
+              `✨ ${c.fromAura ? 'Aura resonance' : 'Resonance'}! → ${BRANCHES[c.branchId].name}`,
+              c.color,
+            );
+          }
+          if (value >= threshold && value > crossedValue) {
+            crossedBranch = c.branchId;
+            crossedValue = value;
+          }
         }
-
-        if (value >= threshold) this.evolveCreature(creature, recipe.branchId);
+        const bar = creature.leadingBranch();
+        creature.updateAffinityBar(threshold, this.branchColor(bar.branchId));
+        if (crossedBranch) this.evolveCreature(creature, crossedBranch);
       }
     }
 
@@ -661,6 +827,19 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     const form = isRare ? branch.rare : branch.common;
 
     creature.evolveToForm(form, isRare);
+    // PASS 3 — the new evolved creature immediately becomes an influence
+    // source: light up its aura (this is the recursive loop closing).
+    creature.showAura(form.influence, this.branchColor(form.influence.branchId), this.showAuras);
+    // PASS 3 — record the discovery in the Form Dex.
+    if (Dex.unlock(form.id, isRare)) {
+      this.time.delayedCall(2600, () =>
+        gameEvents.emit(
+          'wk-toast',
+          `📖 New form discovered: ${form.name}! (${Dex.discoveredCount()}/${Dex.totalForms()})`,
+        ),
+      );
+    }
+    gameEvents.emit('wk-dex-changed');
 
     // Cinematic: pan + zoom onto the creature...
     const cam = this.cameras.main;
@@ -742,6 +921,7 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
         formRare: c.formRare,
         affinities: { ...c.affinities },
         assignedNodeId: c.assignedNode ? c.assignedNode.nodeId : null,
+        cooldownMs: c.cooldownMs,
       })),
       nodes: this.nodes.map((n) => ({
         id: n.nodeId,
@@ -777,6 +957,21 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       daily: { ...this.daily },
       modalOpen: !!this.registry.get('wk-modal'),
       selectedId: this.selected?.creatureId ?? null,
+      showAuras: this.showAuras,
+      removeMode: this.removeMode,
+      inventory: { ...GameState.inventory },
+      caps: {
+        creatures: this.creatures.length,
+        maxCreatures: limitsConfig.maxCreatures,
+        decor: this.decorItems.length,
+        maxDecor: limitsConfig.maxDecor,
+        moveCooldownSeconds: limitsConfig.moveCooldownSeconds,
+      },
+      dex: {
+        discovered: Dex.discoveredCount(),
+        total: Dex.totalForms(),
+        entries: Dex.allEntries().map((e) => ({ formId: e.formId, discovered: e.discovered, rare: e.rare, isNew: e.isNew })),
+      },
       creatures: this.creatures.map((c) => ({
         id: c.creatureId,
         name: c.creatureName,
@@ -791,6 +986,7 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
         formRare: c.formRare,
         affinities: { ...c.affinities },
         assignedNodeId: c.assignedNode?.nodeId ?? null,
+        cooldownMs: c.cooldownMs,
       })),
       nodes: this.nodes.map((n) => ({
         id: n.nodeId,
