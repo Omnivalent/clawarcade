@@ -804,14 +804,19 @@ export class UIScene extends Phaser.Scene {
 
     // Before → after, side by side.
     const cy = py + 160 * s;
-    const before = this.add.image(W / 2 - 130 * s, cy, `cr-${ev.baseSpeciesId}`).setScale(2 * s * 0.9);
+    // Fit both portraits by display height — art PNGs and placeholder shapes
+    // have wildly different native sizes, so absolute scales would break.
+    const before = this.add.image(W / 2 - 130 * s, cy, `cr-${ev.baseSpeciesId}`);
+    before.setScale((92 * s) / before.height);
     const arrow = this.add
       .text(W / 2, cy, '→', { fontSize: `${34 * s}px`, color: '#9fd8c8' })
       .setOrigin(0.5);
-    const after = this.add.image(W / 2 + 130 * s, cy, `cr-form-${ev.form.id}`).setScale(2 * s);
+    const after = this.add.image(W / 2 + 130 * s, cy, `cr-form-${ev.form.id}`);
+    const afterScale = (116 * s) / after.height;
+    after.setScale(afterScale);
     this.tweens.add({
       targets: after,
-      scale: { from: 2 * s * 0.7, to: 2 * s },
+      scale: { from: afterScale * 0.7, to: afterScale },
       duration: 700,
       ease: 'Back.easeOut',
     });

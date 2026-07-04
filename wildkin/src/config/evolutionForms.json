@@ -1,5 +1,5 @@
 {
-  "_comment": "The 6 evolution branches and their 12 final forms. When a creature's affinity for a branch crosses its threshold, it evolves down that branch — the FORM within the branch is rolled: common (usually 85%) or the rare variant (`rareChance`). PASS 3: every evolved form now has an `influence` — an aura that channels branch affinity into OTHER creatures working within `radius` tiles (Chebyshev), stacking with decor. This is the recursive loop: evolve one fire creature and its aura nudges neighbors toward fire too. Rare forms have stronger, wider auras. `color` on the branch is used for affinity bars, auras and particles. Placeholder shapes — swap for art later; keep ids stable.",
+  "_comment": "The 6 evolution branches and their 12 final forms. When a creature's affinity for a branch crosses its threshold, it evolves down that branch — the FORM within the branch is rolled: common (usually 85%) or the rare variant (`rareChance`). PASS 3: every evolved form now has an `influence` — an aura that channels branch affinity into OTHER creatures working within `radius` tiles (Chebyshev), stacking with decor. This is the recursive loop: evolve one fire creature and its aura nudges neighbors toward fire too. Rare forms have stronger, wider auras. `color` on the branch is used for affinity bars, auras and particles. Placeholder shapes — swap for art later; keep ids stable. ART PASS: each form's `sprite` maps to public/assets/wildkin/creatures/<sprite>.png (underscored filenames); missing files fall back to placeholder shapes.",
   "branches": {
     "magmaton": {
       "name": "Magmaton",
@@ -20,7 +20,8 @@
           "radius": 2,
           "branchId": "magmaton",
           "affinityPerTick": 8
-        }
+        },
+        "sprite": "magmaton"
       },
       "rare": {
         "id": "obsidian-magmaton",
@@ -36,7 +37,8 @@
           "radius": 3,
           "branchId": "magmaton",
           "affinityPerTick": 12
-        }
+        },
+        "sprite": "obsidian_magmaton"
       }
     },
     "flarewisp": {
@@ -58,7 +60,8 @@
           "radius": 2,
           "branchId": "flarewisp",
           "affinityPerTick": 8
-        }
+        },
+        "sprite": "flarewisp"
       },
       "rare": {
         "id": "solar-flarewisp",
@@ -74,7 +77,8 @@
           "radius": 3,
           "branchId": "flarewisp",
           "affinityPerTick": 12
-        }
+        },
+        "sprite": "solar_flarewisp"
       }
     },
     "mycelord": {
@@ -96,7 +100,8 @@
           "radius": 2,
           "branchId": "mycelord",
           "affinityPerTick": 8
-        }
+        },
+        "sprite": "mycelord"
       },
       "rare": {
         "id": "elder-mycelord",
@@ -112,7 +117,8 @@
           "radius": 3,
           "branchId": "mycelord",
           "affinityPerTick": 12
-        }
+        },
+        "sprite": "elder_mycelord"
       }
     },
     "toxifang": {
@@ -134,7 +140,8 @@
           "radius": 2,
           "branchId": "toxifang",
           "affinityPerTick": 8
-        }
+        },
+        "sprite": "toxifang"
       },
       "rare": {
         "id": "venom-toxifang",
@@ -150,7 +157,8 @@
           "radius": 3,
           "branchId": "toxifang",
           "affinityPerTick": 12
-        }
+        },
+        "sprite": "venom_toxifang"
       }
     },
     "tempestcoil": {
@@ -172,7 +180,8 @@
           "radius": 2,
           "branchId": "tempestcoil",
           "affinityPerTick": 8
-        }
+        },
+        "sprite": "tempestcoil"
       },
       "rare": {
         "id": "voltaic-tempestcoil",
@@ -188,7 +197,8 @@
           "radius": 3,
           "branchId": "tempestcoil",
           "affinityPerTick": 12
-        }
+        },
+        "sprite": "voltaic_tempestcoil"
       }
     },
     "zephyrscout": {
@@ -210,7 +220,8 @@
           "radius": 2,
           "branchId": "zephyrscout",
           "affinityPerTick": 8
-        }
+        },
+        "sprite": "zephyrscout"
       },
       "rare": {
         "id": "gale-zephyrscout",
@@ -226,7 +237,8 @@
           "radius": 3,
           "branchId": "zephyrscout",
           "affinityPerTick": 12
-        }
+        },
+        "sprite": "gale_zephyrscout"
       }
     }
   }

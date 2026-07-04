@@ -1,12 +1,25 @@
 {
-  "_comment": "Resource definitions + resource node definitions. `resources` drives the HUD counters. Each node type says: what resource it yields, how much it can hold (`capacity`), how fast it refills (`regenPerSecond`), how often a working creature harvests (`workIntervalMs`) and how much per harvest (`yieldPerTick`). Nodes with `buildable: true` also appear in the Build menu with the given `cost`.",
-
+  "_comment": "Resource definitions + resource node definitions. `resources` drives the HUD counters. Each node type says: what resource it yields, how much it can hold (`capacity`), how fast it refills (`regenPerSecond`), how often a working creature harvests (`workIntervalMs`) and how much per harvest (`yieldPerTick`). Nodes with `buildable: true` also appear in the Build menu with the given `cost`. ART PASS: `sprite` maps to public/assets/wildkin/nodes/<sprite>.png; missing files fall back to placeholder shapes.",
   "resources": [
-    { "id": "wood", "name": "Wood", "color": "#b07c4f", "icon": "🪵" },
-    { "id": "stone", "name": "Stone", "color": "#9aa5ad", "icon": "🪨" },
-    { "id": "herbs", "name": "Herbs", "color": "#e588b8", "icon": "🌿" }
+    {
+      "id": "wood",
+      "name": "Wood",
+      "color": "#b07c4f",
+      "icon": "🪵"
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "color": "#9aa5ad",
+      "icon": "🪨"
+    },
+    {
+      "id": "herbs",
+      "name": "Herbs",
+      "color": "#e588b8",
+      "icon": "🌿"
+    }
   ],
-
   "nodeTypes": {
     "tree": {
       "name": "Wisp Tree",
@@ -19,7 +32,10 @@
       "color": "#2e8b57",
       "trunkColor": "#7a5230",
       "buildable": true,
-      "cost": { "herbs": 4 }
+      "cost": {
+        "herbs": 4
+      },
+      "sprite": "tree"
     },
     "rock": {
       "name": "Moon Rock",
@@ -32,7 +48,10 @@
       "color": "#8d99a6",
       "trunkColor": "#5c6670",
       "buildable": true,
-      "cost": { "stone": 6 }
+      "cost": {
+        "stone": 6
+      },
+      "sprite": "rock"
     },
     "flower": {
       "name": "Dream Bloom",
@@ -45,7 +64,10 @@
       "color": "#e588b8",
       "trunkColor": "#4d8a4d",
       "buildable": true,
-      "cost": { "herbs": 2 }
+      "cost": {
+        "herbs": 2
+      },
+      "sprite": "herb_patch"
     }
   }
 }

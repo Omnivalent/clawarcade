@@ -1,6 +1,6 @@
 # 🌿 Wildkin — Game Summary & Gameplay Guide
 
-*Build Pass 3 (Phase 0) — the depth loop: recursive creature influence, limited space, and the Form Dex. Placeholder art.*
+*Build Pass 4 — real art: the Visual Bible sprites now render in-game (creatures, evolved forms, decor, nodes). Tiles/effects remain stylized placeholders.*
 
 ## What Wildkin is
 
@@ -116,4 +116,5 @@ pockets) — testing only.
 ## Deliberately not in this pass
 
 Wallet/token/crypto, multiplayer, trading, combat, extra biomes or creatures,
-sound, narrative, final art. All later layers.
+sound, narrative. All later layers. (Creature/decor/node art is now real —
+swap any single sprite by replacing its PNG in `public/assets/wildkin/`.)

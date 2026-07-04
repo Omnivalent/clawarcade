@@ -27,6 +27,38 @@ export class BootScene extends Phaser.Scene {
     super('BootScene');
   }
 
+  /**
+   * ART PASS — load the real transparent-PNG sprites, keyed by the SAME
+   * texture keys the whole game already uses (cr-*, cr-form-*, decor-*,
+   * node-*). Anything that fails to load simply never enters the texture
+   * manager, and create() below generates the old placeholder shape for that
+   * key instead — so a missing/renamed file can never crash the game.
+   */
+  preload(): void {
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.warn(`[Wildkin] Sprite missing: ${file.key} (${file.url}) — using placeholder shape`);
+    });
+
+    const species = creaturesConfig.species as Record<string, SpeciesDef>;
+    for (const [id, sp] of Object.entries(species)) {
+      this.load.image(`cr-${id}`, `assets/wildkin/creatures/${sp.sprite}.png`);
+    }
+    const branches = formsConfig.branches as Record<string, BranchDef>;
+    for (const br of Object.values(branches)) {
+      for (const form of [br.common, br.rare]) {
+        this.load.image(`cr-form-${form.id}`, `assets/wildkin/creatures/${form.sprite}.png`);
+      }
+    }
+    const decor = decorConfig.items as Record<string, DecorDef>;
+    for (const [id, def] of Object.entries(decor)) {
+      this.load.image(`decor-${id}`, `assets/wildkin/decor/${def.sprite}.png`);
+    }
+    const nodes = nodesConfig.nodeTypes as Record<string, NodeTypeDef>;
+    for (const [id, def] of Object.entries(nodes)) {
+      this.load.image(`node-${id}`, `assets/wildkin/nodes/${def.sprite}.png`);
+    }
+  }
+
   create(): void {
     this.makeTileTextures();
     this.makeCreatureTextures();
@@ -151,6 +183,7 @@ export class BootScene extends Phaser.Scene {
     const g = this.add.graphics();
 
     for (const [id, def] of Object.entries(types)) {
+      if (this.textures.exists(`node-${id}`)) continue; // real art loaded
       g.clear();
       const main = Phaser.Display.Color.HexStringToColor(def.color).color;
       const trunk = Phaser.Display.Color.HexStringToColor(def.trunkColor).color;
@@ -221,6 +254,7 @@ export class BootScene extends Phaser.Scene {
     stroke: number,
     haloColor?: number,
   ): void {
+    if (this.textures.exists(key)) return; // real art already loaded — placeholder not needed
     const g = this.add.graphics();
     const pad = haloColor !== undefined ? 10 : 4;
     const S = size + pad * 2;

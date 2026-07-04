@@ -13,8 +13,12 @@ steer their neighbors through the same pipeline as decor (chains!), space is
 scarce (decor/creature caps + a move cooldown make placement a real puzzle),
 and the **Form Dex** tracks all 12 discoverable forms as the long-term goal.
 
-All art is placeholder shapes, designed to be swapped for real art later
-without touching game logic. See `GAMEPLAY.md` for the full player guide.
+ART: creatures, evolved forms, decor and resource nodes now use the real
+transparent-PNG sprites in `public/assets/wildkin/` (extracted from the
+Visual Bible). Every sprite is loaded by config (`sprite` fields) under the
+same texture keys as before; a missing file logs a warning and falls back to
+the old placeholder shape — art swaps are file drops, never code changes.
+See `GAMEPLAY.md` for the full player guide.
 
 ---
 
@@ -140,10 +144,13 @@ src/
     UIScene.ts             Responsive HUD (desktop + phone modes)
 ```
 
-**Swapping in real art later:** replace the texture generation in
-`BootScene.ts` with a normal asset loader that registers the **same texture
-keys** (`cr-cindling`, `cr-form-magmaton`, `node-tree`, `decor-forge`, …) —
-nothing else changes.
+**Swapping art:** drop a new transparent PNG over the existing file in
+`public/assets/wildkin/{creatures,decor,nodes}/` (exact filenames — see the
+`sprite` fields in the configs). BootScene preloads them under the stable
+texture keys (`cr-cindling`, `cr-form-magmaton`, `node-tree`, `decor-forge`);
+anything missing falls back to a generated placeholder shape with a console
+warning. Rendering auto-fits every sprite to its category height (creatures
+≈1.3 tiles, decor ≈1.1, nodes ≈1.3), so art can be any resolution.
 
 ## 🚫 Deliberately not in this pass
 
