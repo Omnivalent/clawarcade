@@ -20,6 +20,8 @@ export interface TileTypeDef {
   edgeColor: string;
   walkable: boolean;
   buildable: boolean;
+  /** ART PASS: optional real tile art under public/assets/wildkin/tiles/. */
+  sprite?: string;
 }
 
 /** One biome from biomes.json — a landscape "recipe". */

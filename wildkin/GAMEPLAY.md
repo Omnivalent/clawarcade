@@ -1,6 +1,6 @@
 # 🌿 Wildkin — Game Summary & Gameplay Guide
 
-*Build Pass 4 — real art: the Visual Bible sprites now render in-game (creatures, evolved forms, decor, nodes). Tiles/effects remain stylized placeholders.*
+*Build Pass 5 — bug-fix + grounding polish: painted ground tiles (grass/dirt/water/path), contact shadows and occupied-tile marks under everything, evolution auras as pulsing rings + drifting motes matching their real radius, reliable sprite-click removal, and a Reset that truly starts over (replays the intro, keeps your Form Dex). This is the playtest build.*
 
 ## What Wildkin is
 

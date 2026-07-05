@@ -1,57 +1,244 @@
 {
-  "_comment": "Landscape generation config. Wildkin does NOT use a fixed, hand-drawn map — every new sanctuary generates its own terrain from a random seed + one of the biomes below, so every player's land (and every 'Reset & new land') looks different. `tileTypes` is the registry of every tile that can exist (placeholder colors for now). Each biome picks a base ground, a patch terrain, a liquid, and a trail tile, plus generation knobs: how many liquid pools / terrain patches / trails to carve and how big. `nodes` is how many of each resource node type spawn. Add a biome by adding tiles + one biome entry — no code changes.",
-
+  "_comment": "Landscape generation config. Wildkin does NOT use a fixed, hand-drawn map — every new sanctuary generates its own terrain from a random seed + one of the biomes below, so every player's land (and every 'Reset & new land') looks different. `tileTypes` is the registry of every tile that can exist (placeholder colors for now). Each biome picks a base ground, a patch terrain, a liquid, and a trail tile, plus generation knobs: how many liquid pools / terrain patches / trails to carve and how big. `nodes` is how many of each resource node type spawn. Add a biome by adding tiles + one biome entry — no code changes. ART PASS: tile types with a `sprite` render real diamond art from public/assets/wildkin/tiles/<sprite>.png (others keep the drawn placeholder).",
   "mapSize": 20,
-
   "tileTypes": {
-    "grass":      { "id": "grass",      "name": "Grass",        "color": "#4d9e57", "edgeColor": "#3a7c43", "walkable": true,  "buildable": true },
-    "dirt":       { "id": "dirt",       "name": "Dirt",         "color": "#9a7148", "edgeColor": "#7b5836", "walkable": true,  "buildable": true },
-    "water":      { "id": "water",      "name": "Water",        "color": "#3d7fc4", "edgeColor": "#2d6299", "walkable": false, "buildable": false },
-    "path":       { "id": "path",       "name": "Path",         "color": "#c9b38a", "edgeColor": "#a8946e", "walkable": true,  "buildable": false },
-
-    "sand":       { "id": "sand",       "name": "Sand",         "color": "#d9bc7a", "edgeColor": "#b89b5e", "walkable": true,  "buildable": true },
-    "clay":       { "id": "clay",       "name": "Red Clay",     "color": "#c07a50", "edgeColor": "#9c5f3c", "walkable": true,  "buildable": true },
-    "oasis":      { "id": "oasis",      "name": "Oasis Water",  "color": "#38a3c4", "edgeColor": "#2b7f99", "walkable": false, "buildable": false },
-
-    "snow":       { "id": "snow",       "name": "Snow",         "color": "#e8eef2", "edgeColor": "#c6d2da", "walkable": true,  "buildable": true },
-    "ice":        { "id": "ice",        "name": "Ice",          "color": "#a8d4e8", "edgeColor": "#86b5cc", "walkable": true,  "buildable": false },
-    "meltwater":  { "id": "meltwater",  "name": "Meltwater",    "color": "#4a7fb5", "edgeColor": "#38638f", "walkable": false, "buildable": false },
-    "packedsnow": { "id": "packedsnow", "name": "Packed Snow",  "color": "#c2cfdb", "edgeColor": "#9fb0bf", "walkable": true,  "buildable": false },
-
-    "moss":       { "id": "moss",       "name": "Mossy Ground", "color": "#5f9150", "edgeColor": "#49713d", "walkable": true,  "buildable": true },
-    "mud":        { "id": "mud",        "name": "Mud",          "color": "#6e5a3e", "edgeColor": "#55452f", "walkable": true,  "buildable": true },
-    "murk":       { "id": "murk",       "name": "Murkwater",    "color": "#3f5f56", "edgeColor": "#2f4841", "walkable": false, "buildable": false },
-    "boardwalk":  { "id": "boardwalk",  "name": "Boardwalk",    "color": "#8a6f4d", "edgeColor": "#6e5738", "walkable": true,  "buildable": false }
+    "grass": {
+      "id": "grass",
+      "name": "Grass",
+      "color": "#4d9e57",
+      "edgeColor": "#3a7c43",
+      "walkable": true,
+      "buildable": true,
+      "sprite": "grass"
+    },
+    "dirt": {
+      "id": "dirt",
+      "name": "Dirt",
+      "color": "#9a7148",
+      "edgeColor": "#7b5836",
+      "walkable": true,
+      "buildable": true,
+      "sprite": "dirt"
+    },
+    "water": {
+      "id": "water",
+      "name": "Water",
+      "color": "#3d7fc4",
+      "edgeColor": "#2d6299",
+      "walkable": false,
+      "buildable": false,
+      "sprite": "water"
+    },
+    "path": {
+      "id": "path",
+      "name": "Path",
+      "color": "#c9b38a",
+      "edgeColor": "#a8946e",
+      "walkable": true,
+      "buildable": false,
+      "sprite": "path"
+    },
+    "sand": {
+      "id": "sand",
+      "name": "Sand",
+      "color": "#d9bc7a",
+      "edgeColor": "#b89b5e",
+      "walkable": true,
+      "buildable": true
+    },
+    "clay": {
+      "id": "clay",
+      "name": "Red Clay",
+      "color": "#c07a50",
+      "edgeColor": "#9c5f3c",
+      "walkable": true,
+      "buildable": true
+    },
+    "oasis": {
+      "id": "oasis",
+      "name": "Oasis Water",
+      "color": "#38a3c4",
+      "edgeColor": "#2b7f99",
+      "walkable": false,
+      "buildable": false
+    },
+    "snow": {
+      "id": "snow",
+      "name": "Snow",
+      "color": "#e8eef2",
+      "edgeColor": "#c6d2da",
+      "walkable": true,
+      "buildable": true
+    },
+    "ice": {
+      "id": "ice",
+      "name": "Ice",
+      "color": "#a8d4e8",
+      "edgeColor": "#86b5cc",
+      "walkable": true,
+      "buildable": false
+    },
+    "meltwater": {
+      "id": "meltwater",
+      "name": "Meltwater",
+      "color": "#4a7fb5",
+      "edgeColor": "#38638f",
+      "walkable": false,
+      "buildable": false
+    },
+    "packedsnow": {
+      "id": "packedsnow",
+      "name": "Packed Snow",
+      "color": "#c2cfdb",
+      "edgeColor": "#9fb0bf",
+      "walkable": true,
+      "buildable": false
+    },
+    "moss": {
+      "id": "moss",
+      "name": "Mossy Ground",
+      "color": "#5f9150",
+      "edgeColor": "#49713d",
+      "walkable": true,
+      "buildable": true
+    },
+    "mud": {
+      "id": "mud",
+      "name": "Mud",
+      "color": "#6e5a3e",
+      "edgeColor": "#55452f",
+      "walkable": true,
+      "buildable": true
+    },
+    "murk": {
+      "id": "murk",
+      "name": "Murkwater",
+      "color": "#3f5f56",
+      "edgeColor": "#2f4841",
+      "walkable": false,
+      "buildable": false
+    },
+    "boardwalk": {
+      "id": "boardwalk",
+      "name": "Boardwalk",
+      "color": "#8a6f4d",
+      "edgeColor": "#6e5738",
+      "walkable": true,
+      "buildable": false
+    }
   },
-
   "biomes": {
     "verdant": {
       "name": "Verdant Meadow",
       "tagline": "Rolling grass, warm earth, calm ponds.",
-      "tiles": { "base": "grass", "patch": "dirt", "liquid": "water", "trail": "path" },
-      "gen": { "liquidBodies": 2, "liquidSize": [5, 9], "patches": 3, "patchSize": [4, 8], "trails": 2 },
-      "nodes": { "tree": 4, "rock": 2, "flower": 2 }
+      "tiles": {
+        "base": "grass",
+        "patch": "dirt",
+        "liquid": "water",
+        "trail": "path"
+      },
+      "gen": {
+        "liquidBodies": 2,
+        "liquidSize": [
+          5,
+          9
+        ],
+        "patches": 3,
+        "patchSize": [
+          4,
+          8
+        ],
+        "trails": 2
+      },
+      "nodes": {
+        "tree": 4,
+        "rock": 2,
+        "flower": 2
+      }
     },
     "dunes": {
       "name": "Ember Dunes",
       "tagline": "Endless sand broken by red clay and one precious oasis.",
-      "tiles": { "base": "sand", "patch": "clay", "liquid": "oasis", "trail": "path" },
-      "gen": { "liquidBodies": 1, "liquidSize": [4, 7], "patches": 4, "patchSize": [4, 9], "trails": 1 },
-      "nodes": { "tree": 2, "rock": 4, "flower": 2 }
+      "tiles": {
+        "base": "sand",
+        "patch": "clay",
+        "liquid": "oasis",
+        "trail": "path"
+      },
+      "gen": {
+        "liquidBodies": 1,
+        "liquidSize": [
+          4,
+          7
+        ],
+        "patches": 4,
+        "patchSize": [
+          4,
+          9
+        ],
+        "trails": 1
+      },
+      "nodes": {
+        "tree": 2,
+        "rock": 4,
+        "flower": 2
+      }
     },
     "frost": {
       "name": "Frostreach",
       "tagline": "Quiet snowfields, sheets of ice, cold blue meltwater.",
-      "tiles": { "base": "snow", "patch": "ice", "liquid": "meltwater", "trail": "packedsnow" },
-      "gen": { "liquidBodies": 2, "liquidSize": [4, 7], "patches": 3, "patchSize": [3, 7], "trails": 2 },
-      "nodes": { "tree": 3, "rock": 3, "flower": 2 }
+      "tiles": {
+        "base": "snow",
+        "patch": "ice",
+        "liquid": "meltwater",
+        "trail": "packedsnow"
+      },
+      "gen": {
+        "liquidBodies": 2,
+        "liquidSize": [
+          4,
+          7
+        ],
+        "patches": 3,
+        "patchSize": [
+          3,
+          7
+        ],
+        "trails": 2
+      },
+      "nodes": {
+        "tree": 3,
+        "rock": 3,
+        "flower": 2
+      }
     },
     "mire": {
       "name": "Whispermire",
       "tagline": "Soft moss, deep mud, dark pools — and boardwalks between them.",
-      "tiles": { "base": "moss", "patch": "mud", "liquid": "murk", "trail": "boardwalk" },
-      "gen": { "liquidBodies": 4, "liquidSize": [3, 6], "patches": 3, "patchSize": [3, 6], "trails": 1 },
-      "nodes": { "tree": 3, "rock": 2, "flower": 3 }
+      "tiles": {
+        "base": "moss",
+        "patch": "mud",
+        "liquid": "murk",
+        "trail": "boardwalk"
+      },
+      "gen": {
+        "liquidBodies": 4,
+        "liquidSize": [
+          3,
+          6
+        ],
+        "patches": 3,
+        "patchSize": [
+          3,
+          6
+        ],
+        "trails": 1
+      },
+      "nodes": {
+        "tree": 3,
+        "rock": 2,
+        "flower": 3
+      }
     }
   }
 }

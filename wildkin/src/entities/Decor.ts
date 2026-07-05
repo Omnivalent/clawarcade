@@ -25,10 +25,13 @@ export class Decor extends Phaser.GameObjects.Container {
     this.tx = tx;
     this.ty = ty;
 
-    // Real art if loaded, placeholder otherwise (same key). Bottom-center
-    // origin, fitted to ~1.1 tiles tall so all decor reads at one scale.
+    // GROUNDING PASS — occupied-tile marker + contact shadow + the sprite
+    // standing on the tile floor (bottom-center origin, ~1.1 tiles tall).
+    this.add(scene.add.image(0, 0, 'tile-occupied').setAlpha(0.9));
     const sprite = scene.add.image(0, 12, `decor-${typeId}`).setOrigin(0.5, 1);
     sprite.setScale((TILE_H * 1.1) / sprite.height);
+    const footW = sprite.width * sprite.scaleX;
+    this.add(scene.add.ellipse(0, 11, footW * 0.7, Math.max(5, footW * 0.18), 0x000000, 0.2));
     this.add(sprite);
 
     // Gentle bobbing so decor feels alive.

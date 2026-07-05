@@ -28,6 +28,11 @@ export function setOnboarded(): void {
   localStorage.setItem(ONBOARDED_KEY, '1');
 }
 
+/** BUGFIX PASS — "Reset & new land" replays the intro: clear the flag too. (The Form Dex is deliberately NOT touched — it's the lifetime record.) */
+export function clearOnboarded(): void {
+  localStorage.removeItem(ONBOARDED_KEY);
+}
+
 export function save(data: Omit<SaveData, 'version'>): void {
   try {
     const payload: SaveData = { version: SAVE_VERSION, ...data };

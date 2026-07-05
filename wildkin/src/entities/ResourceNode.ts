@@ -42,11 +42,13 @@ export class ResourceNode extends Phaser.GameObjects.Container {
     this.ty = ty;
     this.amount = amount ?? def.capacity;
 
-    // Real art if loaded, placeholder otherwise (same key). Bottom-center
-    // origin so the tree/rock/patch stands on its tile; fitted to ~1.3 tiles
-    // tall regardless of the art file's native size.
-    const sprite = scene.add.image(0, 14, `node-${typeId}`).setOrigin(0.5, 1);
+    // GROUNDING PASS — occupied-tile marker + contact shadow + the sprite
+    // standing on the tile floor (bottom-center origin, ~1.3 tiles tall).
+    this.add(scene.add.image(0, 0, 'tile-occupied').setAlpha(0.9));
+    const sprite = scene.add.image(0, 12, `node-${typeId}`).setOrigin(0.5, 1);
     sprite.setScale((TILE_H * 1.3) / sprite.height);
+    const footW = sprite.width * sprite.scaleX;
+    this.add(scene.add.ellipse(0, 11, footW * 0.72, Math.max(6, footW * 0.2), 0x000000, 0.22));
     this.add(sprite);
 
     // Little stock bar floating above the node.
