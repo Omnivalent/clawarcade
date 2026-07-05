@@ -87,6 +87,8 @@ export class Creature extends Phaser.GameObjects.Container {
   /** PASS 3 — the influence aura drawn under an evolved creature. */
   private auraGfx: Phaser.GameObjects.Graphics | null = null;
   private auraTween: Phaser.Tweens.Tween | null = null;
+  private shadow!: Phaser.GameObjects.Ellipse;
+  private tileMark!: Phaser.GameObjects.Image;
 
   constructor(
     scene: Phaser.Scene,
@@ -108,9 +110,13 @@ export class Creature extends Phaser.GameObjects.Container {
     this.ty = ty;
     for (const b of def.branches) this.affinities[b] = 0;
 
-    // Soft shadow so creatures feel grounded on the tile.
-    const shadow = scene.add.ellipse(0, 0, def.size * 0.9, def.size * 0.4, 0x000000, 0.25);
-    this.add(shadow);
+    // GROUNDING PASS — subtle dark diamond marking the occupied tile.
+    this.tileMark = scene.add.image(0, 0, 'tile-occupied').setAlpha(0.9);
+    this.add(this.tileMark);
+
+    // Soft contact shadow at the creature's feet (resized in applySpriteScale).
+    this.shadow = scene.add.ellipse(0, GROUND_Y - 1, def.size, def.size * 0.3, 0x000000, 0.24);
+    this.add(this.shadow);
 
     // Selection ring — hidden until the player taps this creature.
     this.ring = scene.add.ellipse(0, 0, def.size * 1.5, def.size * 0.7);
@@ -143,6 +149,7 @@ export class Creature extends Phaser.GameObjects.Container {
     this.add(this.affinityBar);
 
     this.applySpriteScale(1);
+    this.assertSpriteMatches(`cr-${speciesId}`);
     this.setDepth(pos.y);
     scene.add.existing(this);
   }
@@ -159,6 +166,26 @@ export class Creature extends Phaser.GameObjects.Container {
     this.sprite.setScale(this.baseScale);
     this.spriteTopY = GROUND_Y - target;
     this.nameLabel.setY(this.spriteTopY - 16);
+    // Contact shadow follows the displayed footprint of the current form.
+    const footW = this.sprite.width * this.baseScale;
+    this.shadow.setSize(footW * 0.72, Math.max(6, footW * 0.2));
+    this.shadow.setPosition(0, GROUND_Y - 1);
+  }
+
+  /**
+   * BUGFIX PASS — sprite↔identity guard. Called after any texture change:
+   * logs loudly if this creature ever wears a texture that doesn't belong to
+   * its own species/line. (With config-driven keys a mismatch should be
+   * impossible; the guard makes it impossible to MISS if it ever regresses.)
+   */
+  private assertSpriteMatches(expectedKey: string): void {
+    const actual = this.sprite.texture.key;
+    if (actual !== expectedKey || actual === '__MISSING') {
+      console.error(
+        `[Wildkin] SPRITE MISMATCH: ${this.creatureName} (${this.speciesId}, form=${this.formId ?? 'base'}) ` +
+        `is wearing texture '${actual}' but should wear '${expectedKey}'`,
+      );
+    }
   }
 
   // ==========================================================================
@@ -226,11 +253,26 @@ export class Creature extends Phaser.GameObjects.Container {
    */
   showAura(influence: InfluenceDef, color: number, visible: boolean): void {
     this.hideAura();
+    // GROUNDING PASS — the aura is now a pulsing RING in the element color
+    // (WorldScene drifts matching motes inside it). The diamond outline is
+    // drawn at EXACTLY the Chebyshev radius the affinity math uses, so what
+    // the player sees is precisely what the game counts.
     const g = this.scene.add.graphics();
     const rx = influence.radius * 64; // TILE_W * radius (half-width of the diamond)
     const ry = influence.radius * 32; // TILE_H * radius (half-height)
-    g.fillStyle(color, 0.08);
-    g.lineStyle(2, color, 0.4);
+    const ring = (width: number, alpha: number, inset: number) => {
+      g.lineStyle(width, color, alpha);
+      g.beginPath();
+      g.moveTo(0, -ry + inset / 2);
+      g.lineTo(rx - inset, 0);
+      g.lineTo(0, ry - inset / 2);
+      g.lineTo(-rx + inset, 0);
+      g.closePath();
+      g.strokePath();
+    };
+    ring(6, 0.18, 0); // soft outer glow
+    ring(2.5, 0.85, 0); // crisp boundary
+    g.fillStyle(color, 0.04); // whisper of fill so the field reads as an area
     g.beginPath();
     g.moveTo(0, -ry);
     g.lineTo(rx, 0);
@@ -238,15 +280,16 @@ export class Creature extends Phaser.GameObjects.Container {
     g.lineTo(-rx, 0);
     g.closePath();
     g.fillPath();
-    g.strokePath();
     this.addAt(g, 0); // underneath the body
     this.auraGfx = g;
     g.setVisible(visible);
-    // Slow breathing pulse so the aura reads as alive, not a UI overlay.
+    // Slow breathing pulse: gentle scale + opacity swell.
     this.auraTween = this.scene.tweens.add({
       targets: g,
-      alpha: { from: 1, to: 0.45 },
-      duration: 1300,
+      alpha: { from: 1, to: 0.5 },
+      scaleX: { from: 1, to: 1.045 },
+      scaleY: { from: 1, to: 1.045 },
+      duration: 1400,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -302,6 +345,7 @@ export class Creature extends Phaser.GameObjects.Container {
     // scale — the new texture may have completely different native pixels.
     this.sprite.setTexture(`cr-form-${form.id}`);
     this.applySpriteScale(form.sizeMult);
+    this.assertSpriteMatches(`cr-form-${form.id}`);
     this.affinityBar.clear(); // evolved creatures no longer show progress
 
     if (!silent) {

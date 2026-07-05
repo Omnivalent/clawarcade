@@ -71,8 +71,14 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
   private forceRare: boolean | null = null;
   /** PASS 3 — "show influence" toggle state (auras + steering ranges). */
   private showAuras = true;
-  /** PASS 3 — remove-decor mode (toggled from the Build menu). */
+  /** PASS 3 — remove mode (toggled from the Build menu). */
   private removeMode = false;
+  /** BUGFIX PASS — set during Reset so the beforeunload autosave can't resurrect the cleared sanctuary. */
+  private resetting = false;
+  /** Remove-mode double-tap confirm for releasing creatures. */
+  private pendingRelease: { id: number; at: number } | null = null;
+  /** GROUNDING PASS — drifting element motes inside auras. */
+  private auraFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   /** Which creature+branch combos already showed their "Resonance!" callout (so it doesn't spam every tick). */
   private resonanceAnnounced = new Set<string>();
 
@@ -211,11 +217,27 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
         const def = tileTypeDef(layout[ty][tx]);
         row.push(def);
         const pos = tileToWorld(tx, ty);
-        // Deterministic scatter of the darker '-b' shade breaks up big fields.
+        // Deterministic scatter breaks up big fields of one terrain.
         const alt = ((tx * 73856093) ^ (ty * 19349663) ^ this.world.seed) % 5 === 0;
-        this.add
-          .image(pos.x, pos.y, `tile-${def.id}${alt ? '-b' : ''}`)
-          .setDepth(pos.y - 100_000);
+        if (this.textures.exists(`tileart-${def.id}`)) {
+          // GROUNDING PASS — real painted tile. The art is normalized to a
+          // 128x76 canvas: 128x64 top face + a 12px thickness lip hanging
+          // below. Origin sits at the face center so corners land exactly on
+          // the grid; lower rows draw later, covering the lip above them.
+          // 7% overscale closes the hairline seams the art's own outlines
+          // leave between neighbouring diamonds (rows draw back-to-front, so
+          // the small overlap tucks naturally under the row in front).
+          const img = this.add
+            .image(pos.x, pos.y, `tileart-${def.id}`)
+            .setOrigin(0.5, 32 / 76)
+            .setScale((TILE_W / 128) * 1.07)
+            .setDepth(pos.y - 100_000);
+          if (alt) img.setTint(0xe8e8e8); // gentle variation vs. repetition
+        } else {
+          this.add
+            .image(pos.x, pos.y, `tile-${def.id}${alt ? '-b' : ''}`)
+            .setDepth(pos.y - 100_000);
+        }
       }
       this.tiles.push(row);
     }
@@ -374,6 +396,19 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       gravityY: -40,
     });
     this.fx.setDepth(300_000);
+
+    // GROUNDING PASS — slow-drifting element motes inside evolved creatures'
+    // auras (spawned by a timer in setupTimersAndEvents; visibility follows
+    // the 👁 toggle). Kept sparse so phones stay smooth.
+    this.auraFx = this.add.particles(0, 0, 'particle', {
+      emitting: false,
+      speed: { min: 5, max: 16 },
+      lifespan: { min: 1200, max: 2100 },
+      gravityY: -18,
+      alpha: { start: 0.75, end: 0 },
+      scale: { start: 0.45, end: 0.05 },
+    });
+    this.auraFx.setDepth(250_000);
   }
 
   private setupTimersAndEvents(): void {
@@ -389,6 +424,32 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       },
     });
 
+    // Aura motes: one soft particle per aura-bearing creature per tick,
+    // sampled UNIFORMLY inside the exact Chebyshev diamond the math uses.
+    this.time.addEvent({
+      delay: detectPhone() ? 1100 : 650,
+      loop: true,
+      callback: () => {
+        if (!this.showAuras) return;
+        for (const c of this.creatures) {
+          if (c.stage < 2 || !c.formId) continue;
+          const form = Object.values(BRANCHES)
+            .flatMap((b) => [b.common, b.rare])
+            .find((f) => f.id === c.formId);
+          if (!form) continue;
+          const r = form.influence.radius;
+          const u = (Math.random() * 2 - 1) * r;
+          const v = (Math.random() * 2 - 1) * r;
+          this.auraFx.particleTint = this.branchColor(form.influence.branchId);
+          this.auraFx.emitParticleAt(c.x + (u - v) * (TILE_W / 2), c.y + (u + v) * (TILE_H / 2), 1);
+        }
+      },
+    });
+
+    // BUGFIX PASS — Reset: UIScene announces it, we stop persisting so the
+    // beforeunload save can't write the old sanctuary back after the wipe.
+    gameEvents.on('wk-reset', this.onResetRequested, this);
+
     gameEvents.on('wk-build-changed', this.onBuildChanged, this);
     gameEvents.on('wk-modal-closed', this.onModalClosed, this);
     gameEvents.on('wk-auras-toggled', this.onAurasToggled, this);
@@ -401,6 +462,7 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       gameEvents.off('wk-modal-closed', this.onModalClosed, this);
       gameEvents.off('wk-auras-toggled', this.onAurasToggled, this);
       gameEvents.off('wk-remove-toggled', this.onRemoveToggled, this);
+      gameEvents.off('wk-reset', this.onResetRequested, this);
     });
   }
 
@@ -416,9 +478,14 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     for (const c of this.creatures) c.setAuraVisible(on);
   }
 
-  /** PASS 3 — remove-decor mode from the Build menu. */
+  /** PASS 3 — remove mode from the Build menu. */
   private onRemoveToggled(on: boolean): void {
     this.removeMode = on;
+    this.pendingRelease = null;
+  }
+
+  private onResetRequested(): void {
+    this.resetting = true; // every save path checks this from now on
   }
 
   /** Keep the HUD's cap counters current. */
@@ -466,9 +533,9 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
     // The celebration modal blocks the world underneath.
     if (this.registry.get('wk-modal')) return;
 
-    // 1) Remove-decor mode (PASS 3) takes priority over everything.
+    // 1) Remove mode (PASS 3) takes priority over everything.
     if (this.removeMode) {
-      this.tryRemoveDecorAt(worldToTile(wx, wy));
+      this.tryRemoveAt(wx, wy);
       return;
     }
 
@@ -666,33 +733,84 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
   }
 
   /**
-   * PASS 3 — remove-decor mode: tap a decor to demolish it and refund part
-   * of its cost (fraction from sanctuaryLimits.json). Frees the tile and cap.
+   * BUGFIX PASS — unified, reliable removal. The old version only matched the
+   * decor's exact TILE, but sprites rise well above their tile, so tapping
+   * the visible art often resolved to the tile BEHIND it and silently missed.
+   * Now we hit-test the way selection does — nearest object by screen
+   * distance to its visible body, with the exact tile as a fallback — and we
+   * handle decor, resource nodes, AND creatures (creatures need a second
+   * confirming tap so nobody releases a rare by accident).
    */
-  private tryRemoveDecorAt(t: TileCoord): void {
-    const idx = this.decorItems.findIndex((d) => d.tx === t.tx && d.ty === t.ty);
-    if (idx === -1) {
-      gameEvents.emit('wk-toast', 'Tap a decor item to remove it (🗑 mode active)');
+  private tryRemoveAt(wx: number, wy: number): void {
+    const t = worldToTile(wx, wy);
+    type Hit = { kind: 'decor' | 'node' | 'creature'; idx: number; d: number };
+    const hits: Hit[] = [];
+    this.decorItems.forEach((d, i) => {
+      const dist = Phaser.Math.Distance.Between(wx, wy, d.x, d.y - 16);
+      if (dist < 30 || (d.tx === t.tx && d.ty === t.ty)) hits.push({ kind: 'decor', idx: i, d: dist });
+    });
+    this.nodes.forEach((n, i) => {
+      const dist = Phaser.Math.Distance.Between(wx, wy, n.x, n.y - 18);
+      if (dist < 32 || (n.tx === t.tx && n.ty === t.ty)) hits.push({ kind: 'node', idx: i, d: dist });
+    });
+    this.creatures.forEach((c, i) => {
+      const dist = Phaser.Math.Distance.Between(wx, wy, c.x, c.y - 14);
+      if (dist < 28) hits.push({ kind: 'creature', idx: i, d: dist });
+    });
+    if (hits.length === 0) {
+      gameEvents.emit('wk-toast', '🗑 Tap a decor, node or wildkin to remove it');
       return;
     }
-    const decor = this.decorItems[idx];
-    const refunds: string[] = [];
-    for (const [res, amt] of Object.entries(decor.def.cost)) {
-      const back = Math.floor(amt * limitsConfig.removeRefundFraction);
-      if (back > 0) {
-        GameState.addResource(res, back);
-        refunds.push(`${back} ${res}`);
+    hits.sort((a, b) => a.d - b.d);
+    const hit = hits[0];
+
+    const refundOf = (cost: Record<string, number>): string[] => {
+      const out: string[] = [];
+      for (const [res, amt] of Object.entries(cost)) {
+        const back = Math.floor(amt * limitsConfig.removeRefundFraction);
+        if (back > 0) {
+          GameState.addResource(res, back);
+          out.push(`${back} ${res}`);
+        }
+      }
+      return out;
+    };
+
+    if (hit.kind === 'decor') {
+      const decor = this.decorItems[hit.idx];
+      const refunds = refundOf(decor.def.cost);
+      this.occupied.delete(`${decor.tx},${decor.ty}`);
+      this.decorItems.splice(hit.idx, 1);
+      decor.destroy();
+      this.publishCaps();
+      gameEvents.emit('wk-toast', `${decor.def.name} removed${refunds.length ? ` — refunded ${refunds.join(', ')}` : ''}`);
+      this.saveNow();
+    } else if (hit.kind === 'node') {
+      const node = this.nodes[hit.idx];
+      const refunds = refundOf(node.def.cost);
+      this.occupied.delete(`${node.tx},${node.ty}`);
+      this.nodes.splice(hit.idx, 1);
+      node.destroy(); // workers notice `.active === false` and go idle
+      gameEvents.emit('wk-toast', `${node.def.name} removed${refunds.length ? ` — refunded ${refunds.join(', ')}` : ''}`);
+      this.saveNow();
+    } else {
+      // Creatures: double-tap confirm within 4 seconds.
+      const creature = this.creatures[hit.idx];
+      const now = this.time.now;
+      if (this.pendingRelease?.id === creature.creatureId && now - this.pendingRelease.at < 4000) {
+        this.pendingRelease = null;
+        const refunds = refundOf(creature.def.summonCost);
+        if (this.selected === creature) this.select(null);
+        this.creatures.splice(hit.idx, 1);
+        creature.destroy();
+        this.publishCaps();
+        gameEvents.emit('wk-toast', `${creature.creatureName} released${refunds.length ? ` — refunded ${refunds.join(', ')}` : ''}`);
+        this.saveNow();
+      } else {
+        this.pendingRelease = { id: creature.creatureId, at: now };
+        gameEvents.emit('wk-toast', `Release ${creature.creatureName}? Tap it again to confirm (half summon refund)`);
       }
     }
-    this.occupied.delete(`${t.tx},${t.ty}`);
-    this.decorItems.splice(idx, 1);
-    decor.destroy();
-    this.publishCaps();
-    gameEvents.emit(
-      'wk-toast',
-      `${decor.def.name} removed${refunds.length ? ` — refunded ${refunds.join(', ')}` : ''}`,
-    );
-    this.saveNow();
   }
 
   // ==========================================================================
@@ -822,6 +940,18 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
 
   private evolveCreature(creature: Creature, branchId: string): void {
     const branch = BRANCHES[branchId];
+    // BUGFIX PASS — line-integrity guard: a creature may only ever evolve
+    // into a branch that (a) exists, (b) belongs to its own base species and
+    // (c) is listed in its species config. Config-driven flow can't violate
+    // this, but if anything ever regresses it gets BLOCKED and logged, not
+    // rendered wrong.
+    if (!branch || branch.base !== creature.speciesId || !creature.def.branches.includes(branchId)) {
+      console.error(
+        `[Wildkin] SPRITE/LINE MISMATCH blocked: ${creature.creatureName} (${creature.speciesId}) ` +
+        `attempted to evolve into '${branchId}' (base: ${branch?.base ?? 'unknown'})`,
+      );
+      return;
+    }
     // The rare roll — 15% by default, straight from evolutionForms.json.
     const isRare = this.forceRare ?? Math.random() < branch.rareChance;
     const form = isRare ? branch.rare : branch.common;
@@ -905,6 +1035,9 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
   // ==========================================================================
 
   private saveNow(): void {
+    // BUGFIX PASS — during Reset the storage was just wiped on purpose; the
+    // beforeunload handler must NOT write the dying sanctuary back.
+    if (this.resetting) return;
     // No autosave until the tutorial is done — a mid-onboarding refresh
     // should restart the tutorial cleanly, not resume half of it.
     if (!SaveManager.hasOnboarded()) return;
@@ -960,6 +1093,23 @@ export class WorldScene extends Phaser.Scene implements CreatureWorld, Onboardin
       showAuras: this.showAuras,
       removeMode: this.removeMode,
       inventory: { ...GameState.inventory },
+      // BUGFIX PASS — full sprite↔id audit: every base + form key, whether a
+      // texture exists, and whether it's real art (loaded PNGs are ≥80px;
+      // generated placeholder shapes never exceed ~62px). Tests assert 15/15.
+      spriteAudit: (() => {
+        const rows: { key: string; exists: boolean; art: boolean }[] = [];
+        const check = (key: string) => {
+          const exists = this.textures.exists(key);
+          const art = exists && this.textures.get(key).getSourceImage().width > 70;
+          rows.push({ key, exists, art });
+        };
+        for (const id of Object.keys(creaturesConfig.species)) check(`cr-${id}`);
+        for (const b of Object.values(BRANCHES)) {
+          check(`cr-form-${b.common.id}`);
+          check(`cr-form-${b.rare.id}`);
+        }
+        return rows;
+      })(),
       caps: {
         creatures: this.creatures.length,
         maxCreatures: limitsConfig.maxCreatures,

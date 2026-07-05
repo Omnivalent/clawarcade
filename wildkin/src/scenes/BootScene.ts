@@ -57,6 +57,12 @@ export class BootScene extends Phaser.Scene {
     for (const [id, def] of Object.entries(nodes)) {
       this.load.image(`node-${id}`, `assets/wildkin/nodes/${def.sprite}.png`);
     }
+    // GROUNDING PASS — real diamond ground-tile art for tile types that
+    // declare a sprite (grass/dirt/water/path). Others keep drawn diamonds.
+    const tiles = biomesConfig.tileTypes as Record<string, TileTypeDef>;
+    for (const [id, def] of Object.entries(tiles)) {
+      if (def.sprite) this.load.image(`tileart-${id}`, `assets/wildkin/tiles/${def.sprite}.png`);
+    }
   }
 
   create(): void {
@@ -115,6 +121,17 @@ export class BootScene extends Phaser.Scene {
     this.diamondPath(g, TILE_W / 2, TILE_H / 2, TILE_W - 4, TILE_H - 2);
     g.strokePath();
     g.generateTexture('tile-hover', TILE_W, TILE_H);
+
+    // GROUNDING PASS — subtle dark diamond drawn under occupied tiles so
+    // placed objects visually "own" their square.
+    g.clear();
+    g.fillStyle(0x000000, 0.16);
+    this.diamondPath(g, TILE_W / 2, TILE_H / 2, TILE_W - 2, TILE_H - 1);
+    g.fillPath();
+    g.lineStyle(1, 0x000000, 0.22);
+    this.diamondPath(g, TILE_W / 2, TILE_H / 2, TILE_W - 2, TILE_H - 1);
+    g.strokePath();
+    g.generateTexture('tile-occupied', TILE_W, TILE_H);
 
     // Build-mode ghost overlays (valid = green, invalid = red).
     for (const [key, color] of [

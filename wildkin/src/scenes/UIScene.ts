@@ -512,13 +512,20 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.resetArmed = false;
-    this.makeButton(px + 16 * s, py + 136 * s, pw - 32 * s, 40 * s, '🗑 Reset — start a new land', () => {
+    this.makeButton(px + 16 * s, py + 136 * s, pw - 32 * s, 40 * s, '🗑 Reset — new land + intro', () => {
       if (!this.resetArmed) {
         this.resetArmed = true;
-        this.toast('Tap again to erase this sanctuary and travel to a new land');
+        this.toast('Tap again to erase this sanctuary. Your Form Dex is kept forever.');
         return;
       }
-      SaveManager.clear(); // note: the onboarding flag survives on purpose
+      // BUGFIX PASS — order matters: (1) tell the WorldScene to stop saving
+      // (its beforeunload autosave used to write the old sanctuary right
+      // back after the wipe — THE reset bug), (2) wipe the save AND the
+      // onboarding flag so the intro replays, (3) reload clean. The Form
+      // Dex lives in its own storage and is deliberately untouched.
+      gameEvents.emit('wk-reset');
+      SaveManager.clear();
+      SaveManager.clearOnboarded();
       window.location.href = window.location.pathname;
     }, this.settingsPanel);
 
