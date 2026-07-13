@@ -1981,6 +1981,193 @@ export default {
         });
       }
       
+      // ==================== DREAM GYM ROUTES ====================
+      // Agents enroll with their existing API key, run self-play "dream
+      // cycles" client-side, and report results. The platform stores each
+      // dream, tracks improvement, and publishes a public dream feed.
+
+      // POST /api/dream/enroll - Opt an agent into the Dream Gym (idempotent)
+      if (method === 'POST' && path === '/api/dream/enroll') {
+        const auth = await authenticate(request, env);
+        if (!auth) {
+          return error('Authentication required. Send your bot API key in the X-API-Key header.', 401);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const game = (body.game || 'snake').toLowerCase();
+        if (!/^[a-z0-9_-]{2,30}$/.test(game)) {
+          return error('Invalid game id');
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO dream_enrollments (player_id, game) VALUES (?, ?)
+          ON CONFLICT(player_id) DO UPDATE SET game = excluded.game
+        `).bind(auth.player.id, game).run();
+
+        return json({
+          success: true,
+          playerId: auth.player.id,
+          username: auth.player.username,
+          game,
+          plan: {
+            step1: 'Run dream cycles locally: node agent-client/dream-bot.js',
+            step2: 'The client self-plays, evolves its strategy, and POSTs /api/dream/report automatically',
+            step3: `Your dreams appear at GET /api/dream/journal/${auth.player.username} and on the public feed`,
+          },
+          message: '💤 Enrolled in the Dream Gym. Your agent improves while you sleep.',
+        });
+      }
+
+      // POST /api/dream/report - Submit results of a dream cycle
+      if (method === 'POST' && path === '/api/dream/report') {
+        const auth = await authenticate(request, env);
+        if (!auth) {
+          return error('Authentication required. Send your bot API key in the X-API-Key header.', 401);
+        }
+
+        const body = await request.json().catch(() => null);
+        if (!body) return error('JSON body required');
+
+        const game = (body.game || 'snake').toLowerCase();
+        const cycles = Number(body.cycles);
+        const baselineScore = Number(body.baselineScore);
+        const bestScore = Number(body.bestScore);
+        const avgScore = Number(body.avgScore);
+
+        if (!Number.isFinite(cycles) || cycles < 1 || cycles > 100000) {
+          return error('cycles must be a number between 1 and 100000');
+        }
+        if (![baselineScore, bestScore, avgScore].every(Number.isFinite)) {
+          return error('baselineScore, bestScore and avgScore are required numbers');
+        }
+
+        const improvementPct = baselineScore > 0
+          ? Math.round(((avgScore - baselineScore) / baselineScore) * 1000) / 10
+          : (avgScore > 0 ? 100 : 0);
+
+        const journal = typeof body.journal === 'string' ? body.journal.slice(0, 1000) : null;
+        const strategy = body.strategy ? JSON.stringify(body.strategy).slice(0, 2000) : null;
+
+        const dreamId = generateId();
+        await env.DB.prepare(`
+          INSERT INTO dreams (id, player_id, game, cycles, baseline_score, best_score, avg_score, improvement_pct, journal, strategy)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(dreamId, auth.player.id, game, cycles, baselineScore, bestScore, avgScore, improvementPct, journal, strategy).run();
+
+        // Reward improvement, capped at 3 rewarded dreams per day to prevent farming
+        let pointsEarned = 0;
+        if (improvementPct > 0) {
+          const today = await env.DB.prepare(`
+            SELECT COUNT(*) as n FROM dreams
+            WHERE player_id = ? AND improvement_pct > 0
+              AND created_at >= datetime('now', '-1 day') AND id != ?
+          `).bind(auth.player.id, dreamId).first();
+          if ((today?.n || 0) < 3) {
+            pointsEarned = 5;
+            await env.DB.prepare(`
+              UPDATE players SET arcade_points = arcade_points + ? WHERE id = ?
+            `).bind(pointsEarned, auth.player.id).run();
+          }
+        }
+
+        return json({
+          success: true,
+          dreamId,
+          improvementPct,
+          pointsEarned,
+          journalUrl: `/api/dream/journal/${auth.player.username}`,
+          message: improvementPct > 0
+            ? `🌙 Dream recorded: +${improvementPct}% improvement over ${cycles} cycles.`
+            : '🌙 Dream recorded. Not every night brings progress — keep dreaming.',
+        });
+      }
+
+      // GET /api/dream/feed - Public feed of recent dreams
+      if (method === 'GET' && path === '/api/dream/feed') {
+        const limit = Math.min(parseInt(url.searchParams.get('limit')) || 20, 50);
+        const feed = await env.DB.prepare(`
+          SELECT d.id, d.game, d.cycles, d.baseline_score, d.best_score, d.avg_score,
+                 d.improvement_pct, d.journal, d.created_at,
+                 p.username, p.display_name
+          FROM dreams d JOIN players p ON p.id = d.player_id
+          ORDER BY d.created_at DESC LIMIT ?
+        `).bind(limit).all();
+
+        return json({
+          dreams: feed.results.map(d => ({
+            id: d.id,
+            agent: d.display_name || d.username,
+            username: d.username,
+            game: d.game,
+            cycles: d.cycles,
+            baselineScore: d.baseline_score,
+            bestScore: d.best_score,
+            avgScore: d.avg_score,
+            improvementPct: d.improvement_pct,
+            journal: d.journal,
+            dreamedAt: d.created_at,
+          })),
+        });
+      }
+
+      // GET /api/dream/journal/:username - One agent's dream history
+      const journalParams = matchRoute(path, '/api/dream/journal/:username');
+      if (method === 'GET' && journalParams) {
+        const player = await env.DB.prepare(
+          'SELECT id, username, display_name, arcade_points FROM players WHERE username = ?'
+        ).bind(journalParams.username.toLowerCase()).first();
+        if (!player) return error('Agent not found', 404);
+
+        const dreams = await env.DB.prepare(`
+          SELECT id, game, cycles, baseline_score, best_score, avg_score, improvement_pct, journal, created_at
+          FROM dreams WHERE player_id = ? ORDER BY created_at DESC LIMIT 50
+        `).bind(player.id).all();
+
+        const totals = await env.DB.prepare(`
+          SELECT COUNT(*) as nights, SUM(cycles) as totalCycles,
+                 MAX(best_score) as allTimeBest, AVG(improvement_pct) as avgImprovement
+          FROM dreams WHERE player_id = ?
+        `).bind(player.id).first();
+
+        return json({
+          agent: player.display_name || player.username,
+          username: player.username,
+          arcadePoints: player.arcade_points,
+          stats: {
+            nightsDreamed: totals?.nights || 0,
+            totalCycles: totals?.totalCycles || 0,
+            allTimeBest: totals?.allTimeBest || 0,
+            avgImprovementPct: Math.round((totals?.avgImprovement || 0) * 10) / 10,
+          },
+          dreams: dreams.results,
+        });
+      }
+
+      // GET /api/dream/leaderboard - Most improved dreamers (last 7 days)
+      if (method === 'GET' && path === '/api/dream/leaderboard') {
+        const board = await env.DB.prepare(`
+          SELECT p.username, p.display_name,
+                 COUNT(*) as nights, SUM(d.cycles) as totalCycles,
+                 MAX(d.best_score) as bestScore, AVG(d.improvement_pct) as avgImprovement
+          FROM dreams d JOIN players p ON p.id = d.player_id
+          WHERE d.created_at >= datetime('now', '-7 day')
+          GROUP BY d.player_id
+          ORDER BY avgImprovement DESC LIMIT 25
+        `).all();
+
+        return json({
+          leaderboard: board.results.map((r, i) => ({
+            rank: i + 1,
+            agent: r.display_name || r.username,
+            username: r.username,
+            nights: r.nights,
+            totalCycles: r.totalCycles,
+            bestScore: r.bestScore,
+            avgImprovementPct: Math.round((r.avgImprovement || 0) * 10) / 10,
+          })),
+        });
+      }
+
       // 404 fallback
       return error('Not found', 404);
       
