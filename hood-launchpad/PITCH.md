@@ -29,7 +29,8 @@ found, and traded by name (`supercat.hood`), not by hex address.
    **locked to the token forever** (the launchpad, not the creator, holds the
    name NFT — it can never be re-pointed at a scam contract).
 3. **LIST** — token opens on a bonding curve: no presale, no team allocation,
-   creator posts zero liquidity, 1% trade fee to the platform.
+   creator posts zero liquidity; trade fee is configurable (1% pump.fun-style
+   in production, zero in the private test build).
 4. **HOST** — `name.hood` serves the token's page (chart, curve progress,
    socials) via the domain's website record.
 
@@ -38,9 +39,12 @@ ERC-721s. Once `supercat.hood` launches, nobody can ever launch it again.
 Squatting a name costs real money (registration is folded into the launch fee
 — ~$5/yr for 5+ characters at current registry pricing).
 
-Graduation: when the curve raises its ETH target (or sells out its 800M
-allocation), the raised ETH plus the reserved 200M tokens auto-seed a Uniswap
-pool and **the LP is burned** — the standard rug-proof graduation.
+Graduation mirrors pump.fun exactly: when the curve sells out its 793.1M
+allocation (≈3.97 ETH raised at production settings), the raised ETH plus the
+reserved 206.9M tokens auto-seed a Uniswap pool and **the LP is burned** —
+the standard rug-proof graduation. The name is auto-renewed 5 more years
+(~$25) out of the raise at the same moment; names of tokens that never bond
+lapse after their initial year so the label gets a second chance.
 
 ## Honest technical note (get this right in the pitch)
 

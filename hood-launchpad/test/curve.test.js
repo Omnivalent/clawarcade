@@ -8,10 +8,11 @@ const assert = require('assert');
 
 const E18 = 10n ** 18n;
 const FEE_BPS = 100n;
-const CURVE_SUPPLY = 800_000_000n * E18;
-const VIRTUAL_ETH_0 = E18; // 1 ether
+// pump.fun tokenomics, mirrored from BondingCurve.sol
+const CURVE_SUPPLY = 793_100_000n * E18;
+const VIRTUAL_ETH_0 = 14n * E18 / 10n; // 1.4 ether (pump.fun's 30 vSOL, ETH-scaled)
 const VIRTUAL_TOKEN_0 = 1_073_000_000n * E18;
-const GRADUATION_ETH = 4n * E18;
+const GRADUATION_ETH = 1n << 255n; // sellout-only graduation, like pump.fun
 
 function newCurve() {
   return { vEth: VIRTUAL_ETH_0, vTok: VIRTUAL_TOKEN_0, realEth: 0n, sold: 0n, graduated: false };
@@ -21,19 +22,24 @@ const ceilDiv = (a, b) => (a + b - 1n) / b;
 
 function buy(c, ethInGross) {
   assert(!c.graduated, 'not tradable');
-  const fee = (ethInGross * FEE_BPS) / 10_000n;
+  let fee = (ethInGross * FEE_BPS) / 10_000n;
   let ethIn = ethInGross - fee;
   let refund = 0n;
   const k = c.vEth * c.vTok;
   let out = c.vTok - ceilDiv(k, c.vEth + ethIn);
   const remaining = CURVE_SUPPLY - c.sold;
-  assert(remaining > 0n, 'sold out');
   if (out > remaining) {
     out = remaining;
     const ethNeeded = ceilDiv(k, c.vTok - out) - c.vEth;
-    refund = ethIn - ethNeeded;
+    // mirror the contract: fee re-derived from ETH actually used, capped so
+    // the refund can never underflow on the 1-wei rounding boundary
+    let grossNeeded = ceilDiv(ethNeeded * 10_000n, 10_000n - FEE_BPS);
+    if (grossNeeded > ethInGross) grossNeeded = ethInGross;
+    fee = grossNeeded - ethNeeded;
+    refund = ethInGross - grossNeeded;
     ethIn = ethNeeded;
   }
+  assert(out > 0n, 'dust buy');
   c.vEth += ethIn; c.vTok -= out; c.realEth += ethIn; c.sold += out;
   if (c.realEth >= GRADUATION_ETH || c.sold === CURVE_SUPPLY) c.graduated = true;
   return { out, fee, refund };

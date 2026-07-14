@@ -4,10 +4,12 @@ pragma solidity ^0.8.26;
 import {INameRegistrar} from "../interfaces/INameRegistrar.sol";
 
 /// @title MockRegistrar — in-memory .hood registrar for demos and testnets
-/// @notice Mirrors the hood.ag pricing model ($5/yr flat for 5+ characters,
-///         premium for shorter) so launch-fee UX can be built and demoed before
-///         any provider partnership. Replaced by a real adapter at integration
-///         time; the launchpad only ever sees INameRegistrar.
+/// @notice Mirrors the hood.ag model: ENS-style FCFS registration, $5/yr flat
+///         for 5+ characters (premium shorter), yearly expiry, renewals.
+///         Expired names become available again — on purpose: a dead token
+///         frees its name so someone can retry it. Replaced by
+///         adapters/HoodAgAdapter.sol at integration time; the launchpad only
+///         ever sees INameRegistrar.
 contract MockRegistrar is INameRegistrar {
     struct Record {
         address owner;
@@ -23,10 +25,11 @@ contract MockRegistrar is INameRegistrar {
     mapping(bytes32 => Record) public records;
 
     event NameRegistered(string label, address indexed owner, address indexed resolveTo, uint256 durationYears);
+    event NameRenewed(string label, uint256 durationYears, uint256 newExpiry);
 
     function available(string calldata label) public view returns (bool) {
-        bytes32 node = keccak256(bytes(label));
-        return records[node].owner == address(0) || records[node].expiry < block.timestamp;
+        Record storage r = records[keccak256(bytes(label))];
+        return r.owner == address(0) || r.expiry < block.timestamp;
     }
 
     function priceOf(string calldata label, uint256 durationYears) public view returns (uint256) {
@@ -34,6 +37,10 @@ contract MockRegistrar is INameRegistrar {
         require(len >= 3, "label too short");
         uint256 perYear = len >= 5 ? PRICE_5PLUS_PER_YEAR : (len == 4 ? PRICE_4_PER_YEAR : PRICE_3_PER_YEAR);
         return perYear * durationYears;
+    }
+
+    function expiryOf(string calldata label) external view returns (uint256) {
+        return records[keccak256(bytes(label))].expiry;
     }
 
     function commit(bytes32) external {}
@@ -46,6 +53,7 @@ contract MockRegistrar is INameRegistrar {
         bytes32
     ) external payable {
         require(available(label), "taken");
+        require(durationYears > 0, "zero duration");
         require(msg.value >= priceOf(label, durationYears), "underpaid");
         records[keccak256(bytes(label))] = Record({
             owner: owner,
@@ -53,6 +61,15 @@ contract MockRegistrar is INameRegistrar {
             expiry: uint64(block.timestamp + durationYears * 365 days)
         });
         emit NameRegistered(label, owner, resolveTo, durationYears);
+    }
+
+    function renew(string calldata label, uint256 durationYears) external payable {
+        Record storage r = records[keccak256(bytes(label))];
+        require(r.owner != address(0) && r.expiry >= block.timestamp, "not registered");
+        require(durationYears > 0, "zero duration");
+        require(msg.value >= priceOf(label, durationYears), "underpaid");
+        r.expiry = uint64(uint256(r.expiry) + durationYears * 365 days);
+        emit NameRenewed(label, durationYears, r.expiry);
     }
 
     /// @notice Forward resolution: label => contract address, like an ENS resolver.

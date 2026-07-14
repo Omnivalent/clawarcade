@@ -24,6 +24,8 @@ const input = {
   sources: collectSources(ROOT),
   settings: {
     optimizer: { enabled: true, runs: 200 },
+    viaIR: true,
+    evmVersion: 'paris', // no PUSH0/MCOPY — safe on every L2 and the JS test VM
     outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } },
   },
 };

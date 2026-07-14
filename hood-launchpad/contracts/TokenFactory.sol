@@ -8,68 +8,137 @@ import {INameRegistrar} from "./interfaces/INameRegistrar.sol";
 /// @title TokenFactory — one-transaction token launch with .hood identity
 /// @notice launch() does four things atomically:
 ///         1. deploys the token via CREATE2 with a caller-supplied salt, and
-///            enforces the launchpad's vanity suffix (0x...600d by default) so
-///            every token address carries the house signature;
-///         2. registers `<label>.hood` through the pluggable registrar adapter,
-///            pointing the name at the token and locking ownership in this
-///            contract so the record can never be re-pointed (rug-proof name);
+///            (optionally) enforces the launchpad's vanity suffix 0x...600d;
+///         2. registers `<label>.hood` for ONE year through the pluggable
+///            registrar adapter, pointing the name at the token and keeping
+///            name ownership in this factory so the record can never be
+///            re-pointed (rug-proof identity);
 ///         3. lists the token on the shared bonding curve;
-///         4. collects the launch fee (platform fee + name registration cost).
-///         Name uniqueness is enforced twice: by the registrar itself (names
-///         are ERC-721s, first come first served) and by our local index so a
-///         second launch with the same label reverts early and cheaply.
+///         4. collects the launch fee (platform fee — zero is valid — plus
+///            the name registration cost), refunding any excess.
+///
+///         Name lifecycle policy:
+///         - initial registration: 1 year. A token that never bonds lets its
+///           name lapse; after a year the same .hood label can be launched
+///           again by anyone — a second chance for good names. (The old
+///           token's curve keeps trading, but the label's identity moves to
+///           the new token. This is the deliberate expiry policy.)
+///         - on graduation: the curve calls renewOnGraduation with a budget
+///           from the raise and the name is extended 5 more years (or
+///           re-registered if it lapsed mid-bonding). The renewal is guarded:
+///           a raise never pays for a label that was relaunched to a
+///           different token.
+///         - anyone can extend any launchpad-custodied name at any time via
+///           the permissionless renewName() — names need never hard-expire.
 contract TokenFactory {
     address public immutable owner;
+    address public immutable feeRecipient;
     BondingCurve public immutable curve;
-    uint256 public immutable platformFee; // flat launch fee in wei
+    uint256 public immutable platformFee; // flat launch fee in wei; 0 = free launches
     uint16 public constant VANITY_SUFFIX = 0x600d; // last 2 address bytes
     bool public immutable enforceVanity;
-    uint256 public constant NAME_YEARS = 5; // registration paid up front
+    uint256 public constant INITIAL_NAME_YEARS = 1;
+    uint256 public constant RENEWAL_YEARS = 5;
 
-    INameRegistrar public registrar; // swappable adapter (pre-partnership: mock)
+    /// @notice Minimum age of a launch commitment before it can be revealed.
+    ///         Binds a launch to its committer so a mempool observer cannot
+    ///         copy the calldata and front-run the launch. 0 disables the
+    ///         check (private/test deployments).
+    uint256 public immutable commitAge;
+    mapping(bytes32 => uint256) public commitments; // commitment => timestamp
 
-    mapping(bytes32 => address) public tokenByLabel; // keccak(label) => token
-    address[] public allTokens;
+    INameRegistrar public registrar; // swappable adapter (mock -> HoodAgAdapter)
+
+    mapping(bytes32 => address) public tokenByLabel; // keccak(label) => current token
+
+    /// @notice Platform launch fees accrue here and are pulled via
+    ///         collectFees(), so a misbehaving recipient can't block launches.
+    uint256 public pendingFees;
+    uint256 private unlocked = 1;
 
     event Launched(
         address indexed token,
         address indexed creator,
         string label,
         string name,
-        string symbol
+        string symbol,
+        bool relaunch
     );
+    event NameRenewed(address indexed token, string label, uint256 years_, uint256 paid);
+    event RenewalSkipped(address indexed token, string label, string reason);
     event RegistrarChanged(address indexed registrar);
 
+    modifier lock() {
+        require(unlocked == 1, "reentrancy");
+        unlocked = 0;
+        _;
+        unlocked = 1;
+    }
+
     constructor(
-        address feeRecipient,
+        address feeRecipient_,
         INameRegistrar registrar_,
         IGraduationHandler graduationHandler_,
         uint256 platformFee_,
+        uint256 feeBps_,
+        uint256 virtualEth0_,
         uint256 graduationEth_,
-        bool enforceVanity_
+        bool enforceVanity_,
+        uint256 commitAge_
     ) {
         owner = msg.sender;
+        feeRecipient = feeRecipient_;
         registrar = registrar_;
         platformFee = platformFee_;
         enforceVanity = enforceVanity_;
-        curve = new BondingCurve(address(this), feeRecipient, graduationHandler_, graduationEth_);
+        commitAge = commitAge_;
+        curve = new BondingCurve(
+            address(this), feeRecipient_, graduationHandler_, feeBps_, virtualEth0_, graduationEth_
+        );
+    }
+
+    /// @notice Commitment for front-running-resistant launches:
+    ///         keccak256(abi.encode(label, launcher, secret)). Commit, wait
+    ///         `commitAge`, then launch() with the same secret.
+    function commitName(bytes32 commitment) external {
+        commitments[commitment] = block.timestamp;
+    }
+
+    /// @notice Pass-through for registrars with their own commit-reveal
+    ///         scheme (hood.ag): forward the registrar-formatted commitment.
+    function commitRegistrar(bytes32 commitment) external {
+        registrar.commit(commitment);
+    }
+
+    /// @notice Current cost to launch `label` (platform fee + 1yr name).
+    function launchCost(string calldata label) external view returns (uint256) {
+        return platformFee + registrar.priceOf(label, INITIAL_NAME_YEARS);
     }
 
     /// @param label   the .hood label, e.g. "supercat" for supercat.hood
     /// @param salt    pre-ground off-chain so the CREATE2 address ends in 0x600d
-    /// @param secret  reveal secret for commit-reveal registrars (0x0 otherwise)
+    /// @param secret  reveal secret: for the factory commit (when commitAge>0)
+    ///                and forwarded to commit-reveal registrars
     function launch(
         string calldata name,
         string calldata symbol,
         string calldata label,
         bytes32 salt,
         bytes32 secret
-    ) external payable returns (address token) {
-        bytes32 labelHash = keccak256(bytes(label));
-        require(tokenByLabel[labelHash] == address(0), "label taken");
+    ) external payable lock returns (address token) {
+        if (commitAge > 0) {
+            bytes32 c = keccak256(abi.encode(label, msg.sender, secret));
+            uint256 committedAt = commitments[c];
+            require(committedAt != 0 && block.timestamp >= committedAt + commitAge, "commit required");
+            delete commitments[c];
+        }
+
+        // The registrar is the source of truth on availability: a label whose
+        // previous registration expired is available again, and relaunching
+        // it points the name at the new token.
         require(registrar.available(label), "name unavailable");
 
-        uint256 namePrice = registrar.priceOf(label, NAME_YEARS);
+        uint256 namePrice = registrar.priceOf(label, INITIAL_NAME_YEARS);
         require(msg.value >= platformFee + namePrice, "insufficient fee");
 
         token = address(new LaunchToken{salt: salt}(name, symbol, label, address(curve)));
@@ -77,12 +146,74 @@ contract TokenFactory {
             require(uint16(uint160(token)) == VANITY_SUFFIX, "vanity suffix mismatch");
         }
 
-        curve.initToken(token);
-        registrar.register{value: namePrice}(label, address(this), token, NAME_YEARS, secret);
-
+        // Record state BEFORE the external registrar call so a misbehaving
+        // adapter can never observe (or exploit) a half-initialized launch.
+        bytes32 labelHash = keccak256(bytes(label));
+        bool relaunch = tokenByLabel[labelHash] != address(0);
         tokenByLabel[labelHash] = token;
-        allTokens.push(token);
-        emit Launched(token, msg.sender, label, name, symbol);
+
+        curve.initToken(token);
+        registrar.register{value: namePrice}(label, address(this), token, INITIAL_NAME_YEARS, secret);
+
+        pendingFees += platformFee;
+        uint256 excess = msg.value - platformFee - namePrice;
+        if (excess > 0) _sendEth(msg.sender, excess);
+
+        emit Launched(token, msg.sender, label, name, symbol, relaunch);
+    }
+
+    /// @notice Called by the curve at graduation with a renewal budget from
+    ///         the raise. Extends the token's .hood name 5 years — or
+    ///         re-registers it if it lapsed mid-bonding — spending at most
+    ///         the budget and refunding the remainder. Returns ETH spent.
+    ///         Never renews a label that has since been relaunched to a
+    ///         different token: one token's raise cannot pay for another's name.
+    function renewOnGraduation(address token) external payable returns (uint256 spent) {
+        require(msg.sender == address(curve), "only curve");
+        string memory label = LaunchToken(token).hoodLabel();
+
+        if (tokenByLabel[keccak256(bytes(label))] != token) {
+            emit RenewalSkipped(token, label, "label reassigned");
+            _sendEth(msg.sender, msg.value);
+            return 0;
+        }
+
+        uint256 price = registrar.priceOf(label, RENEWAL_YEARS);
+        if (price > msg.value) {
+            emit RenewalSkipped(token, label, "over budget");
+            _sendEth(msg.sender, msg.value);
+            return 0;
+        }
+
+        if (registrar.available(label)) {
+            // Registration lapsed while the token was still bonding:
+            // re-register (fresh 5 years) instead of renewing. Note: on
+            // commit-reveal registrars this best-effort path may revert
+            // without a prior commit; the curve's try/catch absorbs that.
+            registrar.register{value: price}(label, address(this), token, RENEWAL_YEARS, bytes32(0));
+        } else {
+            registrar.renew{value: price}(label, RENEWAL_YEARS);
+        }
+
+        if (msg.value > price) _sendEth(msg.sender, msg.value - price);
+        emit NameRenewed(token, label, RENEWAL_YEARS, price);
+        return price;
+    }
+
+    /// @notice Permissionless renewal: anyone may pay to extend any
+    ///         launchpad-custodied name. Without this, names would hard-expire
+    ///         — the factory owns the NFT and nobody else could renew it.
+    function renewName(string calldata label, uint256 durationYears) external payable {
+        require(tokenByLabel[keccak256(bytes(label))] != address(0), "unknown label");
+        registrar.renew{value: msg.value}(label, durationYears);
+        emit NameRenewed(tokenByLabel[keccak256(bytes(label))], label, durationYears, msg.value);
+    }
+
+    /// @notice Pull accrued platform fees to the fee recipient. Anyone may call.
+    function collectFees() external {
+        uint256 amount = pendingFees;
+        pendingFees = 0;
+        _sendEth(feeRecipient, amount);
     }
 
     /// @notice Predict the CREATE2 address for a salt — used by the frontend
@@ -102,14 +233,16 @@ contract TokenFactory {
         return address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initCodeHash)))));
     }
 
-    function tokenCount() external view returns (uint256) {
-        return allTokens.length;
-    }
-
     /// @notice Swap the name-service adapter (e.g. mock -> hood.ag adapter).
     function setRegistrar(INameRegistrar registrar_) external {
         require(msg.sender == owner, "only owner");
         registrar = registrar_;
         emit RegistrarChanged(address(registrar_));
+    }
+
+    function _sendEth(address to, uint256 amount) internal {
+        if (amount == 0) return;
+        (bool ok,) = to.call{value: amount}("");
+        require(ok, "eth send failed");
     }
 }
