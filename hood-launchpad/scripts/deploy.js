@@ -60,6 +60,8 @@ function artifact(name) {
     return c;
   };
 
+  const commentCooldown = BigInt(process.env.COMMENT_COOLDOWN || '15');
+
   console.log('\ndeploying…');
   const registrar = await deploy('MockRegistrar');
   const escrow = await deploy('GraduationEscrow');
@@ -69,6 +71,7 @@ function artifact(name) {
   ]);
   const curveAddr = await factory.curve();
   console.log(`${'BondingCurve'.padEnd(17)}: ${curveAddr}`);
+  const board = await deploy('CommentBoard', [commentCooldown]);
 
   const out = {
     chainId: Number(net.chainId),
@@ -77,13 +80,18 @@ function artifact(name) {
     escrow: await escrow.getAddress(),
     factory: await factory.getAddress(),
     curve: curveAddr,
+    commentBoard: await board.getAddress(),
     feeBps: Number(feeBps),
     platformFeeWei: platformFee.toString(),
     virtualEth0Wei: virtualEth0.toString(),
     enforceVanity,
   };
   fs.writeFileSync(path.join(__dirname, '..', 'deployment.json'), JSON.stringify(out, null, 2) + '\n');
-  console.log('\nwrote deployment.json — next: PRIVATE_KEY=... node scripts/launch-token.js supercat "Super Cat" SCAT');
+  // The app reads this to know which contracts to talk to.
+  fs.writeFileSync(path.join(__dirname, '..', 'app', 'deployment.json'), JSON.stringify(out, null, 2) + '\n');
+  console.log('\nwrote deployment.json + app/deployment.json');
+  console.log('start the app:  node scripts/serve.js   → open http://localhost:8788');
+  console.log('or CLI launch:  PRIVATE_KEY=... node scripts/launch-token.js supercat "Super Cat" SCAT');
   if (Number(net.chainId) === 46630) {
     console.log(`explorer : https://explorer.testnet.chain.robinhood.com/address/${out.factory}`);
   }

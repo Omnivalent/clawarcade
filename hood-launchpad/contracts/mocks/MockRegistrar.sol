@@ -24,8 +24,14 @@ contract MockRegistrar is INameRegistrar {
 
     mapping(bytes32 => Record) public records;
 
+    // Identity helpers (mock-only, not part of INameRegistrar): a primary
+    // .hood name per address, so the frontend can show "alice.hood" instead of
+    // a raw wallet address and gate "you own a name" without extra infra.
+    mapping(address => string) public primaryName;
+
     event NameRegistered(string label, address indexed owner, address indexed resolveTo, uint256 durationYears);
     event NameRenewed(string label, uint256 durationYears, uint256 newExpiry);
+    event PrimaryNameSet(address indexed account, string label);
 
     function available(string calldata label) public view returns (bool) {
         Record storage r = records[keccak256(bytes(label))];
@@ -77,5 +83,38 @@ contract MockRegistrar is INameRegistrar {
         Record storage r = records[keccak256(bytes(label))];
         require(r.owner != address(0) && r.expiry >= block.timestamp, "unregistered");
         return r.resolveTo;
+    }
+
+    /// @notice Owner of a live name (address(0) if unregistered/expired).
+    function ownerOf(string calldata label) external view returns (address) {
+        Record storage r = records[keccak256(bytes(label))];
+        if (r.owner == address(0) || r.expiry < block.timestamp) return address(0);
+        return r.owner;
+    }
+
+    /// @notice A user registers a .hood directly (self-owned), so wallets can
+    ///         acquire a name to sign in with — independent of launching a
+    ///         token. Sets it as their primary name for identity display.
+    function registerSelf(string calldata label, uint256 durationYears) external payable {
+        require(available(label), "taken");
+        require(durationYears > 0, "zero duration");
+        require(msg.value >= priceOf(label, durationYears), "underpaid");
+        records[keccak256(bytes(label))] = Record({
+            owner: msg.sender,
+            resolveTo: msg.sender,
+            expiry: uint64(block.timestamp + durationYears * 365 days)
+        });
+        primaryName[msg.sender] = label;
+        emit NameRegistered(label, msg.sender, msg.sender, durationYears);
+        emit PrimaryNameSet(msg.sender, label);
+    }
+
+    /// @notice Reverse identity: the caller's primary .hood, "" if none/expired.
+    function nameOf(address account) external view returns (string memory) {
+        string memory label = primaryName[account];
+        if (bytes(label).length == 0) return "";
+        Record storage r = records[keccak256(bytes(label))];
+        if (r.owner != account || r.expiry < block.timestamp) return "";
+        return label;
     }
 }

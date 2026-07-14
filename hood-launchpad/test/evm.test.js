@@ -16,6 +16,7 @@ const CURVE_SUPPLY = 793_100_000n * E18;
 const LP_RESERVE = 206_900_000n * E18;
 const YEAR = 365n * 24n * 3600n;
 const ZERO32 = '0x' + '0'.repeat(64);
+const DEADLINE = (1n << 63n); // far-future trade deadline for tests
 
 async function deployStack(h, { feeBps = 0n, platformFee = 0n, enforceVanity = false, commitAge = 0n, graduationEth = NO_EARLY_TRIGGER } = {}) {
   const registrar = await h.deploy('MockRegistrar', [], []);
@@ -88,11 +89,11 @@ test('zero-fee mode: buys and sells send nothing to the fee sink', async () => {
   const S = await deployStack(h, { feeBps: 0n, platformFee: 0n });
   const token = await launch(h, S, 'supercat');
   const sinkBefore = await h.balance('feeSink');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: E18 / 10n });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: E18 / 10n });
   const bag = await h.call(token, 'balanceOf', [h.accounts.bob.toString()]);
   assert(bag > 0n);
   await h.call(token, 'approve', [S.curve.address.toString(), bag], { from: 'bob' });
-  await h.call(S.curve, 'sell', [token.address.toString(), bag, 0n], { from: 'bob' });
+  await h.call(S.curve, 'sell', [token.address.toString(), bag, 0n, DEADLINE], { from: 'bob' });
   assert.equal(await h.balance('feeSink'), sinkBefore, 'fee sink untouched at 0 bps');
 });
 
@@ -102,10 +103,10 @@ test('zero-fee round trip returns ETH minus rounding dust only; curve stays solv
   const token = await launch(h, S, 'supercat');
   const spend = E18 / 2n;
   const before = await h.balance('bob');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: spend });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: spend });
   const bag = await h.call(token, 'balanceOf', [h.accounts.bob.toString()]);
   await h.call(token, 'approve', [S.curve.address.toString(), bag], { from: 'bob' });
-  await h.call(S.curve, 'sell', [token.address.toString(), bag, 0n], { from: 'bob' });
+  await h.call(S.curve, 'sell', [token.address.toString(), bag, 0n, DEADLINE], { from: 'bob' });
   const after = await h.balance('bob');
   const lost = before - after;
   assert(lost >= 0n && lost < 1000n, `round trip lost ${lost} wei — must be dust-scale, never negative`);
@@ -119,7 +120,7 @@ test('pump.fun tokenomics: sellout at 793.1M sold raises ~2.833x virtual ETH', a
   const h = await Harness.create();
   const S = await deployStack(h);
   const token = await launch(h, S, 'supercat');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: 10n * E18 });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 10n * E18 });
   const st = await h.call(S.curve, 'curves', [token.address.toString()]);
   assert.equal(st[5], true, 'graduated on sellout');
   assert.equal(st[3], CURVE_SUPPLY, 'exactly 793.1M sold');
@@ -137,7 +138,7 @@ test('graduation: clamped final buy refunds excess ETH to the buyer', async () =
   const S = await deployStack(h);
   const token = await launch(h, S, 'supercat');
   const before = await h.balance('bob');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: 100n * E18 });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 100n * E18 });
   const spent = before - (await h.balance('bob'));
   assert(spent < 5n * E18, `bob spent ${spent} — the ~96 ETH excess must be refunded`);
   assert.equal(await h.call(token, 'balanceOf', [h.accounts.bob.toString()]), CURVE_SUPPLY);
@@ -150,7 +151,7 @@ test('graduation: name auto-renews +5 years paid from the raise; escrow gets the
   const expiry0 = await h.call(S.registrar, 'expiryOf', ['supercat']);
   const renewCost = await h.call(S.registrar, 'priceOf', ['supercat', 5n]);
 
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: 10n * E18 });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 10n * E18 });
 
   assert.equal(await h.call(S.registrar, 'expiryOf', ['supercat']), expiry0 + 5n * YEAR, 'name extended exactly 5 years at graduation');
   const st = await h.call(S.curve, 'curves', [token.address.toString()]);
@@ -164,18 +165,18 @@ test('graduation: trading is closed afterwards', async () => {
   const h = await Harness.create();
   const S = await deployStack(h);
   const token = await launch(h, S, 'supercat');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: 10n * E18 });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 10n * E18 });
   await assert.rejects(
-    h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'alice', value: E18 }), /not tradable/);
+    h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'alice', value: E18 }), /not tradable/);
   await assert.rejects(
-    h.call(S.curve, 'sell', [token.address.toString(), E18, 0n], { from: 'bob' }), /not tradable/);
+    h.call(S.curve, 'sell', [token.address.toString(), E18, 0n, DEADLINE], { from: 'bob' }), /not tradable/);
 });
 
 test('expiry: a never-graduated name frees after 1 year and can be relaunched', async () => {
   const h = await Harness.create();
   const S = await deployStack(h);
   const token1 = await launch(h, S, 'failcat');
-  await h.call(S.curve, 'buy', [token1.address.toString(), 0n], { from: 'bob', value: E18 / 10n }); // some activity, no graduation
+  await h.call(S.curve, 'buy', [token1.address.toString(), 0n, DEADLINE], { from: 'bob', value: E18 / 10n }); // some activity, no graduation
 
   await assert.rejects(launch(h, S, 'failcat', { from: 'bob' }), /name unavailable/, 'still locked before expiry');
   h.warp(Number(YEAR) + 60);
@@ -187,7 +188,7 @@ test('expiry: a never-graduated name frees after 1 year and can be relaunched', 
   const token2 = await launch(h, S, 'failcat', { from: 'bob', salt: '0x' + '1'.padStart(64, '0') });
   assert.notEqual(token2.address.toString(), token1.address.toString(), 'fresh token contract');
   assert.equal((await h.call(S.registrar, 'resolve', ['failcat'])).toLowerCase(), token2.address.toString(), 'name now points at the new token');
-  await h.call(S.curve, 'buy', [token2.address.toString(), 0n], { from: 'alice', value: E18 / 10n });
+  await h.call(S.curve, 'buy', [token2.address.toString(), 0n, DEADLINE], { from: 'alice', value: E18 / 10n });
   assert((await h.call(token2, 'balanceOf', [h.accounts.alice.toString()])) > 0n, 'new curve trades normally');
 });
 
@@ -195,7 +196,7 @@ test('graduated token keeps its name: expiry is 6 years out, relaunch blocked', 
   const h = await Harness.create();
   const S = await deployStack(h);
   const token = await launch(h, S, 'supercat');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: 10n * E18 }); // graduate
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 10n * E18 }); // graduate
   h.warp(Number(YEAR) * 2); // two years later — a dead 1yr name would be free
   assert.equal(await h.call(S.registrar, 'available', ['supercat']), false, 'graduated name still held');
   await assert.rejects(launch(h, S, 'supercat', { from: 'bob' }), /name unavailable/);
@@ -207,7 +208,7 @@ test('with fees on: 1% accrues on trades, launch fee accrues; collectFees pulls 
   const sink0 = await h.balance('feeSink');
   const token = await launch(h, S, 'supercat');
   assert.equal(await h.call(S.factory, 'pendingFees'), E18 / 100n, 'platform launch fee accrued');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: E18 });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: E18 });
   assert.equal(await h.call(S.curve, 'pendingFees'), E18 / 100n, '1% trade fee accrued');
   await h.call(S.curve, 'collectFees', [], { from: 'bob' });
   await h.call(S.factory, 'collectFees', [], { from: 'bob' });
@@ -243,13 +244,13 @@ test('renewal hijack guard: an old token graduating cannot pay for a relaunched 
   const h = await Harness.create();
   const S = await deployStack(h);
   const token1 = await launch(h, S, 'failcat');
-  await h.call(S.curve, 'buy', [token1.address.toString(), 0n], { from: 'bob', value: E18 / 10n });
+  await h.call(S.curve, 'buy', [token1.address.toString(), 0n, DEADLINE], { from: 'bob', value: E18 / 10n });
   h.warp(Number(YEAR) + 60); // failcat's 1yr registration lapses
   const token2 = await launch(h, S, 'failcat', { from: 'bob', salt: '0x' + '1'.padStart(64, '0') });
   const expiry2 = await h.call(S.registrar, 'expiryOf', ['failcat']);
 
   // token1's curve is still live; graduate it now
-  await h.call(S.curve, 'buy', [token1.address.toString(), 0n], { from: 'alice', value: 10n * E18 });
+  await h.call(S.curve, 'buy', [token1.address.toString(), 0n, DEADLINE], { from: 'alice', value: 10n * E18 });
   const st1 = await h.call(S.curve, 'curves', [token1.address.toString()]);
   assert.equal(st1[5], true, 'token1 graduated');
   assert.equal(await h.call(S.registrar, 'expiryOf', ['failcat']), expiry2, "token2's registration must NOT be extended by token1's raise");
@@ -261,10 +262,10 @@ test('lapsed-name graduation: name is re-registered for 5 years, not silently lo
   const h = await Harness.create();
   const S = await deployStack(h);
   const token = await launch(h, S, 'slowcat');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: E18 / 10n });
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: E18 / 10n });
   h.warp(Number(YEAR) + 60); // registration lapses mid-bonding, nobody relaunches
   assert.equal(await h.call(S.registrar, 'available', ['slowcat']), true);
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'alice', value: 10n * E18 }); // graduates
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'alice', value: 10n * E18 }); // graduates
   assert.equal(await h.call(S.registrar, 'available', ['slowcat']), false, 'name re-registered at graduation');
   assert.equal((await h.call(S.registrar, 'resolve', ['slowcat'])).toLowerCase(), token.address.toString(), 'name points back at the graduated token');
   assert.equal(await h.call(S.registrar, 'expiryOf', ['slowcat']), h.timestamp + 5n * YEAR, 'fresh 5-year registration');
@@ -287,13 +288,53 @@ test('constructor rejects graduationEth = 0 (would graduate every token on first
   await assert.rejects(deployStack(h, { graduationEth: 0n }), /zero graduation trigger/);
 });
 
+test('anti-sandwich: a passed deadline reverts the trade', async () => {
+  const h = await Harness.create();
+  const S = await deployStack(h);
+  const token = await launch(h, S, 'supercat');
+  const past = h.timestamp - 1n;
+  await assert.rejects(
+    h.call(S.curve, 'buy', [token.address.toString(), 0n, past], { from: 'bob', value: E18 / 10n }), /expired/);
+});
+
+test('anti-sandwich: minTokensOut floor reverts a buy the market moved past', async () => {
+  const h = await Harness.create();
+  const S = await deployStack(h);
+  const token = await launch(h, S, 'supercat');
+  const quoted = await h.call(S.curve, 'quoteBuy', [token.address.toString(), E18 / 10n]);
+  // a front-runner buys first, pushing the price up so our fill falls short
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'alice', value: E18 });
+  await assert.rejects(
+    h.call(S.curve, 'buy', [token.address.toString(), quoted, DEADLINE], { from: 'bob', value: E18 / 10n }), /slippage/);
+});
+
+test('social: self-register a name to sign in with; reverse identity resolves', async () => {
+  const h = await Harness.create();
+  const S = await deployStack(h);
+  const price = await h.call(S.registrar, 'priceOf', ['alicehood', 1n]);
+  await h.call(S.registrar, 'registerSelf', ['alicehood', 1n], { from: 'alice', value: price });
+  assert.equal((await h.call(S.registrar, 'ownerOf', ['alicehood'])).toLowerCase(), h.accounts.alice.toString());
+  assert.equal(await h.call(S.registrar, 'nameOf', [h.accounts.alice.toString()]), 'alicehood', 'reverse identity resolves');
+  assert.equal(await h.call(S.registrar, 'nameOf', [h.accounts.bob.toString()]), '', 'no name => empty identity');
+});
+
+test('social: comments emit events, respect the cooldown, cap length', async () => {
+  const h = await Harness.create();
+  const board = await h.deploy('CommentBoard', ['uint256'], [30n]);
+  const token = '0x' + '11'.repeat(20);
+  await h.call(board, 'post', [token, 'gm hoodpad'], { from: 'alice' });
+  await assert.rejects(h.call(board, 'post', [token, 'too fast'], { from: 'alice' }), /slow down/);
+  await assert.rejects(h.call(board, 'post', [token, ''], { from: 'bob' }), /bad length/);
+  await h.call(board, 'post', [token, 'nice launch'], { from: 'bob' }); // different author, no cooldown
+});
+
 test('with fees on: clamped graduation buy is charged fee on ETH used, not on the refund', async () => {
   const h = await Harness.create();
   const S = await deployStack(h, { feeBps: 100n });
   const token = await launch(h, S, 'supercat');
   const sink0 = await h.balance('feeSink');
   const bob0 = await h.balance('bob');
-  await h.call(S.curve, 'buy', [token.address.toString(), 0n], { from: 'bob', value: 100n * E18 }); // needs only ~4 ETH
+  await h.call(S.curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 100n * E18 }); // needs only ~4 ETH
   const st = await h.call(S.curve, 'curves', [token.address.toString()]);
   assert.equal(st[5], true, 'graduated');
   const fee = await h.call(S.curve, 'pendingFees');

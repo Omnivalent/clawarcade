@@ -66,7 +66,9 @@ function grindSalt(factory, curve, name, symbol, label, suffix) {
 
   const firstBuy = process.env.FIRST_BUY_ETH;
   if (firstBuy) {
-    const btx = await curve.buy(token, 0n, { value: parseEther(firstBuy) });
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+    const minOut = (await curve.quoteBuy(token, parseEther(firstBuy))) * 99n / 100n; // 1% slippage
+    const btx = await curve.buy(token, minOut, deadline, { value: parseEther(firstBuy) });
     await btx.wait();
     const erc20 = new Contract(token, artifact('LaunchToken').abi, wallet);
     const bag = await erc20.balanceOf(wallet.address);

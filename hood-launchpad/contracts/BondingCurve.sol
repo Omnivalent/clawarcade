@@ -181,7 +181,15 @@ contract BondingCurve {
     ///         supply is clamped to the remainder and the unused ETH refunded.
     ///         Graduation fires on sellout, or on `graduationEth` raised if
     ///         that (optional) early trigger is configured lower.
-    function buy(address token, uint256 minTokensOut) external payable lock returns (uint256 tokensOut) {
+    /// @param minTokensOut slippage floor — the frontend sets this tight so a
+    ///         sandwich bot front-running the buy can't push the fill price up
+    ///         past the caller's tolerance; the tx reverts instead.
+    /// @param deadline unix time after which the tx is stale and reverts, so a
+    ///         held-back (censored) tx can't be executed later inside a sandwich.
+    function buy(address token, uint256 minTokensOut, uint256 deadline)
+        external payable lock returns (uint256 tokensOut)
+    {
+        require(block.timestamp <= deadline, "expired");
         Curve storage c = curves[token];
         require(c.exists && !c.graduated, "not tradable");
         require(msg.value > 0, "zero eth");
@@ -206,7 +214,10 @@ contract BondingCurve {
         if (c.tokensSold == CURVE_SUPPLY || c.realEth >= graduationEth) _graduate(token, c);
     }
 
-    function sell(address token, uint256 tokensIn, uint256 minEthOut) external lock returns (uint256 ethOut) {
+    function sell(address token, uint256 tokensIn, uint256 minEthOut, uint256 deadline)
+        external lock returns (uint256 ethOut)
+    {
+        require(block.timestamp <= deadline, "expired");
         Curve storage c = curves[token];
         require(c.exists && !c.graduated, "not tradable");
         require(tokensIn > 0, "zero tokens");

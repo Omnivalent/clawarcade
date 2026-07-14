@@ -58,6 +58,14 @@ for (const [file, contracts] of Object.entries(output.contracts || {})) {
       path.join(outDir, `${name}.json`),
       JSON.stringify({ contractName: name, sourceFile: file, abi: artifact.abi, bytecode: artifact.evm.bytecode.object }, null, 2)
     );
+    if (name === 'LaunchToken') {
+      // The dApp grinder needs the exact creation bytecode to reproduce the
+      // factory's CREATE2 address prediction client-side.
+      const appDir = path.join(__dirname, '..', 'app');
+      if (fs.existsSync(appDir)) {
+        fs.writeFileSync(path.join(appDir, 'launchtoken.initcode.txt'), '0x' + artifact.evm.bytecode.object);
+      }
+    }
     count++;
   }
 }
