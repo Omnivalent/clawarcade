@@ -1,4 +1,4 @@
-/* hoodpad dApp — connect a wallet, sign in, launch/trade tokens on their
+/* garlic.hood dApp — connect a wallet, sign in, launch/trade tokens on their
  * .hood names, and comment. Talks to the contracts in deployment.json over
  * the connected wallet's provider. Read-only until you sign in. */
 'use strict';
@@ -110,13 +110,13 @@ async function connect(wallet) {
 async function signIn() {
   if (!state.account) return;
   try {
-    const domain = location.host || 'hoodpad.local';
+    const domain = location.host || 'garlic.hood';
     const nonce = Math.random().toString(36).slice(2, 10);
     const issued = new Date().toISOString();
     // SIWE-style message (EIP-4361 shape). Proves wallet control; no gas.
     const message =
       `${domain} wants you to sign in with your Ethereum account:\n${state.account}\n\n` +
-      `Sign in to hoodpad. This is off-chain and free — it does not authorize any transaction.\n\n` +
+      `Sign in to garlic.hood. This is off-chain and free — it does not authorize any transaction.\n\n` +
       `URI: ${location.origin}\nVersion: 1\nChain ID: ${state.deployment.chainId}\n` +
       `Nonce: ${nonce}\nIssued At: ${issued}`;
     const sig = await state.signer.signMessage(message);
@@ -169,7 +169,7 @@ async function searchName() {
       out.innerHTML =
         `<div class="resline"><b class="bad">${label}.hood</b> is taken</div>` +
         `<div class="muted">Registered until ${when}${token !== ethers.ZeroAddress ? ` · resolves to <span class="mono">${short(token)}</span>` : ''}. It frees up for relaunch only if it expires un-graduated.</div>` +
-        (token !== ethers.ZeroAddress ? `<button class="ghost" id="tradeExisting">Trade ${label}.hood</button>` : '');
+        (token !== ethers.ZeroAddress ? `<button class="outline" id="tradeExisting" style="margin-top:.7rem;">Trade ${label}.hood</button>` : '');
       hideLaunchForm();
       if (token !== ethers.ZeroAddress) $('tradeExisting').onclick = () => openToken(token, label);
     }
@@ -335,7 +335,7 @@ async function loadComments(token) {
     const rows = await Promise.all(logs.slice(-50).reverse().map(async l => {
       const who = await identityFor(l.args.author);
       const when = new Date(Number(l.args.timestamp) * 1000).toLocaleString();
-      return `<div class="cmt"><div class="cmt-head"><b>${who}</b><span class="muted">${when}</span></div><div>${escapeHtml(l.args.text)}</div></div>`;
+      return `<div class="cmt"><div class="cmt-head"><b>${who}</b><span class="when">${when}</span></div><div>${escapeHtml(l.args.text)}</div></div>`;
     }));
     box.innerHTML = rows.join('');
   } catch (e) { box.innerHTML = `<span class="bad">${rpcError(e)}</span>`; }
@@ -375,7 +375,8 @@ async function refreshFeed() {
     if (logs.length === 0) { box.innerHTML = '<span class="muted">No tokens launched yet. Search a name above to be first.</span>'; return; }
     box.innerHTML = logs.slice(-12).reverse().map(l =>
       `<button class="feedrow" data-token="${l.args.token}" data-label="${l.args.label}">` +
-      `<b>${escapeHtml(l.args.label)}.hood</b><span class="muted">${escapeHtml(l.args.name)} · ${escapeHtml(l.args.symbol)}</span></button>`).join('');
+      `<span class="fl"><span class="tick">🧄</span><span><b>${escapeHtml(l.args.label)}.hood</b><div class="sub">${escapeHtml(l.args.name)} · ${escapeHtml(l.args.symbol)}</div></span></span>` +
+      `<span class="up" style="font-weight:600;">Trade →</span></button>`).join('');
     box.querySelectorAll('.feedrow').forEach(el => el.onclick = () => openToken(el.dataset.token, el.dataset.label));
   } catch (e) { box.innerHTML = `<span class="muted">Feed unavailable: ${rpcError(e)}</span>`; }
 }
