@@ -51,6 +51,8 @@ if (failed) process.exit(1);
 
 const outDir = path.join(__dirname, '..', 'build');
 fs.mkdirSync(outDir, { recursive: true });
+const appDir = path.join(__dirname, '..', 'app');
+const all = {}; // name -> {abi, bytecode}
 let count = 0;
 for (const [file, contracts] of Object.entries(output.contracts || {})) {
   for (const [name, artifact] of Object.entries(contracts)) {
@@ -58,15 +60,21 @@ for (const [file, contracts] of Object.entries(output.contracts || {})) {
       path.join(outDir, `${name}.json`),
       JSON.stringify({ contractName: name, sourceFile: file, abi: artifact.abi, bytecode: artifact.evm.bytecode.object }, null, 2)
     );
-    if (name === 'LaunchToken') {
+    all[name] = { abi: artifact.abi, bytecode: '0x' + artifact.evm.bytecode.object };
+    if (name === 'LaunchToken' && fs.existsSync(appDir)) {
       // The dApp grinder needs the exact creation bytecode to reproduce the
       // factory's CREATE2 address prediction client-side.
-      const appDir = path.join(__dirname, '..', 'app');
-      if (fs.existsSync(appDir)) {
-        fs.writeFileSync(path.join(appDir, 'launchtoken.initcode.txt'), '0x' + artifact.evm.bytecode.object);
-      }
+      fs.writeFileSync(path.join(appDir, 'launchtoken.initcode.txt'), '0x' + artifact.evm.bytecode.object);
     }
     count++;
   }
+}
+// Deploy bundle: lets the website deploy the whole stack from the user's
+// wallet in the browser — no terminal, no Node, no Remix.
+if (fs.existsSync(appDir)) {
+  const pick = ['MockRegistrar', 'GraduationEscrow', 'TokenFactory', 'CommentBoard'];
+  const bundle = {};
+  for (const n of pick) bundle[n] = all[n];
+  fs.writeFileSync(path.join(appDir, 'deploy-bundle.js'), 'window.DEPLOY_BUNDLE = ' + JSON.stringify(bundle) + ';\n');
 }
 console.log(`✓ compiled ${count} contracts to build/`);

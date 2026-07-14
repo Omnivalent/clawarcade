@@ -21,22 +21,137 @@ const state = {
   current: null,        // { token, label, name, symbol }
 };
 
+// ---------- config: the chain the hosted app targets ----------
+const CHAIN = {
+  id: 46630,
+  hexId: '0x' + (46630).toString(16),
+  rpc: 'https://rpc.testnet.chain.robinhood.com/rpc',
+  name: 'Robinhood Chain Testnet',
+  explorer: 'https://explorer.testnet.chain.robinhood.com',
+  faucet: 'https://faucet.testnet.chain.robinhood.com',
+};
+
 // ---------- boot ----------
 async function boot() {
-  try {
-    state.deployment = await (await fetch('deployment.json')).json();
-  } catch {
-    $('banner').innerHTML = '⚠ No deployment found. Run <code>node scripts/deploy.js</code> first, then reload.';
-    $('banner').classList.add('show');
-    return;
-  }
-  state.reader = new ethers.JsonRpcProvider(state.deployment.rpc);
-  wireReadContracts();
   discoverWallets();
-  renderChainInfo();
   bindUI();
+  // config sources, in order: this browser's localStorage (you deployed from
+  // your wallet) → a bundled deployment.json (local `serve.js`) → none (show
+  // the one-click setup).
+  state.deployment = loadLocalDeployment() || await loadFileDeployment();
+  if (state.deployment) startApp();
+  else { document.body.classList.add('needsetup'); renderSetup(); }
+}
+function loadLocalDeployment() {
+  try { const j = localStorage.getItem('garlic_deployment'); if (j) return JSON.parse(j); } catch {}
+  return null;
+}
+async function loadFileDeployment() {
+  try { const r = await fetch('deployment.json'); if (r.ok) return await r.json(); } catch {}
+  return null;
+}
+
+function startApp() {
+  document.body.classList.remove('needsetup');
+  // Prefer the connected wallet's provider for reads (works on whatever chain
+  // the wallet is on); fall back to the public RPC before a wallet connects.
+  state.reader = state.provider || new ethers.JsonRpcProvider(state.deployment.rpc);
+  wireReadContracts();
+  renderChainInfo();
+  renderAccount();
   refreshFeed();
   refreshLeaderboard();
+}
+
+// ---------- one-click in-browser setup (no terminal, no Node) ----------
+function renderSetup() {
+  const el = $('setupPanel');
+  el.innerHTML =
+    `<h2>Set up garlic.hood — one time, about a minute</h2>` +
+    `<p class="muted" style="margin:.3rem 0 1rem; max-width:52ch;">This deploys your own copy of garlic.hood to Robinhood Chain testnet, straight from your wallet. No downloads, no terminal — you'll approve a few free transactions.</p>` +
+    `<ol class="setup-steps">` +
+    `<li><b>Connect</b> a wallet (MetaMask, Phantom, Coinbase, Robinhood).</li>` +
+    `<li>Get <b>free test ETH</b> — the button appears after you connect.</li>` +
+    `<li><b>Deploy</b> — approve ~4 transactions. That's it.</li>` +
+    `</ol>` +
+    `<div class="setup-actions">` +
+    `<button class="pill" id="setupConnect">Connect wallet</button>` +
+    `<button class="btn-buy" id="setupDeploy" disabled>Deploy garlic.hood</button>` +
+    `</div>` +
+    `<div id="setupMsg" class="muted" style="margin-top:.8rem; font-size:.9rem;"></div>`;
+  $('setupConnect').onclick = openModal;
+  $('setupDeploy').onclick = () => deployContracts($('setupDeploy'));
+}
+
+// called from connect() when we're still in setup mode
+function onSetupConnected() {
+  const msg = $('setupMsg');
+  const onChain = state.chainId === CHAIN.id;
+  msg.innerHTML =
+    `Connected <span class="mono">${short(state.account)}</span>. ` +
+    `<a href="${CHAIN.faucet}" target="_blank" rel="noopener">Get free test ETH →</a> (paste your address) ` +
+    (onChain ? '' : `<br><span class="warn">Your wallet isn't on ${CHAIN.name} yet — the Deploy button will add/switch it for you.</span>`);
+  $('setupConnect').textContent = short(state.account);
+  $('setupDeploy').disabled = false;
+}
+
+async function ensureNetwork() {
+  const p = state.walletProvider;
+  try {
+    await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN.hexId }] });
+  } catch (e) {
+    if (e.code === 4902 || /Unrecognized chain/i.test(e.message || '')) {
+      await p.request({ method: 'wallet_addEthereumChain', params: [{
+        chainId: CHAIN.hexId, chainName: CHAIN.name,
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: [CHAIN.rpc], blockExplorerUrls: [CHAIN.explorer],
+      }] });
+    } else throw e;
+  }
+  state.signer = await state.provider.getSigner();
+}
+
+async function deployContracts(btn) {
+  if (!state.signer) { toast('Connect a wallet first.', 'warn'); return; }
+  const B = window.DEPLOY_BUNDLE;
+  if (!B) { toast('Deploy bundle missing — rebuild with node scripts/compile.js', 'bad'); return; }
+  const virtualEth0 = ethers.parseEther('0.05'); // graduation reachable with ~0.15 test ETH
+  const graduationEth = ethers.MaxUint256 >> 1n; // sellout-only, like pump.fun
+  const factoryOf = c => new ethers.ContractFactory(c.abi, c.bytecode, state.signer);
+  try {
+    btn.disabled = true;
+    $('setupMsg').textContent = 'Checking network…';
+    await ensureNetwork();
+    const bal = await state.reader?.getBalance?.(state.account).catch(() => 1n) ?? 1n;
+
+    const step = (t) => { btn.textContent = t; $('setupMsg').textContent = t + ' — approve in your wallet.'; };
+    step('Deploying name registry…');
+    const reg = await factoryOf(B.MockRegistrar).deploy(); await reg.waitForDeployment();
+    step('Deploying pool handler…');
+    const esc = await factoryOf(B.GraduationEscrow).deploy(); await esc.waitForDeployment();
+    step('Deploying launchpad…');
+    const fac = await factoryOf(B.TokenFactory).deploy(
+      state.account, await reg.getAddress(), await esc.getAddress(), 0n, 0n, virtualEth0, graduationEth, false, 0n);
+    await fac.waitForDeployment();
+    const curveAddr = await fac.curve();
+    step('Deploying comments…');
+    const board = await factoryOf(B.CommentBoard).deploy(15n); await board.waitForDeployment();
+
+    const dep = {
+      chainId: CHAIN.id, rpc: CHAIN.rpc,
+      registrar: await reg.getAddress(), escrow: await esc.getAddress(),
+      factory: await fac.getAddress(), curve: curveAddr, commentBoard: await board.getAddress(),
+      feeBps: 0, platformFeeWei: '0', virtualEth0Wei: virtualEth0.toString(), enforceVanity: false,
+    };
+    localStorage.setItem('garlic_deployment', JSON.stringify(dep));
+    state.deployment = dep;
+    void bal;
+    toast('🧄 garlic.hood is live — deployed from your wallet!', 'ok');
+    startApp();
+  } catch (e) {
+    $('setupMsg').innerHTML = `<span class="bad">${rpcError(e)}</span>`;
+    btn.disabled = false; btn.textContent = 'Deploy garlic.hood';
+  }
 }
 
 function wireReadContracts() {
@@ -89,6 +204,7 @@ function renderWalletList() {
 // ---------- connect + SIWE sign-in ----------
 async function connect(wallet) {
   try {
+    state.walletProvider = wallet.provider;
     state.provider = new ethers.BrowserProvider(wallet.provider);
     const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' });
     state.account = ethers.getAddress(accounts[0]);
@@ -97,11 +213,18 @@ async function connect(wallet) {
     state.chainId = Number(net.chainId);
     wallet.provider.on?.('accountsChanged', () => location.reload());
     wallet.provider.on?.('chainChanged', () => location.reload());
-    await loadIdentity();
+    if (state.readContracts) await loadIdentity();
     closeModal();
     renderAccount();
-    if (state.chainId !== state.deployment.chainId) {
-      toast(`Wrong network. Switch your wallet to chain ${state.deployment.chainId} (Robinhood Chain).`, 'warn');
+    if (document.body.classList.contains('needsetup')) { onSetupConnected(); return; }
+    if (state.deployment) {
+      // move reads onto the wallet's provider now that we have one
+      state.reader = state.provider;
+      wireReadContracts();
+      refreshFeed(); refreshLeaderboard();
+      if (state.chainId !== state.deployment.chainId) {
+        toast(`Wrong network. Switch your wallet to chain ${state.deployment.chainId} (Robinhood Chain).`, 'warn');
+      }
     }
   } catch (e) {
     toast(rpcError(e), 'bad');
