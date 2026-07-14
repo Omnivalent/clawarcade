@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hoodpad — launch a token, own the name (demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="sha3.min.js"></script>
+<style>
+:root {
+  --cyan: #00e5f6; --magenta: #ff2a6d; --gold: #ffd23e; --green: #22e59a;
+  --void: #05060a; --raise: #0b0d16; --panel: #0e111d;
+  --line: rgba(148,163,216,0.10); --line-bright: rgba(0,229,246,0.28);
+  --ink: #eef0fb; --ink-2: #a8aec8; --ink-3: #666d8a;
+  --disp: 'Orbitron', sans-serif; --body: 'Rajdhani', sans-serif; --r: 14px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background: var(--void); color: var(--ink); font-family: var(--body); min-height:100vh; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 2rem 1.25rem 5rem; }
+header { text-align:center; padding: 2.5rem 0 1.5rem; }
+h1 { font-family: var(--disp); font-size: clamp(1.8rem, 5vw, 2.8rem); letter-spacing: .06em; }
+h1 .hood { color: var(--green); text-shadow: 0 0 24px rgba(34,229,154,.45); }
+.tag { color: var(--ink-2); font-size: 1.1rem; margin-top:.4rem; }
+.simnote { display:inline-block; margin-top: .9rem; padding:.25rem .8rem; border:1px solid var(--gold);
+  border-radius: 999px; color: var(--gold); font-weight:600; font-size:.85rem; letter-spacing:.08em; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 1.4rem; margin-top: 1.4rem; }
+.card h2 { font-family: var(--disp); font-size: 1rem; letter-spacing: .1em; color: var(--ink-2); text-transform: uppercase; margin-bottom: 1rem; }
+.step { color: var(--cyan); margin-right:.5rem; }
+.namerow { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
+.namerow input { flex:1; min-width: 200px; background: var(--raise); border:1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-family: var(--body); font-size: 1.25rem; padding: .6rem .9rem; outline:none; }
+.namerow input:focus { border-color: var(--line-bright); }
+.suffix { font-family: var(--disp); color: var(--green); font-size: 1.15rem; }
+.status { margin-top: .8rem; font-size: 1.05rem; min-height: 1.5em; }
+.ok { color: var(--green); } .bad { color: var(--magenta); } .muted { color: var(--ink-3); }
+button { background: linear-gradient(135deg, rgba(34,229,154,.16), rgba(0,229,246,.12)); border: 1px solid var(--green);
+  color: var(--ink); border-radius: 10px; padding: .6rem 1.3rem; font-family: var(--disp); font-size: .85rem;
+  letter-spacing: .08em; cursor: pointer; }
+button:hover { box-shadow: 0 0 18px rgba(34,229,154,.25); }
+button:disabled { opacity: .4; cursor: not-allowed; box-shadow:none; }
+button.sellbtn { border-color: var(--magenta); background: linear-gradient(135deg, rgba(255,42,109,.14), rgba(255,42,109,.06)); }
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .95rem; }
+.grindout { margin-top:.8rem; line-height: 1.7; }
+.addr b { color: var(--green); }
+.statgrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .8rem; margin: 0 0 1rem; }
+.stat { background: var(--raise); border:1px solid var(--line); border-radius: 10px; padding:.7rem .9rem; }
+.stat .k { color: var(--ink-3); font-size:.8rem; text-transform: uppercase; letter-spacing:.08em; }
+.stat .v { font-family: var(--disp); font-size: 1.05rem; margin-top:.15rem; }
+.chartbox { position: relative; }
+canvas { width: 100%; height: 280px; display:block; }
+.tooltip { position:absolute; pointer-events:none; background: var(--raise); border:1px solid var(--line-bright);
+  border-radius: 8px; padding:.45rem .7rem; font-size:.9rem; color: var(--ink); display:none; white-space:nowrap; z-index:2; }
+.tradebar { display:flex; gap:.6rem; flex-wrap:wrap; margin-top: 1rem; align-items:center; }
+.tradebar input { width: 110px; background: var(--raise); border:1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 1.05rem; padding: .5rem .7rem; outline:none; }
+.gradbar { margin-top: 1rem; background: var(--raise); border-radius: 999px; height: 12px; overflow:hidden; border:1px solid var(--line); }
+.gradbar i { display:block; height:100%; background: linear-gradient(90deg, var(--green), var(--cyan)); width:0%; transition: width .3s; }
+.gradlabel { color: var(--ink-3); font-size:.9rem; margin-top:.4rem; }
+.flow { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.8rem; }
+.flow .f { background: var(--raise); border:1px solid var(--line); border-radius:10px; padding:.9rem; }
+.flow .f b { color: var(--cyan); display:block; margin-bottom:.3rem; font-family: var(--disp); font-size:.8rem; letter-spacing:.06em; }
+.flow .f span { color: var(--ink-2); font-size: .98rem; }
+footer { text-align:center; color: var(--ink-3); margin-top: 2.5rem; font-size: .95rem; }
+footer a { color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>hoodpad<span class="hood">.hood</span></h1>
+  <div class="tag">The launchpad where every token owns its name — on Robinhood Chain</div>
+  <div class="simnote">INTERACTIVE SIMULATION — NO CHAIN CONNECTED, NOTHING IS REAL</div>
+</header>
+
+<div class="card">
+  <h2><span class="step">1</span>Claim the name — one token per .hood, forever</h2>
+  <div class="namerow">
+    <input id="nameInput" maxlength="24" placeholder="supercat" autocomplete="off" spellcheck="false">
+    <span class="suffix">.hood</span>
+    <button id="claimBtn" disabled>CLAIM &amp; LAUNCH</button>
+  </div>
+  <div class="status" id="nameStatus"><span class="muted">Type a name. Names are first-come-first-served ERC-721s — once supercat.hood is taken, no one can ever launch it again.</span></div>
+</div>
+
+<div class="card">
+  <h2><span class="step">2</span>Grinding the vanity address (live, real keccak-256)</h2>
+  <div class="muted">EVM addresses are hex, so they can't literally end in "hood" — instead every hoodpad token address is CREATE2-ground to end in <span class="mono" style="color:var(--green)">600d</span>. Watch it happen:</div>
+  <div class="grindout mono" id="grindOut"><span class="muted">— claim a name above to start grinding —</span></div>
+</div>
+
+<div class="card">
+  <h2><span class="step">3</span>Trade the bonding curve <span class="muted" id="curveTokenLabel"></span></h2>
+  <div class="statgrid">
+    <div class="stat"><div class="k">Price</div><div class="v" id="statPrice">—</div></div>
+    <div class="stat"><div class="k">Raised</div><div class="v" id="statRaised">—</div></div>
+    <div class="stat"><div class="k">Sold</div><div class="v" id="statSold">—</div></div>
+    <div class="stat"><div class="k">Your bag</div><div class="v" id="statBag">—</div></div>
+  </div>
+  <div class="chartbox">
+    <canvas id="curveChart"></canvas>
+    <div class="tooltip" id="chartTip"></div>
+  </div>
+  <div class="tradebar">
+    <input id="buyAmt" type="number" min="0.001" step="0.01" value="0.05"> <span class="muted">ETH</span>
+    <button id="buyBtn" disabled>BUY</button>
+    <button id="sellBtn" class="sellbtn" disabled>SELL ALL</button>
+    <span class="muted" id="tradeMsg"></span>
+  </div>
+  <div class="gradbar"><i id="gradFill"></i></div>
+  <div class="gradlabel" id="gradLabel">Graduation: curve fills → ETH + reserved 200M tokens auto-seed a Uniswap pool, LP burned forever.</div>
+</div>
+
+<div class="card">
+  <h2>What one launch transaction does</h2>
+  <div class="flow">
+    <div class="f"><b>DEPLOY</b><span>CREATE2 token, address ends <span class="mono">600d</span>, fixed 1B supply, zero owner powers</span></div>
+    <div class="f"><b>REGISTER</b><span>name.hood registered &amp; locked to the token — can never be re-pointed (rug-proof identity)</span></div>
+    <div class="f"><b>LIST</b><span>token opens on the bonding curve — no presale, no team allocation, creator posts no liquidity</span></div>
+    <div class="f"><b>HOST</b><span>name.hood serves the token's page — chart, curve progress, socials — via the domain's web record</span></div>
+  </div>
+</div>
+
+<footer>hoodpad demo · curve math is the exact integer arithmetic of <span class="mono">BondingCurve.sol</span> · address grinding is real keccak-256 in your browser</footer>
+</div>
+
+<script>
+// ---------- shared constants (mirror BondingCurve.sol exactly) ----------
+const E18 = 10n ** 18n;
+const FEE_BPS = 100n;
+const CURVE_SUPPLY = 800000000n * E18;
+const VIRTUAL_ETH_0 = E18;
+const VIRTUAL_TOKEN_0 = 1073000000n * E18;
+const GRADUATION_ETH = 4n * E18;
+const ceilDiv = (a, b) => (a + b - 1n) / b;
+
+// ---------- 1. name claim ----------
+const TAKEN = new Set(['supercat','moon','hood','robin','pepe','doge','wagmi','gm']);
+const nameInput = document.getElementById('nameInput');
+const nameStatus = document.getElementById('nameStatus');
+const claimBtn = document.getElementById('claimBtn');
+let currentName = null;
+
+function priceUsd(label) { return label.length >= 5 ? 5 : label.length === 4 ? 50 : 150; }
+
+nameInput.addEventListener('input', () => {
+  const v = nameInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+  nameInput.value = v;
+  claimBtn.disabled = true;
+  if (v.length === 0) { nameStatus.innerHTML = '<span class="muted">Type a name…</span>'; return; }
+  if (v.length < 3) { nameStatus.innerHTML = '<span class="bad">Too short — 3 characters minimum.</span>'; return; }
+  if (TAKEN.has(v)) { nameStatus.innerHTML = `<span class="bad">✗ ${v}.hood is taken — that token already exists. Uniqueness is the point.</span>`; return; }
+  nameStatus.innerHTML = `<span class="ok">✓ ${v}.hood is available</span> <span class="muted">· registration ~$${priceUsd(v)}/yr × 5 yrs, folded into the launch fee</span>`;
+  claimBtn.disabled = false;
+});
+
+claimBtn.addEventListener('click', () => {
+  currentName = nameInput.value;
+  TAKEN.add(currentName);
+  claimBtn.disabled = true;
+  nameStatus.innerHTML = `<span class="ok">✓ ${currentName}.hood claimed (simulated) — grinding vanity address…</span>`;
+  startGrind(currentName);
+});
+
+// ---------- 2. real CREATE2 vanity grinding ----------
+const grindOut = document.getElementById('grindOut');
+const SUFFIX = '600d';
+function create2Address(factoryHex40, saltHex64, initHashHex64) {
+  const bytes = new Uint8Array(1 + 20 + 32 + 32);
+  bytes[0] = 0xff;
+  const put = (hex, off) => { for (let i = 0; i < hex.length / 2; i++) bytes[off + i] = parseInt(hex.substr(i * 2, 2), 16); };
+  put(factoryHex40, 1); put(saltHex64, 21); put(initHashHex64, 53);
+  return keccak256(bytes).slice(-40);
+}
+function startGrind(label) {
+  const factory = 'ab'.repeat(20); // demo factory address
+  const initHash = keccak256('LaunchToken:' + label); // stands in for real init-code hash
+  let i = 0; const t0 = performance.now();
+  function chunk() {
+    for (let n = 0; n < 4000; n++, i++) {
+      const salt = i.toString(16).padStart(64, '0');
+      const addr = create2Address(factory, salt, initHash);
+      if (addr.endsWith(SUFFIX)) {
+        const ms = Math.max(1, Math.round(performance.now() - t0));
+        grindOut.innerHTML =
+          `attempts&nbsp;: ${(i + 1).toLocaleString()} keccak-256 hashes in ${ms}ms<br>` +
+          `salt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 0x…${salt.slice(-12)}<br>` +
+          `<span class="addr">address&nbsp;&nbsp;: 0x${addr.slice(0, 36)}<b>${addr.slice(36)}</b></span><br>` +
+          `<span class="ok">✓ ${label}.hood → resolves to this contract, permanently</span>`;
+        initCurve(label);
+        return;
+      }
+    }
+    grindOut.innerHTML = `<span class="muted">grinding… ${i.toLocaleString()} hashes</span>`;
+    requestAnimationFrame(chunk);
+  }
+  chunk();
+}
+
+// ---------- 3. bonding curve simulator (exact contract arithmetic) ----------
+let curve = null, bag = 0n, trades = [];
+const $ = id => document.getElementById(id);
+
+function initCurve(label) {
+  curve = { vEth: VIRTUAL_ETH_0, vTok: VIRTUAL_TOKEN_0, realEth: 0n, sold: 0n, graduated: false };
+  bag = 0n; trades = [];
+  $('curveTokenLabel').textContent = '— ' + label + '.hood';
+  $('buyBtn').disabled = false;
+  render();
+}
+
+function spotPriceWeiPerToken(c) { // marginal price = vEth/vTok scaled to wei per whole token
+  return Number(c.vEth) / Number(c.vTok);
+}
+
+function buy(ethFloat) {
+  if (!curve || curve.graduated) return;
+  const gross = BigInt(Math.round(ethFloat * 1e18));
+  const fee = gross * FEE_BPS / 10000n;
+  let ethIn = gross - fee;
+  const k = curve.vEth * curve.vTok;
+  let out = curve.vTok - ceilDiv(k, curve.vEth + ethIn);
+  const remaining = CURVE_SUPPLY - curve.sold;
+  let msg = '';
+  if (out > remaining) {
+    out = remaining;
+    const ethNeeded = ceilDiv(k, curve.vTok - out) - curve.vEth;
+    msg = `final buy clamped — ${(Number(ethIn - ethNeeded) / 1e18).toFixed(4)} ETH refunded · `;
+    ethIn = ethNeeded;
+  }
+  curve.vEth += ethIn; curve.vTok -= out; curve.realEth += ethIn; curve.sold += out;
+  bag += out;
+  trades.push({ sold: curve.sold, price: spotPriceWeiPerToken(curve) });
+  if (curve.realEth >= GRADUATION_ETH || curve.sold === CURVE_SUPPLY) curve.graduated = true;
+  $('tradeMsg').innerHTML = msg + `bought ${fmtTok(out)} for ${(Number(gross) / 1e18).toFixed(3)} ETH (1% fee)`;
+  render();
+}
+
+function sellAll() {
+  if (!curve || curve.graduated || bag === 0n) return;
+  const k = curve.vEth * curve.vTok;
+  const grossEth = curve.vEth - ceilDiv(k, curve.vTok + bag);
+  const fee = grossEth * FEE_BPS / 10000n;
+  curve.vEth -= grossEth; curve.vTok += bag; curve.realEth -= grossEth; curve.sold -= bag;
+  trades.push({ sold: curve.sold, price: spotPriceWeiPerToken(curve) });
+  $('tradeMsg').textContent = `sold ${fmtTok(bag)} for ${(Number(grossEth - fee) / 1e18).toFixed(4)} ETH (1% fee)`;
+  bag = 0n;
+  render();
+}
+
+$('buyBtn').addEventListener('click', () => buy(parseFloat($('buyAmt').value) || 0));
+$('sellBtn').addEventListener('click', sellAll);
+
+function fmtTok(t) {
+  const m = Number(t / E18) / 1e6;
+  return m >= 1 ? m.toFixed(1) + 'M' : (Number(t / E18) / 1e3).toFixed(0) + 'k';
+}
+
+function render() {
+  if (!curve) return;
+  $('statPrice').textContent = (spotPriceWeiPerToken(curve) * 1e9).toFixed(3) + ' gwei';
+  $('statRaised').textContent = (Number(curve.realEth) / 1e18).toFixed(3) + ' ETH';
+  $('statSold').textContent = fmtTok(curve.sold) + ' / 800M';
+  $('statBag').textContent = bag === 0n ? '—' : fmtTok(bag);
+  $('sellBtn').disabled = curve.graduated || bag === 0n;
+  $('buyBtn').disabled = curve.graduated;
+  const ethPct = Number(curve.realEth * 100n / GRADUATION_ETH);
+  const soldPct = Number(curve.sold * 100n / CURVE_SUPPLY);
+  const pct = Math.min(100, Math.max(ethPct, soldPct));
+  $('gradFill').style.width = pct + '%';
+  $('gradLabel').textContent = curve.graduated
+    ? '🎓 GRADUATED — ETH + 200M reserved tokens sent to graduation handler: Uniswap pool seeded, LP burned. Curve trading closed.'
+    : `Graduation progress ${pct.toFixed(0)}% (${(Number(curve.realEth) / 1e18).toFixed(2)} / 4 ETH raised, or curve sellout — whichever first)`;
+  drawChart();
+}
+
+// ---------- chart: single-series price curve, crosshair + tooltip ----------
+const canvas = $('curveChart'), tip = $('chartTip');
+const PAD = { l: 58, r: 16, t: 14, b: 30 };
+let chartPts = [];
+
+function curvePriceAtSold(soldTokens) { // analytic curve for the full domain
+  const vTok = VIRTUAL_TOKEN_0 - soldTokens;
+  const vEth = (VIRTUAL_ETH_0 * VIRTUAL_TOKEN_0) / vTok;
+  return Number(vEth) / Number(vTok);
+}
+
+function drawChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = 280;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+  const iw = w - PAD.l - PAD.r, ih = h - PAD.t - PAD.b;
+
+  // analytic price curve over full sellable supply
+  const N = 120;
+  chartPts = [];
+  let maxP = curvePriceAtSold(CURVE_SUPPLY) * 1e9;
+  for (let i = 0; i <= N; i++) {
+    const sold = CURVE_SUPPLY * BigInt(i) / BigInt(N);
+    chartPts.push({ soldM: Number(sold / E18) / 1e6, gwei: curvePriceAtSold(sold) * 1e9 });
+  }
+  const x = sM => PAD.l + (sM / 800) * iw;
+  const y = g => PAD.t + ih - (g / maxP) * ih;
+
+  // recessive grid + axis labels
+  ctx.strokeStyle = 'rgba(148,163,216,0.10)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#666d8a'; ctx.font = '12px Rajdhani, sans-serif';
+  for (let gy = 0; gy <= 4; gy++) {
+    const yy = PAD.t + ih - (gy / 4) * ih;
+    ctx.beginPath(); ctx.moveTo(PAD.l, yy); ctx.lineTo(w - PAD.r, yy); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText((maxP * gy / 4).toFixed(2), PAD.l - 8, yy + 4);
+  }
+  for (let gx = 0; gx <= 4; gx++) {
+    const sM = 800 * gx / 4;
+    ctx.textAlign = 'center'; ctx.fillText(sM + 'M', x(sM), h - 10);
+  }
+  ctx.save(); ctx.translate(14, PAD.t + ih / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.fillText('price (gwei / token)', 0, 0); ctx.restore();
+  ctx.textAlign = 'center'; ctx.fillText('tokens sold', PAD.l + iw / 2, h - 10 + 10);
+
+  // sold-region fill under curve up to current position
+  if (curve) {
+    const soldM = Number(curve.sold / E18) / 1e6;
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(chartPts[0].gwei));
+    for (const p of chartPts) { if (p.soldM > soldM) break; ctx.lineTo(x(p.soldM), y(p.gwei)); }
+    ctx.lineTo(x(Math.min(soldM, 800)), y(curvePriceAtSold(curve.sold) * 1e9));
+    ctx.lineTo(x(Math.min(soldM, 800)), PAD.t + ih); ctx.lineTo(x(0), PAD.t + ih); ctx.closePath();
+    ctx.fillStyle = 'rgba(34,229,154,0.10)'; ctx.fill();
+  }
+
+  // the curve — 2px line
+  ctx.beginPath();
+  chartPts.forEach((p, i) => i ? ctx.lineTo(x(p.soldM), y(p.gwei)) : ctx.moveTo(x(p.soldM), y(p.gwei)));
+  ctx.strokeStyle = '#22e59a'; ctx.lineWidth = 2; ctx.stroke();
+
+  // current position marker (cyan, ≥8px, 2px surface ring) + direct label
+  if (curve) {
+    const soldM = Number(curve.sold / E18) / 1e6;
+    const g = curvePriceAtSold(curve.sold) * 1e9;
+    ctx.beginPath(); ctx.arc(x(soldM), y(g), 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#00e5f6'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#0e111d'; ctx.stroke();
+    ctx.fillStyle = '#eef0fb'; ctx.font = '600 12px Rajdhani, sans-serif';
+    ctx.textAlign = soldM > 600 ? 'right' : 'left';
+    ctx.fillText('you are here', x(soldM) + (soldM > 600 ? -10 : 10), y(g) - 8);
+  }
+}
+
+canvas.addEventListener('mousemove', e => {
+  if (!chartPts.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const iw = canvas.clientWidth - PAD.l - PAD.r;
+  const soldM = Math.min(800, Math.max(0, (mx - PAD.l) / iw * 800));
+  const sold = BigInt(Math.round(soldM * 1e6)) * E18;
+  const g = curvePriceAtSold(sold > CURVE_SUPPLY ? CURVE_SUPPLY : sold) * 1e9;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(mx + 14, canvas.clientWidth - 170) + 'px';
+  tip.style.top = '18px';
+  tip.innerHTML = `<b>${soldM.toFixed(0)}M sold</b> · ${g.toFixed(3)} gwei/token`;
+});
+canvas.addEventListener('mouseleave', () => tip.style.display = 'none');
+window.addEventListener('resize', drawChart);
+drawChart();
+</script>
+</body>
+</html>

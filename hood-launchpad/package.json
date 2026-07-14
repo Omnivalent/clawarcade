@@ -1,0 +1,19 @@
+{
+  "name": "hood-launchpad",
+  "version": "0.1.0",
+  "description": "Token launchpad for Robinhood Chain where every token owns a .hood name",
+  "scripts": {
+    "compile": "node scripts/compile.js",
+    "test": "node test/curve.test.js",
+    "grind": "node scripts/grind-salt.js --demo"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "js-sha3": "^0.9.3",
+    "playwright-core": "^1.61.1",
+    "solc": "^0.8.26"
+  },
+  "private": true
+}
