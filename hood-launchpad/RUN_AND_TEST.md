@@ -13,22 +13,39 @@ live with your wallet" link isn't physically possible; the honest path is you
 run it locally (one command) in the browser where your wallet lives. It's the
 same code you'd later host.
 
-## Test it in ~3 minutes (free, on testnet)
+## Go live in one command (free, on testnet)
 
 ```bash
 cd hood-launchpad
 npm install
+node scripts/go-live.js
+```
+
+That single command makes a throwaway deployer key, shows you its address +
+the faucet link, waits until you fund it (free, ~10s), then compiles, deploys
+the whole stack, and serves the live app at **http://localhost:8788**. Open
+that in the browser where your wallet extension lives — connect, sign in, and
+launch a coin for real on Robinhood Chain testnet.
+
+> Why local and not a link from the assistant: the assistant's sandbox is
+> firewalled from Robinhood Chain's RPC (org egress policy), so contracts must
+> be deployed from your machine. Your computer has no such limit.
+
+### Make it a PUBLIC url (no assistant needed)
+
+After `go-live.js` has deployed (so `app/deployment.json` exists), the whole
+`app/` folder is a static site pointed at your live contracts. Drag that folder
+onto **https://app.netlify.com/drop** (or Vercel / Cloudflare Pages) and you
+get a public `https://…` URL that anyone can open, connect their wallet to, and
+trade on — real testnet transactions, publicly hosted, in under a minute.
+
+### Or the manual steps
+
+```bash
 node scripts/compile.js
-
-# 1. Get free testnet ETH into the wallet you'll deploy with:
-#    https://faucet.testnet.chain.robinhood.com
-
-# 2. Deploy your own copy of the whole stack (zero fees by default):
-PRIVATE_KEY=0xYOURKEY node scripts/deploy.js
-#    → writes app/deployment.json so the app knows your addresses
-
-# 3. Start the app and open it in your wallet's browser:
-node scripts/serve.js          # → http://localhost:8788
+# fund any address at https://faucet.testnet.chain.robinhood.com
+PRIVATE_KEY=0xYOURKEY node scripts/deploy.js   # writes app/deployment.json
+node scripts/serve.js                          # → http://localhost:8788
 ```
 
 Then in the browser: **Connect wallet → Sign in** (a free signature, no gas,
