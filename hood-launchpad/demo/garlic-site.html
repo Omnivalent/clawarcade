@@ -98,7 +98,14 @@ canvas { width:100%; height:150px; display:block; }
 .cmt-head { display:flex; justify-content:space-between; gap:1rem; margin-bottom:.25rem; }
 .cmt-head b { color: var(--green); font-weight:600; }
 .cmt-head .when { color: var(--text-3); font-size:.78rem; font-family: var(--num); }
-.lbtabs { display:flex; gap:.4rem; }
+.gscore { font-family: var(--num); font-size:.7rem; font-weight:600; padding:.05rem .35rem; border-radius:999px; margin-left:.35rem; white-space:nowrap; }
+.gscore.g-hi { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+.gscore.g-mid { background: color-mix(in srgb, #d9a400 22%, transparent); color:#d99400; }
+.gscore.g-lo { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+.simwarn { font-size:.9rem; margin:.3rem 0; padding:.4rem .7rem; border-radius:10px; }
+.simwarn.note { color: var(--text-2); background: var(--surface-2); }
+.simwarn.warn, .simwarn.block { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); border:1px solid var(--red); }
+.lbtabs { display:flex; gap:.4rem; flex-wrap:wrap; }
 .lbtab { background: var(--surface-2); color: var(--text-2); border:1px solid var(--hair); padding:.35rem .8rem; font-size:.78rem; border-radius:999px; }
 .lbtab.active { background: var(--green); color:#04210a; border-color: var(--green); }
 .lb { display:flex; flex-direction:column; }
@@ -145,9 +152,9 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
   </nav>
 
   <section class="hero">
-    <h1>Launch a coin.<br>Own the name<span class="dot">.</span></h1>
-    <p>Every token is one unique <b>.hood</b> name on Robinhood Chain — register it, launch on a fair bonding curve, graduate to a locked pool.</p>
-    <div class="garlicline">🧄 One name, one token — garlic keeps the copycats out. No vampire can clone <span class="num">&nbsp;yourname.hood</span>.</div>
+    <h1>One name.<br>One token<span class="dot">.</span></h1>
+    <p>Every <b>.hood</b> name is the one canonical home of its coin on Robinhood Chain — register it, launch on a fair bonding curve, graduate to a locked pool.</p>
+    <div class="garlicline">🧄 Garlic keeps the vampires out — no copycat can clone <span class="num">&nbsp;yourname.hood</span> or ride your ticker.</div>
   </section>
 
   <div class="accountbar" id="accountBox"></div>
@@ -206,7 +213,8 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
       <h2 style="margin:0;">Top 10 tokens</h2>
       <div class="lbtabs">
         <button class="lbtab active" data-sort="mcap">Market cap</button>
-        <button class="lbtab" data-sort="vol">Volume · 1h</button>
+        <button class="lbtab" data-sort="buyers">Unique buyers</button>
+        <button class="lbtab" data-sort="garlic">🧄 Score</button>
         <button class="lbtab" data-sort="age">Newest</button>
       </div>
     </div>
@@ -235,6 +243,20 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
 <div class="toast" id="toast"></div>
 
 <script>
+/* GARLIC — anti-vamp brain (similarity + originality score), inlined */
+(function(g){
+  const LEET={'0':'o','1':'l','3':'e','4':'a','5':'s','7':'t','8':'b','9':'g'};
+  const skeleton=l=>(l||'').toLowerCase().replace(/[^a-z0-9]/g,'').split('').map(c=>LEET[c]||c).join('');
+  const AFFIXES=['inu','coin','token','sol','eth','hood','2','x','ai','fi','dao','v2','og','real','the'];
+  function root(l){let s=skeleton(l),ch=true;while(ch){ch=false;for(const a of AFFIXES){if(s.length-a.length>=3&&s.endsWith(a)){s=s.slice(0,-a.length);ch=true;}if(s.length-a.length>=3&&s.startsWith(a)){s=s.slice(a.length);ch=true;}}}return s;}
+  function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;const d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);for(let j=0;j<=n;j++)d[0][j]=j;for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n];}
+  function similarity(a,b){const sa=skeleton(a),sb=skeleton(b);if(!sa||!sb)return 0;if(sa===sb)return 1;if(root(a)&&root(a)===root(b))return 0.95;return 1-lev(sa,sb)/Math.max(sa.length,sb.length);}
+  function nearest(l,others){let best=null,bs=0;for(const o of others){if(o===l)continue;const s=similarity(l,o);if(s>bs){bs=s;best=o;}}return best?{label:best,sim:bs}:null;}
+  function garlicScore(l,others){let sc=100;for(const o of others){if(o===l)continue;const s=similarity(l,o);if(s>=0.995)sc-=40;else if(s>=0.9)sc-=18;else if(s>=0.75)sc-=8;else if(s>=0.6)sc-=3;}return Math.max(0,Math.min(100,Math.round(sc)));}
+  function similarityWarning(l,others){const n=nearest(l,others);if(!n)return null;const pct=Math.round(n.sim*100);if(n.sim>=0.995)return{level:'block',pct,other:n.label,text:`identical to ${n.label}.hood`};if(n.sim>=0.8)return{level:'warn',pct,other:n.label,text:`${pct}% similar to ${n.label}.hood — looks like a vampire of it`};if(n.sim>=0.6)return{level:'note',pct,other:n.label,text:`${pct}% similar to ${n.label}.hood`};return null;}
+  g.GARLIC={similarity,nearest,garlicScore,similarityWarning};
+})(window);
+
 const $ = id => document.getElementById(id);
 const E18 = 10n ** 18n, FEE_BPS = 0n;
 const CURVE_SUPPLY = 793100000n * E18, LP_RESERVE = 206900000n * E18;
@@ -303,7 +325,11 @@ function search(){
   if (label.length < 3){ out.innerHTML = '<span class="muted">Enter at least 3 characters.</span>'; return; }
   if (nameAvailable(label)){
     const was = registry.has(label);
-    out.innerHTML = `<div class="resline"><span class="up">${label}.hood</span> is available</div>`+
+    const labels = [...market.keys()];
+    const warn = window.GARLIC.similarityWarning(label, labels);
+    const score = window.GARLIC.garlicScore(label, labels);
+    out.innerHTML = `<div class="resline"><span class="up">${label}.hood</span> is available ${garlicBadge(score)}</div>`+
+      (warn ? `<div class="simwarn ${warn.level}">🧛 ${warn.text}</div>` : '')+
       `<div class="muted">Register 1 year (~$${priceUsd(label)}, folded into the launch) and open the bonding curve${was?' — the previous registration expired':''}.</div>`;
     $('launchLabel').textContent = label+'.hood';
     $('launchName').value = label.charAt(0).toUpperCase()+label.slice(1);
@@ -341,7 +367,7 @@ async function doLaunch(label){
   registry.set(label, { expiry: simNow+YEAR_MS, graduated:false });
   const lname = $('launchName').value||label, lsym = ($('launchSymbol').value||label).toUpperCase();
   launches.unshift({ label, name:lname, symbol:lsym });
-  market.set(label, { name:lname, symbol:lsym, mcap:0.4, vol1h:0, launchedAt:simNow, graduated:false });
+  market.set(label, { name:lname, symbol:lsym, mcap:0.4, vol1h:0, buyers:0, launchedAt:simNow, graduated:false });
   $('doLaunch').disabled = false;
   renderFeed();
   openToken(label);
@@ -393,7 +419,7 @@ function sellAll(){
 function graduate(){
   curve.graduated = true; gradAt = simNow;
   const rec = registry.get(currentName); rec.graduated = true; rec.expiry += 5*YEAR_MS; renewedUntil = rec.expiry;
-  toast('🎓 Graduated — pool seeded, LP burned, name renewed +5 years.', 'ok');
+  toast('☀️ Survived Sunrise — 🧄 garlic protected another project · 🔥 LP burned forever · 🛡 name renewed +5 years', 'ok');
 }
 function render(){
   if (!curve) return;
@@ -507,6 +533,7 @@ const market = new Map(); // label -> {name, symbol, mcap(ETH), vol1h(ETH), laun
       name:s[1], symbol:s[2],
       mcap: 0.4 + (a % 1900) / 100,          // ~0.4–19.4 ETH
       vol1h: ((a >>> 7) % 1200) / 100,        // ~0–12 ETH  (unsigned shift!)
+      buyers: 3 + ((a >>> 11) % 240),         // ~3–242 unique buyers
       launchedAt: simNow - (((a >>> 3) % 58) + 1) * 60 * 1000, // 1–59 min ago
       graduated: (a % 5) === 0,
     });
@@ -523,7 +550,7 @@ function bumpMarket(label){
   market.set(label, m);
 }
 function addVolume(label, ethFloat){
-  const m = market.get(label); if (m) { m.vol1h = (m.vol1h || 0) + Math.abs(ethFloat); market.set(label, m); }
+  const m = market.get(label); if (m) { m.vol1h = (m.vol1h || 0) + Math.abs(ethFloat); m.buyers = (m.buyers || 0) + 1; market.set(label, m); }
 }
 function fmtAge(sec){
   if (sec < 60) return sec+'s';
@@ -531,14 +558,22 @@ function fmtAge(sec){
   if (sec < 86400) return Math.floor(sec/3600)+'h '+Math.floor((sec%3600)/60)+'m';
   return Math.floor(sec/86400)+'d';
 }
+function garlicBadge(score){ const cls = score>=90?'g-hi':score>=60?'g-mid':'g-lo'; return `<span class="gscore ${cls}" title="Garlic Score — originality (100 = unique)">🧄 ${score}</span>`; }
 function renderLeaderboard(){
-  const rows = [...market.entries()].map(([label,m]) => ({ label, ...m }));
-  rows.sort((a,b) => lbSort==='mcap' ? b.mcap-a.mcap : lbSort==='vol' ? b.vol1h-a.vol1h : b.launchedAt-a.launchedAt);
+  const labels = [...market.keys()];
+  const rows = [...market.entries()].map(([label,m]) => ({ label, ...m, garlic: window.GARLIC.garlicScore(label, labels) }));
+  const cmp = {
+    mcap: (a,b)=>b.mcap-a.mcap,
+    buyers: (a,b)=>(b.buyers||0)-(a.buyers||0)||b.mcap-a.mcap,
+    garlic: (a,b)=>b.garlic-a.garlic||b.mcap-a.mcap,
+    age: (a,b)=>b.launchedAt-a.launchedAt,
+  }[lbSort];
+  rows.sort(cmp);
   $('leaderboard').innerHTML = rows.slice(0,10).map((r,i) =>
     `<button class="lbrow" data-label="${esc(r.label)}"><span class="rank">${i+1}</span>`+
-    `<span class="lbname"><b>${esc(r.label)}.hood</b><span class="sub">${esc(r.symbol)}${r.graduated?' · 🎓':''}</span></span>`+
+    `<span class="lbname"><b>${esc(r.label)}.hood ${garlicBadge(r.garlic)}</b><span class="sub">${esc(r.symbol)}${r.graduated?' · 🎓':''}</span></span>`+
     `<span class="lbnum">${r.mcap.toFixed(2)} <span class="dim">ETH mcap</span></span>`+
-    `<span class="lbnum">${(r.vol1h||0).toFixed(2)} <span class="dim">1h vol</span></span>`+
+    `<span class="lbnum">${r.buyers||0} <span class="dim">buyers</span></span>`+
     `<span class="lbnum">${fmtAge(Math.max(0,Math.floor((simNow-r.launchedAt)/1000)))}</span></button>`).join('');
   $('leaderboard').querySelectorAll('.lbrow').forEach(el => el.onclick = () => {
     if (nameAvailable(el.dataset.label)) registry.set(el.dataset.label,{expiry:simNow+YEAR_MS,graduated:false});

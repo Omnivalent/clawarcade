@@ -159,8 +159,11 @@ async function searchName() {
     const available = await reg.available(label);
     if (available) {
       const cost = await state.readContracts.factory.launchCost(label);
+      const warn = window.GARLIC.similarityWarning(label, state.labels || []);
+      const score = window.GARLIC.garlicScore(label, state.labels || []);
       out.innerHTML =
-        `<div class="resline"><b class="ok">${label}.hood</b> is available</div>` +
+        `<div class="resline"><b class="ok">${label}.hood</b> is available ${garlicBadge(score)}</div>` +
+        (warn ? `<div class="simwarn ${warn.level}">🧛 ${warn.text}</div>` : '') +
         `<div class="muted">Launch registers it for 1 year (${fmt(cost, 5)} ETH incl. fees) and opens the bonding curve.</div>`;
       showLaunchForm(label, cost);
     } else {
@@ -270,6 +273,11 @@ async function refreshCurve() {
   const disabled = c.graduated;
   $('buyBtn').classList.toggle('off', disabled);
   $('sellBtn').classList.toggle('off', disabled);
+  // graduation ceremony — fire once when a token crosses the line
+  if (c.graduated && state.current && !state.current._celebrated) {
+    state.current._celebrated = true;
+    toast('☀️ Survived Sunrise — 🧄 garlic protected another project · 🔥 LP burned forever · 🛡 name renewed +5 years', 'ok');
+  }
   if (state.account) {
     const t = new ethers.Contract(token, ABI.token, state.reader);
     const bag = await t.balanceOf(state.account);
@@ -382,9 +390,13 @@ async function refreshFeed() {
   } catch (e) { box.innerHTML = `<span class="muted">Feed unavailable: ${rpcError(e)}</span>`; }
 }
 
-// ---------- top-10 leaderboard (market cap / 1h volume / age) ----------
+// ---------- top-10 leaderboard (mcap / unique buyers / garlic score / age) ----------
+// Ranked on metrics a whale can't fake alone. Raw volume is deliberately NOT a
+// sort — it's trivially wash-traded (a reviewer's note); unique buyers and the
+// originality-based Garlic Score are far harder to game.
 let lbSort = 'mcap';
 const FDV_TOKENS = 1_000_000_000; // fully-diluted supply
+state.labels = []; // all launched labels, for similarity / Garlic Score
 async function refreshLeaderboard() {
   const box = $('leaderboard');
   try {
@@ -392,47 +404,51 @@ async function refreshLeaderboard() {
     const launched = await f.queryFilter(f.filters.Launched(), 0, 'latest');
     if (launched.length === 0) { box.innerHTML = '<span class="muted">No tokens yet — launch one to top the board.</span>'; return; }
 
-    // keep only the current token per label (relaunches overwrite)
-    const byLabel = new Map();
+    const byLabel = new Map(); // current token per label (relaunches overwrite)
     for (const l of launched) byLabel.set(l.args.label, { token: l.args.token, label: l.args.label, name: l.args.name, symbol: l.args.symbol, block: l.blockNumber });
     const meta = [...byLabel.values()];
+    state.labels = meta.map(m => m.label);
 
-    // block-timestamp cache (bounds getBlock calls)
     const now = Math.floor(Date.now() / 1000);
     const tcache = new Map();
     const tsOf = async bn => { if (!tcache.has(bn)) { const b = await reader.getBlock(bn); tcache.set(bn, b ? Number(b.timestamp) : now); } return tcache.get(bn); };
 
-    // 1h volume from Buy+Sell events
-    const [buys, sells] = await Promise.all([
-      curve.queryFilter(curve.filters.Buy(), 0, 'latest'),
-      curve.queryFilter(curve.filters.Sell(), 0, 'latest'),
-    ]);
-    const vol = new Map();
-    for (const ev of [...buys, ...sells]) {
-      const t = await tsOf(ev.blockNumber);
-      if (now - t <= 3600) {
-        const eth = ev.args.ethIn != null ? ev.args.ethIn : (ev.args.ethOut || 0n);
-        vol.set(ev.args.token, (vol.get(ev.args.token) || 0n) + eth);
-      }
+    // unique buyers per token (anti-wash: distinct addresses, not raw volume)
+    const buys = await curve.queryFilter(curve.filters.Buy(), 0, 'latest');
+    const buyers = new Map();
+    for (const ev of buys) {
+      if (!buyers.has(ev.args.token)) buyers.set(ev.args.token, new Set());
+      buyers.get(ev.args.token).add(ev.args.buyer.toLowerCase());
     }
 
     const rows = [];
     for (const m of meta) {
       let mcap = 0, graduated = false;
       try { const c = await curve.curves(m.token); mcap = Number(c.virtualEth) / Number(c.virtualToken) * FDV_TOKENS; graduated = c.graduated; } catch {}
-      rows.push({ ...m, mcap, vol: vol.get(m.token) || 0n, ageSec: now - (await tsOf(m.block)), graduated });
+      rows.push({ ...m, mcap, buyers: (buyers.get(m.token) || new Set()).size, ageSec: now - (await tsOf(m.block)), graduated,
+        garlic: window.GARLIC.garlicScore(m.label, state.labels) });
     }
-    rows.sort((a, b) => lbSort === 'mcap' ? b.mcap - a.mcap : lbSort === 'vol' ? (b.vol > a.vol ? 1 : b.vol < a.vol ? -1 : 0) : a.ageSec - b.ageSec);
+    const cmp = {
+      mcap: (a, b) => b.mcap - a.mcap,
+      buyers: (a, b) => b.buyers - a.buyers || b.mcap - a.mcap,
+      garlic: (a, b) => b.garlic - a.garlic || b.mcap - a.mcap,
+      age: (a, b) => a.ageSec - b.ageSec,
+    }[lbSort];
+    rows.sort(cmp);
 
     box.innerHTML = rows.slice(0, 10).map((r, i) =>
       `<button class="lbrow" data-token="${r.token}" data-label="${escapeHtml(r.label)}">` +
       `<span class="rank">${i + 1}</span>` +
-      `<span class="lbname"><b>${escapeHtml(r.label)}.hood</b><span class="sub">${escapeHtml(r.symbol)}${r.graduated ? ' · 🎓' : ''}</span></span>` +
+      `<span class="lbname"><b>${escapeHtml(r.label)}.hood ${garlicBadge(r.garlic)}</b><span class="sub">${escapeHtml(r.symbol)}${r.graduated ? ' · 🎓' : ''}</span></span>` +
       `<span class="lbnum">${r.mcap.toFixed(2)} <span class="dim">ETH mcap</span></span>` +
-      `<span class="lbnum">${Number(ethers.formatEther(r.vol)).toFixed(2)} <span class="dim">1h vol</span></span>` +
+      `<span class="lbnum">${r.buyers} <span class="dim">buyers</span></span>` +
       `<span class="lbnum">${fmtAge(r.ageSec)}</span></button>`).join('');
     box.querySelectorAll('.lbrow').forEach(el => el.onclick = () => openToken(el.dataset.token, el.dataset.label));
   } catch (e) { box.innerHTML = `<span class="muted">Leaderboard unavailable: ${rpcError(e)}</span>`; }
+}
+function garlicBadge(score) {
+  const cls = score >= 90 ? 'g-hi' : score >= 60 ? 'g-mid' : 'g-lo';
+  return `<span class="gscore ${cls}" title="Garlic Score — originality (100 = unique)">🧄 ${score}</span>`;
 }
 function fmtAge(s) {
   if (s < 60) return s + 's';

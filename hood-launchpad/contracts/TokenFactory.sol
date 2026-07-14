@@ -47,9 +47,22 @@ contract TokenFactory {
     uint256 public immutable commitAge;
     mapping(bytes32 => uint256) public commitments; // commitment => timestamp
 
-    INameRegistrar public registrar; // swappable adapter (mock -> HoodAgAdapter)
+    INameRegistrar public registrar; // active adapter (mock -> HoodAgAdapter)
+
+    /// @notice Swapping the name-service adapter is timelocked: propose, wait
+    ///         REGISTRAR_TIMELOCK, then apply. Gives users a window to react to
+    ///         a registrar change instead of it happening in one block.
+    uint256 public constant REGISTRAR_TIMELOCK = 2 days;
+    INameRegistrar public pendingRegistrar;
+    uint256 public pendingRegistrarEta;
 
     mapping(bytes32 => address) public tokenByLabel; // keccak(label) => current token
+    mapping(bytes32 => address) public labelLauncher; // keccak(label) => last launcher
+
+    /// @notice After a name lapses, only its previous launcher may relaunch it
+    ///         for this grace window — a fair second chance for the original
+    ///         project before the name reopens to everyone.
+    uint256 public constant RELAUNCH_GRACE = 7 days;
 
     /// @notice Platform launch fees accrue here and are pulled via
     ///         collectFees(), so a misbehaving recipient can't block launches.
@@ -64,8 +77,13 @@ contract TokenFactory {
         string symbol,
         bool relaunch
     );
+    /// @notice Permanent on-chain history of identity migrations: when a lapsed
+    ///         name is relaunched, this records old->new so explorers/wallets
+    ///         can always resolve what a .hood meant at any point in time.
+    event Relaunched(bytes32 indexed labelHash, address indexed oldToken, address indexed newToken);
     event NameRenewed(address indexed token, string label, uint256 years_, uint256 paid);
     event RenewalSkipped(address indexed token, string label, string reason);
+    event RegistrarProposed(address indexed registrar, uint256 eta);
     event RegistrarChanged(address indexed registrar);
 
     modifier lock() {
@@ -126,6 +144,11 @@ contract TokenFactory {
         bytes32 salt,
         bytes32 secret
     ) external payable lock returns (address token) {
+        // On-chain anti-homoglyph baseline: only lowercase a-z, 0-9, and
+        // interior hyphens. Blocks unicode/homoglyph look-alike labels at the
+        // contract level (the frontend adds fuzzy similarity warnings on top).
+        _requireValidLabel(label);
+
         if (commitAge > 0) {
             bytes32 c = keccak256(abi.encode(label, msg.sender, secret));
             uint256 committedAt = commitments[c];
@@ -138,6 +161,16 @@ contract TokenFactory {
         // it points the name at the new token.
         require(registrar.available(label), "name unavailable");
 
+        bytes32 labelHash = keccak256(bytes(label));
+
+        // Expiry grace: a lapsed name is reserved for its previous launcher for
+        // RELAUNCH_GRACE before anyone else may take it.
+        address prior = labelLauncher[labelHash];
+        if (prior != address(0) && prior != msg.sender) {
+            uint256 exp = registrar.expiryOf(label);
+            require(exp == 0 || block.timestamp >= exp + RELAUNCH_GRACE, "grace period");
+        }
+
         uint256 namePrice = registrar.priceOf(label, INITIAL_NAME_YEARS);
         require(msg.value >= platformFee + namePrice, "insufficient fee");
 
@@ -148,9 +181,10 @@ contract TokenFactory {
 
         // Record state BEFORE the external registrar call so a misbehaving
         // adapter can never observe (or exploit) a half-initialized launch.
-        bytes32 labelHash = keccak256(bytes(label));
-        bool relaunch = tokenByLabel[labelHash] != address(0);
+        address oldToken = tokenByLabel[labelHash];
+        bool relaunch = oldToken != address(0);
         tokenByLabel[labelHash] = token;
+        labelLauncher[labelHash] = msg.sender;
 
         curve.initToken(token);
         registrar.register{value: namePrice}(label, address(this), token, INITIAL_NAME_YEARS, secret);
@@ -160,6 +194,23 @@ contract TokenFactory {
         if (excess > 0) _sendEth(msg.sender, excess);
 
         emit Launched(token, msg.sender, label, name, symbol, relaunch);
+        if (relaunch) emit Relaunched(labelHash, oldToken, token);
+    }
+
+    /// @dev Reverts unless `label` is 3–32 chars of [a-z0-9-] with no leading
+    ///      or trailing hyphen. Rejects uppercase, unicode, and homoglyphs.
+    function _requireValidLabel(string calldata label) internal pure {
+        bytes memory b = bytes(label);
+        uint256 n = b.length;
+        require(n >= 3 && n <= 32, "bad label length");
+        for (uint256 i; i < n; i++) {
+            bytes1 ch = b[i];
+            require(
+                (ch >= 0x61 && ch <= 0x7a) || (ch >= 0x30 && ch <= 0x39) || ch == 0x2d,
+                "label charset"
+            );
+        }
+        require(b[0] != 0x2d && b[n - 1] != 0x2d, "label hyphen");
     }
 
     /// @notice Called by the curve at graduation with a renewal budget from
@@ -233,11 +284,22 @@ contract TokenFactory {
         return address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initCodeHash)))));
     }
 
-    /// @notice Swap the name-service adapter (e.g. mock -> hood.ag adapter).
-    function setRegistrar(INameRegistrar registrar_) external {
+    /// @notice Step 1 of a timelocked adapter swap (e.g. mock -> hood.ag).
+    function proposeRegistrar(INameRegistrar registrar_) external {
         require(msg.sender == owner, "only owner");
-        registrar = registrar_;
-        emit RegistrarChanged(address(registrar_));
+        pendingRegistrar = registrar_;
+        pendingRegistrarEta = block.timestamp + REGISTRAR_TIMELOCK;
+        emit RegistrarProposed(address(registrar_), pendingRegistrarEta);
+    }
+
+    /// @notice Step 2: apply the proposed adapter once the timelock elapses.
+    function applyRegistrar() external {
+        require(msg.sender == owner, "only owner");
+        require(pendingRegistrarEta != 0 && block.timestamp >= pendingRegistrarEta, "timelock");
+        registrar = pendingRegistrar;
+        emit RegistrarChanged(address(registrar));
+        pendingRegistrar = INameRegistrar(address(0));
+        pendingRegistrarEta = 0;
     }
 
     function _sendEth(address to, uint256 amount) internal {

@@ -125,7 +125,14 @@ input::placeholder { color: var(--text-3); }
 
 /* feed */
 /* leaderboard */
-.lbtabs { display:flex; gap:.4rem; }
+.gscore { font-family: var(--num); font-size:.7rem; font-weight:600; padding:.05rem .35rem; border-radius:999px; margin-left:.35rem; white-space:nowrap; }
+.gscore.g-hi { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+.gscore.g-mid { background: color-mix(in srgb, var(--gold, #d9a400) 20%, transparent); color:#d99400; }
+.gscore.g-lo { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+.simwarn { font-size:.9rem; margin:.3rem 0; padding:.4rem .7rem; border-radius:10px; }
+.simwarn.note { color: var(--text-2); background: var(--surface-2); }
+.simwarn.warn, .simwarn.block { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); border:1px solid var(--red); }
+.lbtabs { display:flex; gap:.4rem; flex-wrap:wrap; }
 .lbtab { background: var(--surface-2); color: var(--text-2); border:1px solid var(--hair); padding:.35rem .8rem; font-size:.78rem; border-radius:999px; }
 .lbtab.active { background: var(--green); color:#04210a; border-color: var(--green); }
 .lb { display:flex; flex-direction:column; }
@@ -179,9 +186,9 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
   <div class="banner" id="banner"></div>
 
   <section class="hero">
-    <h1>Launch a coin.<br>Own the name<span class="dot">.</span></h1>
-    <p>Every token is one unique <b>.hood</b> name on Robinhood Chain — register it, launch on a fair bonding curve, graduate to a locked pool.</p>
-    <div class="garlicline">🧄 One name, one token — garlic keeps the copycats out. No vampire can clone <span class="num">&nbsp;yourname.hood</span>.</div>
+    <h1>One name.<br>One token<span class="dot">.</span></h1>
+    <p>Every <b>.hood</b> name is the one canonical home of its coin on Robinhood Chain — register it, launch on a fair bonding curve, graduate to a locked pool.</p>
+    <div class="garlicline">🧄 Garlic keeps the vampires out — no copycat can clone <span class="num">&nbsp;yourname.hood</span> or ride your ticker.</div>
   </section>
 
   <div class="accountbar" id="accountBox"></div>
@@ -241,7 +248,8 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
       <h2 style="margin:0;">Top 10 tokens</h2>
       <div class="lbtabs">
         <button class="lbtab active" data-sort="mcap">Market cap</button>
-        <button class="lbtab" data-sort="vol">Volume · 1h</button>
+        <button class="lbtab" data-sort="buyers">Unique buyers</button>
+        <button class="lbtab" data-sort="garlic">🧄 Score</button>
         <button class="lbtab" data-sort="age">Newest</button>
       </div>
     </div>
@@ -272,6 +280,7 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
 
 <script src="vendor/ethers.umd.min.js"></script>
 <script src="abi.js"></script>
+<script src="garlic.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

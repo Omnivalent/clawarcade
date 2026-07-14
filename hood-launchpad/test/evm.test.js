@@ -15,6 +15,8 @@ const NO_EARLY_TRIGGER = (1n << 255n); // graduate on sellout only, like pump.fu
 const CURVE_SUPPLY = 793_100_000n * E18;
 const LP_RESERVE = 206_900_000n * E18;
 const YEAR = 365n * 24n * 3600n;
+const DAY = 24n * 3600n;
+const GRACE = 7n * DAY; // RELAUNCH_GRACE in TokenFactory
 const ZERO32 = '0x' + '0'.repeat(64);
 const DEADLINE = (1n << 63n); // far-future trade deadline for tests
 
@@ -181,6 +183,9 @@ test('expiry: a never-graduated name frees after 1 year and can be relaunched', 
   await assert.rejects(launch(h, S, 'failcat', { from: 'bob' }), /name unavailable/, 'still locked before expiry');
   h.warp(Number(YEAR) + 60);
   assert.equal(await h.call(S.registrar, 'available', ['failcat']), true, 'expired name is available again');
+  // grace window: a non-prior launcher must wait; the prior launcher (alice) can go now
+  await assert.rejects(launch(h, S, 'failcat', { from: 'bob', salt: '0x' + '1'.padStart(64, '0') }), /grace period/, 'grace reserves the name for the prior launcher');
+  h.warp(Number(GRACE) + 60);
 
   // a fresh salt is required on relaunch: the same (name, symbol, label, salt)
   // tuple would CREATE2 to the dead token's address and revert. The frontend
@@ -245,7 +250,7 @@ test('renewal hijack guard: an old token graduating cannot pay for a relaunched 
   const S = await deployStack(h);
   const token1 = await launch(h, S, 'failcat');
   await h.call(S.curve, 'buy', [token1.address.toString(), 0n, DEADLINE], { from: 'bob', value: E18 / 10n });
-  h.warp(Number(YEAR) + 60); // failcat's 1yr registration lapses
+  h.warp(Number(YEAR + GRACE) + 60); // failcat lapses and its grace window passes
   const token2 = await launch(h, S, 'failcat', { from: 'bob', salt: '0x' + '1'.padStart(64, '0') });
   const expiry2 = await h.call(S.registrar, 'expiryOf', ['failcat']);
 
@@ -286,6 +291,63 @@ test('renewName: anyone can extend a custodied name permissionlessly', async () 
 test('constructor rejects graduationEth = 0 (would graduate every token on first buy)', async () => {
   const h = await Harness.create();
   await assert.rejects(deployStack(h, { graduationEth: 0n }), /zero graduation trigger/);
+});
+
+test('label validation: uppercase, unicode, too-short, and edge-hyphen labels revert', async () => {
+  const h = await Harness.create();
+  const S = await deployStack(h);
+  const bad = ['AB', 'ab', 'Doge', 'do', 'dоge' /* cyrillic o */, '-doge', 'doge-', 'do ge'];
+  for (const label of bad) {
+    await assert.rejects(
+      h.call(S.factory, 'launch', ['X', 'X', label, ZERO32, ZERO32], { from: 'alice', value: 10n * E18 }),
+      /bad label length|label charset|label hyphen/,
+      `expected "${label}" to be rejected`);
+  }
+  // a clean label still works
+  await launch(h, S, 'doge');
+});
+
+test('grace period: only the prior launcher may relaunch a lapsed name during grace', async () => {
+  const h = await Harness.create();
+  const S = await deployStack(h);
+  await launch(h, S, 'failcat', { from: 'alice' });
+  h.warp(Number(YEAR) + 60); // lapses
+  await assert.rejects(launch(h, S, 'failcat', { from: 'bob', salt: '0x' + '9'.padStart(64, '0') }), /grace period/);
+  // prior launcher (alice) can relaunch immediately, no wait
+  const re = await launch(h, S, 'failcat', { from: 'alice', salt: '0x' + '8'.padStart(64, '0') });
+  assert.equal((await h.call(S.registrar, 'resolve', ['failcat'])).toLowerCase(), re.address.toString());
+});
+
+test('registrar swap is timelocked: apply before ETA reverts, after ETA works', async () => {
+  const h = await Harness.create();
+  const S = await deployStack(h);
+  const reg2 = await h.deploy('MockRegistrar', [], []);
+  await h.call(S.factory, 'proposeRegistrar', [reg2.address.toString()], { from: 'deployer' });
+  await assert.rejects(h.call(S.factory, 'applyRegistrar', [], { from: 'deployer' }), /timelock/);
+  h.warp(2 * 24 * 3600 + 60); // past REGISTRAR_TIMELOCK
+  await h.call(S.factory, 'applyRegistrar', [], { from: 'deployer' });
+  assert.equal((await h.call(S.factory, 'registrar')).toLowerCase(), reg2.address.toString(), 'registrar swapped after timelock');
+  await assert.rejects(h.call(S.factory, 'proposeRegistrar', [reg2.address.toString()], { from: 'bob' }), /only owner/);
+});
+
+test('reentrancy: a malicious graduation handler cannot reenter the curve', async () => {
+  const h = await Harness.create();
+  const registrar = await h.deploy('MockRegistrar', [], []);
+  const handler = await h.deploy('ReentrantHandler', [], []);
+  const factory = await h.deploy(
+    'TokenFactory',
+    ['address', 'address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'bool', 'uint256'],
+    [h.accounts.feeSink.toString(), registrar.address.toString(), handler.address.toString(), 0n, 0n, VIRTUAL_ETH_0, NO_EARLY_TRIGGER, false, 0n]
+  );
+  const curve = h.at('BondingCurve', (await h.call(factory, 'curve')).toLowerCase());
+  const S = { registrar, factory, curve };
+  const token = await launch(h, S, 'reentry');
+  await h.call(handler, 'target', [curve.address.toString(), token.address.toString()]);
+  // graduate: the handler's reentrant buy must be blocked by the curve lock
+  await h.call(curve, 'buy', [token.address.toString(), 0n, DEADLINE], { from: 'bob', value: 10n * E18 });
+  assert.equal(await h.call(handler, 'reentryAttempted'), true, 'handler ran');
+  assert.equal(await h.call(handler, 'reentryReverted'), true, 'reentrant curve.buy was blocked by the lock');
+  assert.equal((await h.call(curve, 'curves', [token.address.toString()]))[5], true, 'still graduated cleanly');
 });
 
 test('anti-sandwich: a passed deadline reverts the trade', async () => {
