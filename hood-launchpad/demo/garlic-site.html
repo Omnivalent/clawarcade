@@ -1,0 +1,555 @@
+<style>
+:root {
+  --green: #00c805; --green-ink: #00a504; --red: #ff5000;
+  --bg: #000000; --surface: #0f0f10; --surface-2: #17171a;
+  --hair: #262629; --text: #ffffff; --text-2: #a6a6ad; --text-3: #6c6c73;
+  --sans: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+  --num: 'SF Mono', ui-monospace, 'Roboto Mono', Menlo, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg:#fff; --surface:#fff; --surface-2:#f5f6f7; --hair:#e6e8ea; --text:#1b1b1d; --text-2:#5b5b63; --text-3:#9a9aa2; }
+}
+:root[data-theme="dark"] { --bg:#000; --surface:#0f0f10; --surface-2:#17171a; --hair:#262629; --text:#fff; --text-2:#a6a6ad; --text-3:#6c6c73; }
+:root[data-theme="light"] { --bg:#fff; --surface:#fff; --surface-2:#f5f6f7; --hair:#e6e8ea; --text:#1b1b1d; --text-2:#5b5b63; --text-3:#9a9aa2; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height:100vh; -webkit-font-smoothing:antialiased; }
+.num { font-variant-numeric: tabular-nums; font-family: var(--num); }
+.muted { color: var(--text-2); } .dim { color: var(--text-3); }
+.up { color: var(--green); } .down { color: var(--red); }
+.ok { color: var(--green); } .bad { color: var(--red); } .warn { color: var(--red); }
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 1.1rem 6rem; }
+.nav { position: sticky; top:0; z-index:10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px);
+  border-bottom:1px solid var(--hair); display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem 0; margin-bottom:1.2rem; }
+.brand { display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:1.15rem; letter-spacing:-.01em; }
+.brand .mark { font-size:1.35rem; }
+.brand .dot { color: var(--green); }
+.nav-right { display:flex; align-items:center; gap:.8rem; }
+.simchip { font-size:.66rem; color: var(--text-3); font-family: var(--num); border:1px solid var(--hair); border-radius:999px; padding:.2rem .6rem; letter-spacing:.03em; }
+button { font-family: var(--sans); cursor:pointer; border:none; border-radius:999px; font-weight:600; letter-spacing:-.01em; transition: transform .04s, background .15s, opacity .15s; }
+button:active { transform: scale(.98); }
+.pill { background: var(--green); color:#04210a; padding:.6rem 1.2rem; font-size:.92rem; }
+.pill:hover { background: var(--green-ink); }
+.outline { background: transparent; color: var(--text); border:1.5px solid var(--hair); padding:.55rem 1.1rem; font-size:.9rem; }
+.outline:hover { border-color: var(--text-3); }
+.mini { background: transparent; color: var(--green); border:1.5px solid var(--green); padding:.28rem .7rem; font-size:.78rem; }
+button:disabled { opacity:.4; cursor:not-allowed; }
+button.off { opacity:.35; pointer-events:none; }
+button.needsauth::after { content:'🔒'; margin-left:.4rem; font-size:.8em; opacity:.85; }
+input { background: var(--surface-2); border:1px solid var(--hair); border-radius:12px; color: var(--text); font-family: var(--sans); padding:.7rem .9rem; outline:none; font-size:1rem; width:100%; }
+input:focus { border-color: var(--green); }
+input::placeholder { color: var(--text-3); }
+.hero { padding:.5rem 0 1.4rem; }
+.hero h1 { font-size: clamp(1.9rem,6vw,2.9rem); font-weight:700; letter-spacing:-.03em; line-height:1.05; text-wrap:balance; }
+.hero h1 .dot { color: var(--green); }
+.hero p { color: var(--text-2); font-size:1.05rem; margin-top:.6rem; max-width:46ch; line-height:1.5; }
+.garlicline { margin-top:.9rem; display:inline-flex; align-items:center; gap:.5rem; font-size:.85rem; color: var(--text-2); background: var(--surface-2); border:1px solid var(--hair); border-radius:999px; padding:.35rem .8rem; }
+.accountbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; font-size:.85rem; margin-bottom:.3rem; }
+.chip { font-size:.7rem; padding:.2rem .6rem; border-radius:999px; font-weight:600; }
+.chip.ok { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+.chip.warn { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.readnote { color: var(--text-3); font-size:.85rem; margin-bottom:.4rem; }
+.section { border-top:1px solid var(--hair); padding:1.5rem 0; }
+.section:first-of-type { border-top:none; }
+.section h2 { font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; color: var(--text-3); font-weight:700; margin-bottom:1rem; }
+.searchrow { display:flex; gap:.6rem; align-items:stretch; }
+.field { flex:1; display:flex; align-items:center; background: var(--surface-2); border:1px solid var(--hair); border-radius:12px; padding-right:.9rem; }
+.field input { border:none; background:transparent; }
+.field .suf { color: var(--green); font-weight:600; font-size:.95rem; white-space:nowrap; }
+#searchResult { margin-top:1rem; line-height:1.55; }
+.resline { font-size:1.25rem; font-weight:700; letter-spacing:-.02em; margin-bottom:.15rem; }
+.panel { display:none; } .panel.show { display:block; }
+.form { display:none; margin-top:1.1rem; flex-direction:column; gap:.7rem; }
+.form.show { display:flex; }
+.frow { display:flex; gap:.7rem; align-items:center; }
+.frow label { font-size:.8rem; color: var(--text-3); width:5rem; font-weight:600; }
+.grindout { margin-top:1rem; font-family: var(--num); font-size:.85rem; line-height:1.7; overflow-x:auto; color: var(--text-2); }
+.grindout b { color: var(--green); }
+.bighead { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.bighead .title { font-size:1.5rem; font-weight:700; letter-spacing:-.02em; }
+.statrow { display:flex; gap:1.6rem; flex-wrap:wrap; margin:1rem 0; }
+.stat .k { font-size:.72rem; color: var(--text-3); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+.stat .v { font-family: var(--num); font-size:1.15rem; font-weight:600; margin-top:.15rem; }
+.chartwrap { position:relative; margin:.4rem 0; }
+canvas { width:100%; height:150px; display:block; }
+.progress { height:6px; background: var(--surface-2); border-radius:999px; overflow:hidden; margin:.6rem 0 .3rem; }
+.progress i { display:block; height:100%; width:0; background: var(--green); transition:width .35s; }
+.progress-label { font-size:.78rem; color: var(--text-3); }
+#yourBag { font-size:.85rem; color: var(--text-2); margin-top:.7rem; }
+.tradebar { display:flex; gap:.6rem; align-items:center; margin-top:1.1rem; flex-wrap:wrap; }
+.amtwrap { flex:1; min-width:150px; display:flex; align-items:center; background: var(--surface-2); border:1px solid var(--hair); border-radius:12px; padding-right:.9rem; }
+.amtwrap input { border:none; background:transparent; font-family: var(--num); }
+.amtwrap .suf { color: var(--text-3); font-weight:600; font-size:.9rem; }
+.btn-buy { background: var(--green); color:#04210a; padding:.7rem 1.4rem; font-size:.95rem; }
+.btn-sell { background: var(--surface-2); color: var(--text); border:1.5px solid var(--hair); padding:.7rem 1.3rem; font-size:.95rem; }
+.slipbox { display:flex; align-items:center; gap:.4rem; font-size:.82rem; color: var(--text-3); }
+.slipbox input { width:66px; padding:.4rem .5rem; font-family: var(--num); }
+#slipWarn { color: var(--red); font-size:.82rem; margin-top:.5rem; min-height:1em; }
+#tradeMsg { font-size:.85rem; color: var(--text-2); margin-top:.5rem; min-height:1em; }
+.lifebar { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1rem; align-items:center; }
+.timeline { display:flex; flex-direction:column; gap:.5rem; margin-top:.4rem; }
+.tl { display:flex; gap:.7rem; align-items:baseline; font-size:.95rem; }
+.tl .dot { flex:none; width:8px; height:8px; border-radius:50%; background: var(--text-3); position:relative; top:-1px; }
+.tl.done .dot { background: var(--green); } .tl.warn .dot { background: var(--red); } .tl.dead .dot { background: var(--red); }
+.tl .when { font-family: var(--num); font-size:.78rem; color: var(--text-3); flex:none; width:6.4em; }
+.commentrow { display:flex; gap:.6rem; margin-top:1.3rem; }
+.commentrow input { flex:1; }
+.cmt { border-top:1px solid var(--hair); padding:.75rem 0; font-size:.95rem; line-height:1.45; }
+.cmt:first-child { border-top:none; }
+.cmt-head { display:flex; justify-content:space-between; gap:1rem; margin-bottom:.25rem; }
+.cmt-head b { color: var(--green); font-weight:600; }
+.cmt-head .when { color: var(--text-3); font-size:.78rem; font-family: var(--num); }
+.lbtabs { display:flex; gap:.4rem; }
+.lbtab { background: var(--surface-2); color: var(--text-2); border:1px solid var(--hair); padding:.35rem .8rem; font-size:.78rem; border-radius:999px; }
+.lbtab.active { background: var(--green); color:#04210a; border-color: var(--green); }
+.lb { display:flex; flex-direction:column; }
+.lbrow { display:grid; grid-template-columns: 1.6rem 1fr auto auto auto; gap:.8rem; align-items:center; background:transparent; border:none; border-bottom:1px solid var(--hair); padding:.75rem 0; text-align:left; color: var(--text); font-family: var(--sans); width:100%; border-radius:0; }
+.lbrow:last-child { border-bottom:none; }
+.lbrow:hover { opacity:.75; }
+.lbrow .rank { color: var(--text-3); font-family: var(--num); font-weight:700; font-size:.9rem; }
+.lbrow .lbname { display:flex; flex-direction:column; min-width:0; }
+.lbrow .lbname b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lbrow .lbname .sub { color: var(--text-3); font-size:.78rem; }
+.lbrow .lbnum { font-family: var(--num); font-size:.9rem; font-weight:600; text-align:right; white-space:nowrap; }
+.lbrow .lbnum .dim { font-weight:400; font-size:.68rem; }
+@media (max-width:560px){ .lbrow { grid-template-columns: 1.4rem 1fr auto; } .lbrow .lbnum:nth-child(4){ display:none; } }
+.feed { display:flex; flex-direction:column; }
+.feedrow { display:flex; align-items:center; justify-content:space-between; gap:1rem; background:transparent; border:none; border-bottom:1px solid var(--hair); padding:.85rem 0; text-align:left; color: var(--text); font-family: var(--sans); width:100%; border-radius:0; }
+.feedrow:last-child { border-bottom:none; }
+.feedrow:hover { opacity:.75; }
+.feedrow .fl { display:flex; align-items:center; gap:.6rem; }
+.feedrow .tick { width:34px; height:34px; border-radius:50%; background: var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+.feedrow b { font-weight:600; }
+.feedrow .sub { color: var(--text-3); font-size:.82rem; }
+.modal { position:fixed; inset:0; background: rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:1rem; z-index:30; }
+.modal.show { display:flex; }
+.modal-inner { background: var(--surface); border:1px solid var(--hair); border-radius:20px; padding:1.5rem; max-width:400px; width:100%; }
+.modal-inner h3 { font-size:1.15rem; font-weight:700; margin-bottom:.4rem; }
+.modal-inner p { color: var(--text-3); font-size:.82rem; margin-bottom:1.1rem; }
+.wallet { display:flex; align-items:center; gap:.8rem; width:100%; background: var(--surface-2); border:1px solid var(--hair); border-radius:14px; padding:.85rem 1rem; margin-bottom:.6rem; color: var(--text); font-family: var(--sans); font-size:.98rem; font-weight:500; }
+.wallet:hover { border-color: var(--green); }
+.wicon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:1rem; background: var(--surface); border:1px solid var(--hair); }
+.toast { position:fixed; left:50%; bottom:1.4rem; transform:translateX(-50%) translateY(180%); background: var(--surface-2); border:1px solid var(--hair); border-radius:14px; padding:.8rem 1.2rem; font-size:.92rem; font-weight:500; transition:transform .28s cubic-bezier(.2,.8,.2,1); z-index:40; max-width:90vw; box-shadow:0 8px 30px rgba(0,0,0,.4); }
+.toast.show { transform:translateX(-50%) translateY(0); }
+.toast.ok { border-color: var(--green); } .toast.bad, .toast.warn { border-color: var(--red); }
+footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; text-align:center; color: var(--text-3); font-size:.82rem; line-height:1.7; }
+@media (prefers-reduced-motion: reduce) { .progress i, .toast { transition:none; } }
+</style>
+
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand"><span class="mark">🧄</span> garlic<span class="dot">.hood</span></div>
+    <div class="nav-right">
+      <span class="simchip">SIMULATION</span>
+      <button class="pill" id="connectBtn">Connect</button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1>Launch a coin.<br>Own the name<span class="dot">.</span></h1>
+    <p>Every token is one unique <b>.hood</b> name on Robinhood Chain — register it, launch on a fair bonding curve, graduate to a locked pool.</p>
+    <div class="garlicline">🧄 One name, one token — garlic keeps the copycats out. No vampire can clone <span class="num">&nbsp;yourname.hood</span>.</div>
+  </section>
+
+  <div class="accountbar" id="accountBox"></div>
+  <div class="readnote">This is a click-through simulation — nothing is on-chain and no real wallet or money is involved. Connect (simulated) to try the flow.</div>
+
+  <section class="section">
+    <h2>Find or claim a .hood</h2>
+    <div class="searchrow">
+      <div class="field"><input id="searchInput" placeholder="garlic" autocomplete="off" spellcheck="false" maxlength="24"><span class="suf">.hood</span></div>
+      <button class="outline" id="searchBtn">Search</button>
+    </div>
+    <div id="searchResult"><span class="muted">Search a name. Free → register it (1 year) and launch a token in one tap. Taken → it already has a token. A name hosts only one live token, so copycats can't ride your ticker.</span></div>
+    <div class="form" id="launchForm">
+      <div class="frow"><label>Name</label><input id="launchName" placeholder="Garlic"></div>
+      <div class="frow"><label>Symbol</label><input id="launchSymbol" placeholder="GARLIC" maxlength="8"></div>
+      <div class="frow"><label>Launching</label><span class="up num" id="launchLabel" style="font-weight:700;"></span></div>
+      <button class="btn-buy needsauth" id="doLaunch" style="align-self:flex-start;">Register &amp; Launch</button>
+    </div>
+    <div class="grindout" id="grindOut"></div>
+  </section>
+
+  <section class="section panel" id="tradePanel">
+    <div class="bighead"><div class="title" id="tradeTitle"></div></div>
+    <div class="statrow" id="curveStats"></div>
+    <div class="chartwrap"><canvas id="curveChart"></canvas></div>
+    <div class="progress"><i id="gradbarFill"></i></div>
+    <div class="progress-label" id="gradLabel">bonding-curve progress → graduates to a locked liquidity pool</div>
+    <div id="yourBag"></div>
+    <div class="tradebar">
+      <div class="amtwrap"><input id="buyAmt" type="number" min="0.01" step="0.1" value="0.5"><span class="suf">ETH</span></div>
+      <button class="btn-buy needsauth" id="buyBtn">Buy</button>
+      <button class="btn-sell needsauth" id="sellBtn">Sell all</button>
+      <span class="slipbox">slippage <input id="slippage" type="number" min="0.1" step="0.1" value="1">%</span>
+    </div>
+    <div id="slipWarn"></div>
+    <div id="tradeMsg"></div>
+    <div class="commentrow">
+      <input id="commentInput" placeholder="Say something…" maxlength="280">
+      <button class="outline needsauth" id="postBtn">Post</button>
+    </div>
+    <div id="comments" style="margin-top:.5rem;"></div>
+  </section>
+
+  <section class="section panel" id="lifeCard">
+    <h2>Name lifecycle <span class="muted num" id="lifeName"></span></h2>
+    <div class="timeline" id="timeline"></div>
+    <div class="lifebar">
+      <button class="outline" id="ffBtn">⏩ Fast-forward 1 year</button>
+      <button class="mini" id="relaunchBtn" disabled>Relaunch this name</button>
+      <span class="muted" id="lifeMsg" style="font-size:.88rem;"></span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.6rem;">
+      <h2 style="margin:0;">Top 10 tokens</h2>
+      <div class="lbtabs">
+        <button class="lbtab active" data-sort="mcap">Market cap</button>
+        <button class="lbtab" data-sort="vol">Volume · 1h</button>
+        <button class="lbtab" data-sort="age">Newest</button>
+      </div>
+    </div>
+    <div class="lb" id="leaderboard"></div>
+  </section>
+
+  <section class="section">
+    <h2>Recently launched</h2>
+    <div class="feed" id="recentFeed"></div>
+  </section>
+
+  <footer>
+    garlic<span class="dot" style="color:var(--green)">.hood</span> · click-through simulation of the real product · curve math is the exact integer arithmetic of the deployed contract<br>
+    the live wallet-connected app runs in your own browser — this link is for feel &amp; flow
+  </footer>
+</div>
+
+<div class="modal" id="walletModal">
+  <div class="modal-inner">
+    <h3>Connect a wallet</h3>
+    <p>Simulated — no real wallet is contacted. Pick any to continue the demo.</p>
+    <div id="walletList"></div>
+    <button class="outline" id="modalClose" style="width:100%; margin-top:.4rem;">Cancel</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const E18 = 10n ** 18n, FEE_BPS = 0n;
+const CURVE_SUPPLY = 793100000n * E18, LP_RESERVE = 206900000n * E18;
+const VIRTUAL_ETH_0 = 14n * E18 / 10n, VIRTUAL_TOKEN_0 = 1073000000n * E18;
+const ceilDiv = (a,b) => (a + b - 1n) / b;
+const YEAR_MS = 365 * 24 * 3600 * 1000;
+
+let signedIn = false, identity = null, account = null;
+let simNow = Date.parse('2026-07-14');
+const registry = new Map();
+['garlic','moon','pepe','doge'].forEach(l => registry.set(l, { expiry: simNow + YEAR_MS, graduated:false }));
+let currentName=null, tokenAddr=null, curve=null, bag=0n, launchedAt=null, gradAt=null, renewedUntil=null;
+const comments = {}; // label -> [{who,text,when}]
+const launches = [];  // {label,name,symbol}
+const fmtDate = ms => new Date(ms).toISOString().slice(0,10);
+const fmtTok = t => { const m = Number(t/E18)/1e6; return m>=1 ? m.toFixed(1)+'M' : (Number(t/E18)/1e3).toFixed(0)+'k'; };
+const priceUsd = l => l.length>=5 ? 5 : l.length===4 ? 50 : 150;
+const norm = s => (s||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+const nameAvailable = l => { const r = registry.get(l); return !r || r.expiry < simNow; };
+function toast(m,k){ const t=$('toast'); t.textContent=m; t.className='toast show '+(k||''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.className='toast',3800); }
+function esc(s){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function randHex(n){ let s=''; const h='0123456789abcdef'; for(let i=0;i<n;i++) s+=h[Math.floor(Math.random()*16)]; return s; }
+
+// ---- simulated connect + sign-in ----
+const WALLETS = [['🦊','MetaMask'],['👻','Phantom'],['🪶','Robinhood Wallet'],['🔵','Coinbase Wallet']];
+$('connectBtn').onclick = () => $('walletModal').classList.add('show');
+$('modalClose').onclick = () => $('walletModal').classList.remove('show');
+$('walletList').innerHTML = WALLETS.map((w,i)=>`<button class="wallet" data-i="${i}"><span class="wicon">${w[0]}</span><span>${w[1]}</span></button>`).join('');
+$('walletList').querySelectorAll('.wallet').forEach(b => b.onclick = () => {
+  account = '0x' + randHex(40);
+  $('walletModal').classList.remove('show');
+  toast(`${WALLETS[b.dataset.i][1]} connected (simulated)`, 'ok');
+  renderAccount();
+});
+function signIn(){
+  signedIn = true;
+  renderAccount();
+  document.querySelectorAll('.needsauth').forEach(el => el.classList.remove('needsauth'));
+  toast('Signed in — free signature, nothing authorized.', 'ok');
+}
+function renderAccount(){
+  const el = $('accountBox');
+  if (!account){ $('connectBtn').textContent = 'Connect'; el.innerHTML=''; return; }
+  const who = identity ? identity+'.hood' : (account.slice(0,6)+'…'+account.slice(-4));
+  $('connectBtn').textContent = who;
+  el.innerHTML = signedIn
+    ? `<span class="chip ok">signed in</span> <span class="num">${who}</span>`
+    : `<span class="chip warn">connected — not signed in</span> <button class="mini" id="siBtn">Sign in</button>`;
+  if (!signedIn) $('siBtn').onclick = signIn;
+}
+function requireAuth(){
+  if (signedIn) return true;
+  if (!account){ $('walletModal').classList.add('show'); toast('Connect a wallet first.','warn'); }
+  else { toast('Sign in (free) to interact.','warn'); }
+  return false;
+}
+
+// ---- search ----
+$('searchBtn').onclick = search;
+$('searchInput').addEventListener('keydown', e => { if (e.key==='Enter') search(); });
+function search(){
+  const label = norm($('searchInput').value);
+  const out = $('searchResult');
+  $('launchForm').classList.remove('show');
+  if (label.length < 3){ out.innerHTML = '<span class="muted">Enter at least 3 characters.</span>'; return; }
+  if (nameAvailable(label)){
+    const was = registry.has(label);
+    out.innerHTML = `<div class="resline"><span class="up">${label}.hood</span> is available</div>`+
+      `<div class="muted">Register 1 year (~$${priceUsd(label)}, folded into the launch) and open the bonding curve${was?' — the previous registration expired':''}.</div>`;
+    $('launchLabel').textContent = label+'.hood';
+    $('launchName').value = label.charAt(0).toUpperCase()+label.slice(1);
+    $('launchSymbol').value = label.slice(0,6).toUpperCase();
+    $('launchForm').classList.add('show');
+    $('launchForm').dataset.label = label;
+  } else {
+    out.innerHTML = `<div class="resline"><span class="down">${label}.hood</span> is taken</div>`+
+      `<div class="muted">It already hosts a live token. It only frees up if it expires un-graduated.</div>`+
+      `<button class="outline" id="tradeExisting" style="margin-top:.7rem;">Open ${label}.hood</button>`;
+    $('tradeExisting').onclick = () => { currentName=label; openToken(label); };
+  }
+}
+
+// ---- launch + grind ----
+$('doLaunch').onclick = () => { if (requireAuth()) doLaunch($('launchForm').dataset.label); };
+async function doLaunch(label){
+  currentName = label;
+  $('launchForm').classList.remove('show');
+  $('doLaunch').disabled = true;
+  // Cosmetic CREATE2 grind: the real app grinds ~65k live keccak-256 hashes
+  // to a 0x…600d address (verified in the shipped code). Here we animate the
+  // count so the demo shows the mechanic without bundling a hash library.
+  const target = 40000 + Math.floor(Math.random()*60000);
+  const t0 = performance.now();
+  for (let shown=0; shown<target; ){
+    shown = Math.min(target, shown + 7000 + Math.floor(Math.random()*6000));
+    $('grindOut').textContent = `grinding vanity address… ${shown.toLocaleString()} keccak-256 hashes`;
+    await sleep(28);
+  }
+  const addr = randHex(36) + '600d';
+  tokenAddr = '0x'+addr;
+  $('grindOut').innerHTML = `${target.toLocaleString()} keccak-256 hashes · ${Math.round(performance.now()-t0)}ms<br>`+
+    `address 0x${addr.slice(0,36)}<b>600d</b> · <span class="up">${label}.hood resolves here</span>`;
+  registry.set(label, { expiry: simNow+YEAR_MS, graduated:false });
+  const lname = $('launchName').value||label, lsym = ($('launchSymbol').value||label).toUpperCase();
+  launches.unshift({ label, name:lname, symbol:lsym });
+  market.set(label, { name:lname, symbol:lsym, mcap:0.4, vol1h:0, launchedAt:simNow, graduated:false });
+  $('doLaunch').disabled = false;
+  renderFeed();
+  openToken(label);
+  toast(`${label}.hood launched!`, 'ok');
+}
+
+// ---- curve ----
+function openToken(label){
+  currentName = label;
+  if (!curve || curve._label !== label){
+    curve = { _label:label, vEth:VIRTUAL_ETH_0, vTok:VIRTUAL_TOKEN_0, realEth:0n, sold:0n, graduated:false };
+    bag = 0n; launchedAt = simNow; gradAt = null; renewedUntil = null;
+  }
+  $('tradePanel').classList.add('show');
+  $('lifeCard').classList.add('show');
+  $('tradeTitle').textContent = label+'.hood';
+  $('lifeName').textContent = '— '+label+'.hood';
+  $('relaunchBtn').disabled = true; $('lifeMsg').textContent=''; $('tradeMsg').textContent='';
+  render(); loadComments();
+}
+function spotGwei(c){ return Number(c.vEth)/Number(c.vTok)*1e9; }
+$('buyBtn').onclick = () => { if (requireAuth()) buy(parseFloat($('buyAmt').value)||0); };
+$('sellBtn').onclick = () => { if (requireAuth()) sellAll(); };
+$('slippage').addEventListener('input', () => {
+  const v = parseFloat($('slippage').value)||1;
+  $('slipWarn').textContent = v>3 ? `⚠ ${v}% is loose — sandwich bots can extract up to ~${v}% of your trade. 0.5–1% is safe.` : '';
+});
+function buy(ethFloat){
+  if (!curve || curve.graduated) return;
+  const grossValue = BigInt(Math.round(ethFloat*1e18)); if (grossValue<=0n) return;
+  let ethIn = grossValue, refund=0n; const k = curve.vEth*curve.vTok;
+  let out = curve.vTok - ceilDiv(k, curve.vEth+ethIn);
+  const remaining = CURVE_SUPPLY - curve.sold; let msg='';
+  if (out > remaining){ out = remaining; const need = ceilDiv(k, curve.vTok-out)-curve.vEth; refund = grossValue-need; ethIn = need; msg = `final buy clamped — ${(Number(refund)/1e18).toFixed(4)} ETH refunded · `; }
+  if (out===0n){ $('tradeMsg').textContent='curve is sold out'; return; }
+  curve.vEth+=ethIn; curve.vTok-=out; curve.realEth+=ethIn; curve.sold+=out; bag+=out;
+  addVolume(currentName, Number(grossValue-refund)/1e18);
+  if (curve.sold===CURVE_SUPPLY) graduate();
+  $('tradeMsg').textContent = msg+`bought ${fmtTok(out)} for ${(Number(grossValue-refund)/1e18).toFixed(3)} ETH`;
+  render();
+}
+function sellAll(){
+  if (!curve || curve.graduated || bag===0n){ if(bag===0n) toast('Nothing to sell.','warn'); return; }
+  const k = curve.vEth*curve.vTok, gross = curve.vEth - ceilDiv(k, curve.vTok+bag);
+  curve.vEth-=gross; curve.vTok+=bag; curve.realEth-=gross; curve.sold-=bag;
+  addVolume(currentName, Number(gross)/1e18);
+  $('tradeMsg').textContent = `sold ${fmtTok(bag)} for ${(Number(gross)/1e18).toFixed(4)} ETH`; bag=0n; render();
+}
+function graduate(){
+  curve.graduated = true; gradAt = simNow;
+  const rec = registry.get(currentName); rec.graduated = true; rec.expiry += 5*YEAR_MS; renewedUntil = rec.expiry;
+  toast('🎓 Graduated — pool seeded, LP burned, name renewed +5 years.', 'ok');
+}
+function render(){
+  if (!curve) return;
+  $('curveStats').innerHTML =
+    `<div class="stat"><div class="k">Price</div><div class="v">${spotGwei(curve).toFixed(3)} gwei</div></div>`+
+    `<div class="stat"><div class="k">Raised</div><div class="v">${(Number(curve.realEth)/1e18).toFixed(3)} ETH</div></div>`+
+    `<div class="stat"><div class="k">Sold</div><div class="v">${(Number(curve.sold*10000n/CURVE_SUPPLY)/100).toFixed(1)}%</div></div>`+
+    `<div class="stat"><div class="k">Status</div><div class="v">${curve.graduated?'🎓 graduated':'bonding'}</div></div>`;
+  const pct = Number(curve.sold*10000n/CURVE_SUPPLY)/100;
+  $('gradbarFill').style.width = Math.min(100,pct)+'%';
+  const expired = registry.get(currentName) && registry.get(currentName).expiry < simNow && !curve.graduated;
+  $('buyBtn').classList.toggle('off', curve.graduated || expired);
+  $('sellBtn').classList.toggle('off', curve.graduated || expired || bag===0n);
+  $('yourBag').textContent = bag===0n ? '' : 'Your bag: '+Number(bag/E18).toLocaleString();
+  $('gradLabel').textContent = curve.graduated
+    ? `🎓 Graduated at ${(Number(curve.realEth)/1e18).toFixed(3)} ETH — ${fmtTok(LP_RESERVE)} + ETH seeded a locked pool.`
+    : `bonding-curve progress ${pct.toFixed(1)}% → graduates on sellout (pump.fun economics)`;
+  renderTimeline(); drawChart();
+  bumpMarket(currentName); renderLeaderboard();
+}
+
+// ---- chart ----
+function priceAtSold(sold){ const vTok = VIRTUAL_TOKEN_0 - sold; const vEth = (VIRTUAL_ETH_0*VIRTUAL_TOKEN_0)/vTok; return Number(vEth)/Number(vTok)*1e9; }
+function drawChart(){
+  const cv = $('curveChart'); if (!cv) return;
+  const dpr = window.devicePixelRatio||1, w=cv.clientWidth, h=150;
+  cv.width=w*dpr; cv.height=h*dpr; const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h);
+  const N=100, pts=[]; const maxP = priceAtSold(CURVE_SUPPLY);
+  for (let i=0;i<=N;i++){ const s = CURVE_SUPPLY*BigInt(i)/BigInt(N); pts.push([Number(s/E18)/1e6, priceAtSold(s)]); }
+  const x = m => (m/793.1)*w, y = g => h - (g/maxP)*(h-8) - 4;
+  const soldM = curve ? Number(curve.sold/E18)/1e6 : 0;
+  const css = getComputedStyle(document.documentElement);
+  const green = css.getPropertyValue('--green').trim() || '#00c805';
+  ctx.beginPath(); ctx.moveTo(x(0), y(pts[0][1]));
+  for (const p of pts){ if (p[0]>soldM) break; ctx.lineTo(x(p[0]), y(p[1])); }
+  ctx.lineTo(x(soldM), h); ctx.lineTo(0,h); ctx.closePath();
+  ctx.fillStyle = 'rgba(0,200,5,0.12)'; ctx.fill();
+  ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(x(p[0]),y(p[1])):ctx.moveTo(x(p[0]),y(p[1])));
+  ctx.strokeStyle = green; ctx.lineWidth=2; ctx.stroke();
+  if (curve){ ctx.beginPath(); ctx.arc(x(soldM), y(priceAtSold(curve.sold)), 4,0,7); ctx.fillStyle=green; ctx.fill(); }
+}
+window.addEventListener('resize', () => curve && drawChart());
+
+// ---- comments ----
+function loadComments(){
+  const list = comments[currentName] || [];
+  $('comments').innerHTML = list.length
+    ? list.map(c => `<div class="cmt"><div class="cmt-head"><b>${esc(c.who)}</b><span class="when">${c.when}</span></div><div>${esc(c.text)}</div></div>`).join('')
+    : '<span class="muted" style="font-size:.9rem;">No comments yet. Be the first.</span>';
+}
+$('postBtn').onclick = () => {
+  if (!requireAuth()) return;
+  const text = $('commentInput').value.trim(); if (!text) return;
+  const who = identity ? identity+'.hood' : (account.slice(0,6)+'…'+account.slice(-4));
+  (comments[currentName] ||= []).unshift({ who, text, when: new Date(simNow).toLocaleDateString() });
+  $('commentInput').value=''; loadComments();
+};
+
+// ---- lifecycle ----
+$('ffBtn').onclick = () => {
+  if (!currentName){ toast('Launch a token first.','warn'); return; }
+  simNow += YEAR_MS + 24*3600*1000;
+  const rec = registry.get(currentName);
+  if (rec && rec.expiry < simNow && !rec.graduated){
+    $('lifeMsg').innerHTML = `<span class="down">${currentName}.hood expired un-graduated — anyone can relaunch it.</span>`;
+    $('relaunchBtn').disabled = false;
+  } else if (rec && rec.graduated){
+    $('lifeMsg').innerHTML = `<span class="up">Graduated name — held until ${fmtDate(rec.expiry)}; anyone can extend it further.</span>`;
+  }
+  render();
+};
+$('relaunchBtn').onclick = () => { $('relaunchBtn').disabled = true; curve=null; doLaunch(currentName); };
+function renderTimeline(){
+  if (!launchedAt){ $('timeline').innerHTML=''; return; }
+  const rec = registry.get(currentName); const rows=[];
+  rows.push(['done', fmtDate(launchedAt), `Launched — ${currentName}.hood registered 1 year (~$${priceUsd(currentName)}, in the launch fee)`]);
+  if (gradAt){
+    rows.push(['done', fmtDate(gradAt), 'Graduated — pool seeded, LP burned; name auto-renewed +5 years (~$25, from the raise)']);
+    rows.push(['warn', fmtDate(renewedUntil), 'Registration runs out — unless anyone extends it (permissionless renew)']);
+  } else if (rec && rec.expiry < simNow){
+    rows.push(['dead', fmtDate(rec.expiry), 'Expired un-graduated — the name frees up; anyone can relaunch it']);
+  } else {
+    rows.push(['warn', fmtDate(rec.expiry), 'If the curve never fills, the name lapses and frees up for a second chance']);
+  }
+  $('timeline').innerHTML = rows.map(r => `<div class="tl ${r[0]}"><span class="dot"></span><span class="when">${r[1]}</span><span>${r[2]}</span></div>`).join('');
+}
+
+// ---- feed ----
+function renderFeed(){
+  const box = $('recentFeed');
+  const seed = [['garlic','Garlic','GARLIC'],['moon','Moon','MOON'],['pepe','Pepe','PEPE']];
+  const all = [...launches, ...seed.filter(s => !launches.find(l=>l.label===s[0])).map(s=>({label:s[0],name:s[1],symbol:s[2]}))];
+  box.innerHTML = all.slice(0,8).map(l =>
+    `<button class="feedrow" data-label="${l.label}"><span class="fl"><span class="tick">🧄</span><span><b>${esc(l.label)}.hood</b><div class="sub">${esc(l.name)} · ${esc(l.symbol)}</div></span></span><span class="up" style="font-weight:600;">Open →</span></button>`).join('');
+  box.querySelectorAll('.feedrow').forEach(el => el.onclick = () => { if (nameAvailable(el.dataset.label)) registry.set(el.dataset.label,{expiry:simNow+YEAR_MS,graduated:false}); openToken(el.dataset.label); });
+}
+
+// ---- top-10 leaderboard (market cap / 1h volume / age) ----
+let lbSort = 'mcap';
+const market = new Map(); // label -> {name, symbol, mcap(ETH), vol1h(ETH), launchedAt(ms), graduated}
+(function seedMarket(){
+  // deterministic seed so the board is stable across renders
+  const seed = [
+    ['garlic','Garlic','GARLIC'],['moon','Moon','MOON'],['pepe','Pepe','PEPE'],['doge','Doge','DOGE'],
+    ['vampfang','Vampfang','VAMP'],['clove','Clove','CLOVE'],['garlicbread','Garlic Bread','GBREAD'],
+    ['aioli','Aioli','AIOLI'],['crouton','Crouton','CRTN'],['bulb','Bulb','BULB'],['stake','Steak','STAKE']
+  ];
+  seed.forEach((s,i) => {
+    const a = ((i + 1) * 2654435761) >>> 0; // cheap deterministic hash (unsigned)
+    market.set(s[0], {
+      name:s[1], symbol:s[2],
+      mcap: 0.4 + (a % 1900) / 100,          // ~0.4–19.4 ETH
+      vol1h: ((a >>> 7) % 1200) / 100,        // ~0–12 ETH  (unsigned shift!)
+      launchedAt: simNow - (((a >>> 3) % 58) + 1) * 60 * 1000, // 1–59 min ago
+      graduated: (a % 5) === 0,
+    });
+  });
+})();
+function bumpMarket(label){
+  if (!curve || currentName !== label) return;
+  const price = spotGwei(curve) / 1e9;               // ETH per token
+  const m = market.get(label) || { name: label, symbol: label.toUpperCase() };
+  m.mcap = price * 1e9;                               // fully-diluted mcap in ETH
+  m.vol1h = (m.vol1h || 0) + Number(curve.realEth) / 1e18 * 0; // volume tracked in trade fns
+  m.launchedAt = m.launchedAt || launchedAt || simNow;
+  m.graduated = curve.graduated;
+  market.set(label, m);
+}
+function addVolume(label, ethFloat){
+  const m = market.get(label); if (m) { m.vol1h = (m.vol1h || 0) + Math.abs(ethFloat); market.set(label, m); }
+}
+function fmtAge(sec){
+  if (sec < 60) return sec+'s';
+  if (sec < 3600) return Math.floor(sec/60)+'m';
+  if (sec < 86400) return Math.floor(sec/3600)+'h '+Math.floor((sec%3600)/60)+'m';
+  return Math.floor(sec/86400)+'d';
+}
+function renderLeaderboard(){
+  const rows = [...market.entries()].map(([label,m]) => ({ label, ...m }));
+  rows.sort((a,b) => lbSort==='mcap' ? b.mcap-a.mcap : lbSort==='vol' ? b.vol1h-a.vol1h : b.launchedAt-a.launchedAt);
+  $('leaderboard').innerHTML = rows.slice(0,10).map((r,i) =>
+    `<button class="lbrow" data-label="${esc(r.label)}"><span class="rank">${i+1}</span>`+
+    `<span class="lbname"><b>${esc(r.label)}.hood</b><span class="sub">${esc(r.symbol)}${r.graduated?' · 🎓':''}</span></span>`+
+    `<span class="lbnum">${r.mcap.toFixed(2)} <span class="dim">ETH mcap</span></span>`+
+    `<span class="lbnum">${(r.vol1h||0).toFixed(2)} <span class="dim">1h vol</span></span>`+
+    `<span class="lbnum">${fmtAge(Math.max(0,Math.floor((simNow-r.launchedAt)/1000)))}</span></button>`).join('');
+  $('leaderboard').querySelectorAll('.lbrow').forEach(el => el.onclick = () => {
+    if (nameAvailable(el.dataset.label)) registry.set(el.dataset.label,{expiry:simNow+YEAR_MS,graduated:false});
+    openToken(el.dataset.label);
+  });
+}
+document.querySelectorAll('.lbtab').forEach(t => t.onclick = () => {
+  lbSort = t.dataset.sort;
+  document.querySelectorAll('.lbtab').forEach(x => x.classList.toggle('active', x===t));
+  renderLeaderboard();
+});
+renderFeed();
+renderLeaderboard();
+</script>

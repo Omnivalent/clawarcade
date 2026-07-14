@@ -124,6 +124,21 @@ input::placeholder { color: var(--text-3); }
 .cmt-head .when { color: var(--text-3); font-size:.78rem; font-family:var(--num); }
 
 /* feed */
+/* leaderboard */
+.lbtabs { display:flex; gap:.4rem; }
+.lbtab { background: var(--surface-2); color: var(--text-2); border:1px solid var(--hair); padding:.35rem .8rem; font-size:.78rem; border-radius:999px; }
+.lbtab.active { background: var(--green); color:#04210a; border-color: var(--green); }
+.lb { display:flex; flex-direction:column; }
+.lbrow { display:grid; grid-template-columns: 1.6rem 1fr auto auto auto; gap:.8rem; align-items:center; background:transparent; border:none; border-bottom:1px solid var(--hair); padding:.75rem 0; text-align:left; color: var(--text); font-family: var(--sans); width:100%; border-radius:0; }
+.lbrow:last-child { border-bottom:none; }
+.lbrow:hover { opacity:.75; }
+.lbrow .rank { color: var(--text-3); font-family: var(--num); font-weight:700; font-size:.9rem; }
+.lbrow .lbname { display:flex; flex-direction:column; min-width:0; }
+.lbrow .lbname b { font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lbrow .lbname .sub { color: var(--text-3); font-size:.78rem; }
+.lbrow .lbnum { font-family: var(--num); font-size:.9rem; font-weight:600; text-align:right; white-space:nowrap; }
+.lbrow .lbnum .dim { font-weight:400; font-size:.68rem; }
+@media (max-width:560px){ .lbrow { grid-template-columns: 1.4rem 1fr auto; } .lbrow .lbnum:nth-child(4){ display:none; } }
 .feed { display:flex; flex-direction:column; }
 .feedrow { display:flex; align-items:center; justify-content:space-between; gap:1rem; background:transparent; border:none;
   border-bottom:1px solid var(--hair); padding:.85rem 0; text-align:left; color: var(--text); font-family: var(--sans); width:100%; border-radius:0; }
@@ -219,6 +234,18 @@ footer { border-top:1px solid var(--hair); margin-top:2rem; padding-top:1.4rem; 
       <button class="outline needsauth" id="postBtn">Post</button>
     </div>
     <div id="comments" style="margin-top:.5rem;"></div>
+  </section>
+
+  <section class="section">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.6rem;">
+      <h2 style="margin:0;">Top 10 tokens</h2>
+      <div class="lbtabs">
+        <button class="lbtab active" data-sort="mcap">Market cap</button>
+        <button class="lbtab" data-sort="vol">Volume · 1h</button>
+        <button class="lbtab" data-sort="age">Newest</button>
+      </div>
+    </div>
+    <div class="lb" id="leaderboard"><span class="muted">loading…</span></div>
   </section>
 
   <section class="section">

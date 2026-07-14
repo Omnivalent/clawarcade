@@ -36,6 +36,7 @@ async function boot() {
   renderChainInfo();
   bindUI();
   refreshFeed();
+  refreshLeaderboard();
 }
 
 function wireReadContracts() {
@@ -219,7 +220,7 @@ async function doLaunch() {
     toast(`${label}.hood launched!`, 'ok');
     hideLaunchForm();
     openToken(token, label);
-    refreshFeed();
+    refreshFeed(); refreshLeaderboard();
   } catch (e) {
     toast(rpcError(e), 'bad');
   } finally {
@@ -297,7 +298,7 @@ async function buy() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 120); // 2-min window
     await (await state.contracts.curve.buy(token, minOut, deadline, { value: amount })).wait();
     toast('Bought.', 'ok');
-    await refreshCurve(); await loadComments(token);
+    await refreshCurve(); await loadComments(token); refreshLeaderboard();
   } catch (e) { toast(rpcError(e), 'bad'); }
   finally { btn.disabled = false; }
 }
@@ -319,7 +320,7 @@ async function sell() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 120);
     await (await state.contracts.curve.sell(token, bag, minEth, deadline)).wait();
     toast('Sold.', 'ok');
-    await refreshCurve(); await loadComments(token);
+    await refreshCurve(); await loadComments(token); refreshLeaderboard();
   } catch (e) { toast(rpcError(e), 'bad'); }
   finally { btn.disabled = false; btn.textContent = 'Sell all'; }
 }
@@ -381,6 +382,65 @@ async function refreshFeed() {
   } catch (e) { box.innerHTML = `<span class="muted">Feed unavailable: ${rpcError(e)}</span>`; }
 }
 
+// ---------- top-10 leaderboard (market cap / 1h volume / age) ----------
+let lbSort = 'mcap';
+const FDV_TOKENS = 1_000_000_000; // fully-diluted supply
+async function refreshLeaderboard() {
+  const box = $('leaderboard');
+  try {
+    const f = state.readContracts.factory, curve = state.readContracts.curve, reader = state.reader;
+    const launched = await f.queryFilter(f.filters.Launched(), 0, 'latest');
+    if (launched.length === 0) { box.innerHTML = '<span class="muted">No tokens yet — launch one to top the board.</span>'; return; }
+
+    // keep only the current token per label (relaunches overwrite)
+    const byLabel = new Map();
+    for (const l of launched) byLabel.set(l.args.label, { token: l.args.token, label: l.args.label, name: l.args.name, symbol: l.args.symbol, block: l.blockNumber });
+    const meta = [...byLabel.values()];
+
+    // block-timestamp cache (bounds getBlock calls)
+    const now = Math.floor(Date.now() / 1000);
+    const tcache = new Map();
+    const tsOf = async bn => { if (!tcache.has(bn)) { const b = await reader.getBlock(bn); tcache.set(bn, b ? Number(b.timestamp) : now); } return tcache.get(bn); };
+
+    // 1h volume from Buy+Sell events
+    const [buys, sells] = await Promise.all([
+      curve.queryFilter(curve.filters.Buy(), 0, 'latest'),
+      curve.queryFilter(curve.filters.Sell(), 0, 'latest'),
+    ]);
+    const vol = new Map();
+    for (const ev of [...buys, ...sells]) {
+      const t = await tsOf(ev.blockNumber);
+      if (now - t <= 3600) {
+        const eth = ev.args.ethIn != null ? ev.args.ethIn : (ev.args.ethOut || 0n);
+        vol.set(ev.args.token, (vol.get(ev.args.token) || 0n) + eth);
+      }
+    }
+
+    const rows = [];
+    for (const m of meta) {
+      let mcap = 0, graduated = false;
+      try { const c = await curve.curves(m.token); mcap = Number(c.virtualEth) / Number(c.virtualToken) * FDV_TOKENS; graduated = c.graduated; } catch {}
+      rows.push({ ...m, mcap, vol: vol.get(m.token) || 0n, ageSec: now - (await tsOf(m.block)), graduated });
+    }
+    rows.sort((a, b) => lbSort === 'mcap' ? b.mcap - a.mcap : lbSort === 'vol' ? (b.vol > a.vol ? 1 : b.vol < a.vol ? -1 : 0) : a.ageSec - b.ageSec);
+
+    box.innerHTML = rows.slice(0, 10).map((r, i) =>
+      `<button class="lbrow" data-token="${r.token}" data-label="${escapeHtml(r.label)}">` +
+      `<span class="rank">${i + 1}</span>` +
+      `<span class="lbname"><b>${escapeHtml(r.label)}.hood</b><span class="sub">${escapeHtml(r.symbol)}${r.graduated ? ' · 🎓' : ''}</span></span>` +
+      `<span class="lbnum">${r.mcap.toFixed(2)} <span class="dim">ETH mcap</span></span>` +
+      `<span class="lbnum">${Number(ethers.formatEther(r.vol)).toFixed(2)} <span class="dim">1h vol</span></span>` +
+      `<span class="lbnum">${fmtAge(r.ageSec)}</span></button>`).join('');
+    box.querySelectorAll('.lbrow').forEach(el => el.onclick = () => openToken(el.dataset.token, el.dataset.label));
+  } catch (e) { box.innerHTML = `<span class="muted">Leaderboard unavailable: ${rpcError(e)}</span>`; }
+}
+function fmtAge(s) {
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
+  return Math.floor(s / 86400) + 'd';
+}
+
 // ---------- self-register a name to sign in with ----------
 async function registerSelfName() {
   if (!requireSignIn()) return;
@@ -412,6 +472,11 @@ function bindUI() {
   $('postBtn').onclick = postComment;
   $('slippage').addEventListener('input', slippageBps);
   $('identBtn').onclick = registerSelfName;
+  document.querySelectorAll('.lbtab').forEach(t => t.onclick = () => {
+    lbSort = t.dataset.sort;
+    document.querySelectorAll('.lbtab').forEach(x => x.classList.toggle('active', x === t));
+    refreshLeaderboard();
+  });
 }
 function gate(btn) { btn.classList.toggle('needsauth', !state.siwe); }
 function requireSignIn() {

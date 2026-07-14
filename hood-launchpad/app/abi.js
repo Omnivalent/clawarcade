@@ -19,6 +19,7 @@ window.HOODPAD_ABI = {
     'function sell(address token, uint256 tokensIn, uint256 minEthOut, uint256 deadline) returns (uint256)',
     'function curves(address) view returns (uint128 virtualEth, uint128 virtualToken, uint128 realEth, uint128 tokensSold, bool exists, bool graduated)',
     'event Buy(address indexed token, address indexed buyer, uint256 ethIn, uint256 tokensOut, uint256 fee)',
+    'event Sell(address indexed token, address indexed seller, uint256 tokensIn, uint256 ethOut, uint256 fee)',
     'event Graduated(address indexed token, uint256 ethToPool, uint256 tokensToPool, uint256 renewalSpent)',
   ],
   registrar: [
