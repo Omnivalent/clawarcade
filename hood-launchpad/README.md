@@ -1,94 +1,71 @@
-# hoodpad — token launchpad with .hood identity (private test build)
+# 🧄 garlic.hood — One Name. One Token.
 
-A pump.fun-style launchpad for **Robinhood Chain** where every token launch
-atomically claims a **`name.hood`** domain that resolves to (and is custodied
-away from the creator with) the token contract. See [PITCH.md](./PITCH.md)
-for concept, market context, and legal notes.
+**A token launchpad for Robinhood Chain where every coin is a unique `.hood` name.**
+Register the name, launch on a fair bonding curve, graduate to a locked pool —
+and because a `.hood` name can host only one live token, **no copycat can clone
+your ticker.** Garlic keeps the vampires out.
 
-**Registrar-agnostic by design.** The launchpad talks to a pluggable
-`INameRegistrar` adapter. The production target is hood.ag
-(`contracts/adapters/HoodAgAdapter.sol`, ENS-fork controller — verify its
-selectors against hood.ag's published contract docs before mainnet); demos
-and tests run on `MockRegistrar`, which mimics hood.ag's pricing and expiry.
+> pump.fun proved anyone can launch a token in seconds. garlic.hood launches
+> the **one true token for a name** — identity, not just a ticker.
 
-## Tokenomics (pump.fun, ETH-scaled)
+![garlic.hood leaderboard](docs/screenshot-leaderboard.png)
 
-- 1B fixed supply: **793.1M** sold on the curve, **206.9M** reserved for the
-  graduation pool (LP burned) — pump.fun's exact split.
-- Virtual reserves: **1.073B tokens** / configurable virtual ETH
-  (production 1.4 ETH ≈ pump.fun's 30 vSOL; test deploys scale it down).
-- Graduation on **curve sellout** (≈2.833× virtual ETH raised — ~3.97 ETH at
-  the production setting), like pump.fun. An optional lower ETH trigger is
-  supported; zero is rejected at construction.
-- Trade fee is a constructor parameter (0 for the private test config,
-  100 bps = pump.fun-style 1% for production). Fees **accrue** and are pulled
-  via `collectFees()` — a broken recipient can never block trading.
+## 🔗 Try the live demo
 
-## Name lifecycle policy
+**[▶ Open the interactive demo](https://raw.githack.com/Omnivalent/clawarcade/garlic-v1/hood-launchpad/demo/garlic-site.html)**
+— click-through, no wallet needed: search a name, watch the address grind,
+trade the bonding curve, walk the name lifecycle, browse the leaderboard, and
+see the vampire-name detector in action.
 
-1. **Launch**: `name.hood` registered for **1 year** (cost folded into the
-   launch fee; ~$5/yr for 5+ chars at hood.ag pricing), custodied by the
-   factory so it can't be re-pointed while registered.
-2. **Graduation**: the curve hands the factory a budget (hard-capped at 10%
-   of the raise) and the name is **auto-extended 5 years** (~$25) — or
-   re-registered if it lapsed mid-bonding. A raise never pays for a label
-   that was relaunched to a different token.
-3. **No graduation**: the registration lapses after the year, and the same
-   label can be launched again by anyone — a second chance for good names.
-4. **Anytime**: `renewName()` is permissionless, so a community can keep a
-   name alive forever even though the factory holds the NFT.
+*(The full wallet-connected app that does real testnet transactions is in
+[`app/`](app/) — drag that folder onto [Netlify Drop](https://app.netlify.com/drop),
+open it, connect a wallet, and click Deploy. No terminal. See
+[GO_LIVE_NO_TERMINAL.md](GO_LIVE_NO_TERMINAL.md).)*
 
-## What's here
+## What's inside
 
-| Path | What it is |
+- **One-transaction launch** — CREATE2 token deploy + `.hood` registration (1yr,
+  custodied so it can't be re-pointed) + bonding-curve listing + fees, atomic.
+- **pump.fun tokenomics, ETH-scaled** — 1B supply, 793.1M on the curve, 206.9M
+  reserved; graduates on sellout → seeds a Uniswap pool → **LP burned**; the
+  name auto-renews +5 years from the raise.
+- **Anti-vamp, on-chain + off-chain** — the contract rejects unicode/homoglyph
+  labels; the app flags look-alikes ("🧛 80% similar to doge.hood") and scores
+  every name with a **Garlic Score** (originality, 100 = unique).
+- **Anti-wash leaderboard** — ranks by market cap, **unique buyers**, and Garlic
+  Score, not gameable raw volume.
+- **Wallet accounts + on-chain social** — SIWE sign-in; your `.hood` is your
+  handle; comments are event-only (a few thousand gas).
+- **Hardened** — commit-reveal launches (anti-frontrun), graduation renewal with
+  a hijack guard, expiry grace period, timelocked registrar swaps, reentrancy
+  protection. **29 tests run the real compiled bytecode and pass.**
+
+## Architecture
+
+| Contract | Role |
 |---|---|
-| `contracts/TokenFactory.sol` | One-tx launch: CREATE2 (vanity `...600d`) + 1yr .hood registration + curve listing + fees; commit-reveal anti-frontrun (optional); graduation renewal with hijack guard; permissionless `renewName` |
-| `contracts/BondingCurve.sol` | Singleton virtual-reserve curve; quote/execute share one math path; curve-favoring rounding; clamped final buy with refund; budgeted best-effort renewal at graduation |
-| `contracts/LaunchToken.sol` | Minimal fixed-supply ERC-20 — no owner, no mint, no pause |
-| `contracts/interfaces/INameRegistrar.sol` | Provider-agnostic .hood adapter interface (register/renew/expiry/commit) |
-| `contracts/adapters/HoodAgAdapter.sol` | hood.ag (ENS-fork controller) adapter skeleton with integration TODOs |
-| `contracts/mocks/` | `MockRegistrar` (hood.ag-style pricing + expiry) and `GraduationEscrow` (stand-in for the Uniswap v3 handler) |
-| `test/evm.test.js` | 20 end-to-end tests running the **real compiled bytecode** on @ethereumjs/vm — launch, vanity, fees, graduation renewal, hijack guard, expiry relaunch, commit-reveal |
-| `test/curve.test.js` | Property tests on a BigInt mirror of the curve's integer math |
-| `scripts/compile.js` | solc 0.8.26 (viaIR, paris) compile to `build/` |
-| `scripts/deploy.js` | Deploy the stack with your key (defaults: Robinhood Chain testnet, zero fees) |
-| `scripts/launch-token.js` | Grind a salt, launch a token, optional first buy — against your deployment |
-| `demo/index.html` | Interactive simulation of the full flow incl. the name-expiry lifecycle. No backend. |
+| `TokenFactory.sol` | One-tx launch, name lifecycle, fees, hardening |
+| `BondingCurve.sol` | Singleton virtual-reserve curve; quote = execution; slippage + deadline |
+| `LaunchToken.sol` | Minimal ERC-20 — no owner, no mint, no pause (rug-proof) |
+| `interfaces/INameRegistrar.sol` + `adapters/HoodAgAdapter.sol` | Pluggable .hood name service (targets hood.ag) |
+| `CommentBoard.sol` | Event-only social layer |
+| `mocks/` | Local registrar / graduation escrow / reentrancy attacker |
 
-## Run it
+See [PITCH.md](PITCH.md) for the concept & market, [REVIEW_REQUEST.md](REVIEW_REQUEST.md)
+for the external-review brief, and [GO_LIVE_NO_TERMINAL.md](GO_LIVE_NO_TERMINAL.md)
+to put it live.
+
+## Run the tests
 
 ```bash
 npm install
-node scripts/compile.js          # compile-check all contracts
-npm test                         # curve property tests + real-EVM end-to-end tests
-open demo/index.html             # the interactive simulation
-
-# your own private testnet deployment (free faucet ETH):
-#   https://faucet.testnet.chain.robinhood.com
-PRIVATE_KEY=0x... node scripts/deploy.js
-PRIVATE_KEY=0x... FIRST_BUY_ETH=0.01 node scripts/launch-token.js supercat "Super Cat" SCAT
+node scripts/compile.js   # compile all contracts
+node test/evm.test.js     # 29 end-to-end tests on real bytecode
+node test/curve.test.js   # curve property tests
 ```
 
-## Key design decisions
+## Status
 
-- **Addresses can't end in "hood"** (hex has no h/o). The house signature is
-  a CREATE2-ground `...600d` suffix (~65k hashes, <1s, ground client-side);
-  the `.hood` *name* is the real identity.
-- **Rounding always favors the curve** (`_ceilDiv` on every `k/reserve`
-  division), and quotes reuse the execution math verbatim so a frontend
-  quote can never disagree with the trade.
-- **Graduation renewal is best-effort and budget-capped**: a reverting,
-  compromised, or overpriced registrar can never block a graduation or spend
-  more than 10% of the raise.
-- **Launch commit-reveal binds the committer**, so copied mempool calldata
-  can't steal a launch (off by default for private testing via `COMMIT_AGE`).
-
-## Known deferred items (deliberate, pre-audit)
-
-- Foundry test suite against a forked chain (the JS EVM suite covers logic;
-  gas/fork behavior still needs forge).
-- Uniswap v3 graduation handler (escrow stands in until the official
-  Robinhood Chain deployment addresses are wired).
-- hood.ag adapter selector verification + burner-wallet integration test.
-- Gas polish: `Curve` struct packing, single-slot accounting. Documented in
-  review notes; skipped to keep the audit surface simple.
+Testnet-ready. Before mainnet: wire hood.ag's verified contract addresses into
+the adapter, add a Uniswap v3 graduation handler + an events indexer, and get a
+professional audit. Not investment advice; testnet tokens have no value.
