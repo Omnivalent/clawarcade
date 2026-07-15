@@ -12,7 +12,7 @@ your ticker.** Garlic keeps the vampires out.
 
 ## 🔗 Try the live demo
 
-**[▶ Open the interactive demo](https://raw.githack.com/Omnivalent/clawarcade/garlic-v1/hood-launchpad/demo/garlic-site.html)**
+**[▶ Open the interactive demo](https://raw.githack.com/Omnivalent/clawarcade/1a6bb9d64d41a076014a213c1f56af4a3098c429/hood-launchpad/demo/garlic-site.html)**
 — click-through, no wallet needed: search a name, watch the address grind,
 trade the bonding curve, walk the name lifecycle, browse the leaderboard, and
 see the vampire-name detector in action.
