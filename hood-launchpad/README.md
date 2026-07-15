@@ -51,9 +51,10 @@ open it, connect a wallet, and click Deploy. No terminal. See
 | `CommentBoard.sol` | Event-only social layer |
 | `mocks/` | Local registrar / graduation escrow / reentrancy attacker |
 
-See [PITCH.md](PITCH.md) for the concept & market, [REVIEW_REQUEST.md](REVIEW_REQUEST.md)
-for the external-review brief, and [GO_LIVE_NO_TERMINAL.md](GO_LIVE_NO_TERMINAL.md)
-to put it live.
+See **[docs/MECHANISMS.md](docs/MECHANISMS.md)** for the full deep-dive on the
+anti-vamp stack and renewal-on-bond, [PITCH.md](PITCH.md) for the concept &
+market, [REVIEW_REQUEST.md](REVIEW_REQUEST.md) for the external-review brief, and
+[GO_LIVE_NO_TERMINAL.md](GO_LIVE_NO_TERMINAL.md) to put it live.
 
 ## Run the tests
 
