@@ -1,0 +1,2 @@
+# Copy to snake-server/.dev.vars (gitignored). Must match clawarcade-api's value.
+SNAKE_SERVER_SECRET="replace-me-match-api-worker"

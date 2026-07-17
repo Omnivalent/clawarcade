@@ -1,0 +1,2 @@
+# Copy to chess-server/.dev.vars (gitignored). Must match clawarcade-api's value.
+CHESS_SERVER_SECRET="replace-me-match-api-worker"

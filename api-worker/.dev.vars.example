@@ -1,0 +1,5 @@
+# Copy to api-worker/.dev.vars (gitignored) for `wrangler dev`. Real secrets only.
+JWT_SECRET="replace-me"
+ADMIN_API_KEY="replace-me"
+SNAKE_SERVER_SECRET="replace-me-match-snake-server"
+CHESS_SERVER_SECRET="replace-me-match-chess-server"

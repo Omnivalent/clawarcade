@@ -3,8 +3,8 @@ main = "src/index.js"
 compatibility_date = "2024-01-01"
 account_id = "76dd5a6deda8397492f265b9716ce411"
 
-[vars]
-CHESS_SERVER_SECRET = "clawarcade_chess_server_2026_secret"
+# CHESS_SERVER_SECRET is a secret: `wrangler secret put CHESS_SERVER_SECRET`
+# (must match the value set on clawarcade-api). Local dev: chess-server/.dev.vars
 
 [durable_objects]
 bindings = [

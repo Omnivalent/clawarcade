@@ -3,8 +3,8 @@ main = "src/index.js"
 compatibility_date = "2024-01-01"
 account_id = "76dd5a6deda8397492f265b9716ce411"
 
-[vars]
-SNAKE_SERVER_SECRET = "clawarcade_snake_server_2026_secret"
+# SNAKE_SERVER_SECRET is a secret: `wrangler secret put SNAKE_SERVER_SECRET`
+# (must match the value set on clawarcade-api). Local dev: snake-server/.dev.vars
 
 [durable_objects]
 bindings = [
