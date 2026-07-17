@@ -1,0 +1,20 @@
+name = "clawarcade-liquidity"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+account_id = "76dd5a6deda8397492f265b9716ce411"
+
+# Runs the fast lane every minute; the code self-throttles the slow lane
+# (protocols/TVL/stablecoins/bridges) to every ~10 min via a KV counter.
+[triggers]
+crons = ["* * * * *"]
+
+# KV holds the current snapshot + the rolling history ring used by the
+# time machine. Create it once with:
+#   wrangler kv namespace create LIQUIDITY_KV
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "LIQUIDITY_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[observability]
+enabled = true
