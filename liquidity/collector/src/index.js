@@ -22,6 +22,10 @@ const CHAINS = [
   { id: 'bsc',         label: 'BSC',         llama: 'BSC',         aliases: ['bsc','binance','bnb','bnb smart chain'], gecko: 'bsc', wormholeId: 4  },
   { id: 'arbitrum',    label: 'Arbitrum',    llama: 'Arbitrum',    aliases: ['arbitrum'],                       gecko: 'arbitrum', wormholeId: 23 },
   { id: 'hyperliquid', label: 'Hyperliquid', llama: 'Hyperliquid', aliases: ['hyperliquid','hyperliquid l1'],   gecko: 'hyperliquid', wormholeId: null, harbor: true },
+  // Robinhood Chain (Arbitrum-Orbit L2, tokenized equities). Public DeFi
+  // liquidity coverage is thin; the lake renders from whatever DefiLlama tracks
+  // and is labeled thin-coverage. aliases cover naming variants seen in the wild.
+  { id: 'robinhood',   label: 'Robinhood',   llama: 'Robinhood',   aliases: ['robinhood','robinhood chain','rhc'], gecko: null, wormholeId: null, thin: true },
 ];
 const WH_TO_CHAIN = {};
 for (const c of CHAINS) if (c.wormholeId != null) WH_TO_CHAIN[c.wormholeId] = c.id;
@@ -234,7 +238,7 @@ function blankSnapshot(prev) {
   for (const c of CHAINS) {
     const p = prev && prev.chains && prev.chains[c.id];
     chains[c.id] = {
-      label: c.label, harbor: !!c.harbor,
+      label: c.label, harbor: !!c.harbor, thin: !!c.thin,
       dexTvl: p?.dexTvl || 0, stables: p?.stables || 0, vol24h: p?.vol24h || 0,
       chainTvl: p?.chainTvl || 0, netBridge24h: p?.netBridge24h || 0,
       liqChangePct: p?.liqChangePct || 0, launchRate: p?.launchRate || 0,
