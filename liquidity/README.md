@@ -1,10 +1,42 @@
 # Liquidity Lakes
 
 A live, animated map of where crypto liquidity is concentrated and where it is
-flowing. Chains are lakes, bridges are rivers, trench activity is bubbling
+flowing. Chains are lakes, platforms inside them are pools, tokens are the
 water. Open the page and watch capital rotate — no refresh button, no tables.
 
 Single self-contained file: `index.html`. No build step (repo convention).
+The optional collector Worker in `collector/` adds real hierarchical + historical
+data (see below).
+
+## What you can do (v0.2)
+
+- **Zoom three levels.** Click a chain lake → it opens into its platforms
+  (pump.fun, Raydium, Uniswap, Aerodrome…). Click a platform → it opens into its
+  top token movers. Breadcrumb (top-left) or click empty space to zoom back out.
+- **Robinhood** is included as a labeled thin-coverage node (tokenized equities;
+  on-chain liquidity data for it is sparse, so it's shown as illustrative).
+- **Rivers in/out at every level**, with a filter to toggle bridge sources
+  (Wormhole, deBridge, LayerZero) and in-chain **swaps**. World-level rivers are
+  observed bridge corridors; inner swap streams are illustrative activity
+  (labeled as such — not measured transfers).
+- **Time machine.** Bottom bar: LIVE, or replay a sped-up window
+  (1m / 5m / 30m / 1h / 3h / 6h / 12h / 1d) with a scrubber + play/pause. Real
+  history comes from the collector; without it, playback runs on the simulated
+  drift model (labeled).
+
+## Data modes (automatic, in priority order)
+
+1. **Collector** — if `COLLECTOR_URL` is set in `index.html`, one call returns the
+   full hierarchical tree + real history. No CORS issues; bridge sign fixed
+   server-side. (Deploy: `collector/README.md`.)
+2. **Direct** — otherwise the page fetches level-1 data (TVL, stablecoins, DEX
+   volume, bridge net flow, Wormhole corridors, GeckoTerminal pools) straight
+   from the browser. Platforms/tokens fall back to the simulated hierarchy.
+3. **Simulated** — if nothing is reachable, a clearly-banner-labeled simulated
+   dataset so every feature stays demonstrable.
+
+The mode chip (top-left) shows which is active; source chips (bottom bar) show
+per-source health.
 
 ## Visual grammar
 
