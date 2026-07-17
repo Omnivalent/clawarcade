@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Liquidity Lakes — live map of on-chain liquidity</title>
+<meta name="description" content="A live, animated map of where crypto liquidity is concentrated and where it is flowing — chains as lakes, bridges as rivers, trench activity as bubbling water.">
+<style>
+  :root {
+    --ground: #07090e;
+    --panel: #0c1018;
+    --panel-edge: rgba(134, 182, 239, 0.10);
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #898781;
+    --water-100: #86b6ef;
+    --water-300: #3987e5;
+    --water-500: #256abf;
+    --water-700: #184f95;
+    --water-900: #0d366b;
+    --flow-in: #0ca30c;
+    --flow-out: #e66767;
+    --heat: #eda100;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--ink-2);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+  #map { position: fixed; inset: 0; display: block; cursor: crosshair; }
+
+  /* ---------- HUD: title block ---------- */
+  #hud-title {
+    position: fixed; top: 18px; left: 20px; z-index: 5;
+    pointer-events: none; max-width: 340px;
+  }
+  #hud-title h1 {
+    font-family: var(--mono);
+    font-size: 17px; font-weight: 700; letter-spacing: 0.14em;
+    color: var(--ink);
+  }
+  #hud-title .sub {
+    margin-top: 4px; font-size: 12px; color: var(--ink-3); line-height: 1.45;
+  }
+  #hud-title .chips { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; pointer-events: auto; }
+  .chip {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    padding: 3px 9px; border-radius: 3px;
+    border: 1px solid var(--panel-edge);
+    background: rgba(12, 16, 24, 0.72);
+    color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); flex: none; }
+  .chip.live .dot { background: var(--flow-in); animation: pulse 2s infinite; }
+  .chip.snapshot { border-color: rgba(237, 161, 0, 0.45); color: #f0c469; }
+  .chip.snapshot .dot { background: var(--heat); }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+
+  #demo-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9;
+    display: none; justify-content: center;
+    padding: 6px 12px;
+    background: rgba(237, 161, 0, 0.12);
+    border-bottom: 1px solid rgba(237, 161, 0, 0.35);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    color: #f0c469; text-align: center;
+  }
+  body.snapshot-mode #demo-banner { display: flex; }
+  body.snapshot-mode #hud-title { top: 46px; }
+
+  /* ---------- HUD: right panel ---------- */
+  #panel {
+    position: fixed; top: 18px; right: 18px; bottom: 58px; z-index: 5;
+    width: 304px; display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+  }
+  body.snapshot-mode #panel { top: 46px; }
+  .panel-box {
+    background: rgba(12, 16, 24, 0.82);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    overflow: hidden;
+  }
+  .panel-box h2 {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.14em; color: var(--ink-3);
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  #ranking { flex: none; }
+  #ranking-rows { padding: 4px 0; }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 10px 1fr auto;
+    gap: 8px; align-items: baseline;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .rank-row:hover { background: rgba(134, 182, 239, 0.06); }
+  .rank-row.selected { border-left-color: var(--water-300); background: rgba(134, 182, 239, 0.08); }
+  .rank-row .idx { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+  .rank-row .name { font-size: 12.5px; color: var(--ink); font-weight: 600; }
+  .rank-row .name small { font-weight: 400; color: var(--ink-3); font-size: 10.5px; margin-left: 5px; }
+  .rank-row .flow { font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .flow.in { color: var(--flow-in); }
+  .flow.out { color: var(--flow-out); }
+  .flow.flat { color: var(--ink-3); }
+
+  #detail { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  #detail-body { padding: 10px 12px; overflow-y: auto; font-size: 12px; line-height: 1.5; }
+  #detail-body .metric-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-bottom: 10px;
+  }
+  .metric { border: 1px solid var(--panel-edge); border-radius: 4px; padding: 7px 9px; }
+  .metric .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; color: var(--ink-3); }
+  .metric .v { font-family: var(--mono); font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .metric .d { font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  #detail-body .pools-title {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-3); margin: 6px 0 4px;
+  }
+  .pool-row {
+    display: flex; justify-content: space-between; gap: 8px;
+    font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums;
+    padding: 2.5px 0; color: var(--ink-2);
+  }
+  .pool-row span:last-child { color: var(--ink); }
+  #detail-body .note { margin-top: 8px; font-size: 11px; color: var(--ink-3); line-height: 1.45; }
+
+  /* ---------- bottom status bar ---------- */
+  #statusbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    display: flex; align-items: center; gap: 14px;
+    padding: 8px 20px;
+    background: rgba(7, 9, 14, 0.88);
+    border-top: 1px solid var(--panel-edge);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+    color: var(--ink-3);
+    overflow-x: auto; white-space: nowrap;
+  }
+  .src { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+  .src .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+  .src.ok .dot { background: var(--flow-in); }
+  .src.stale .dot { background: var(--heat); }
+  .src.down .dot { background: var(--flow-out); }
+  #statusbar .spacer { flex: 1; }
+  #statusbar .fine { color: #5c5a55; flex: none; }
+
+  /* ---------- tooltip ---------- */
+  #tooltip {
+    position: fixed; z-index: 8; display: none;
+    max-width: 260px;
+    background: rgba(12, 16, 24, 0.94);
+    border: 1px solid rgba(134, 182, 239, 0.22);
+    border-radius: 5px; padding: 9px 11px;
+    font-size: 11.5px; line-height: 1.5; color: var(--ink-2);
+    pointer-events: none;
+  }
+  #tooltip .tt-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--ink); margin-bottom: 3px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 14px; font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  #tooltip .tt-row span:last-child { color: var(--ink); }
+  #tooltip .tt-note { margin-top: 4px; font-size: 10px; color: var(--ink-3); }
+
+  /* ---------- responsive ---------- */
+  #panel-toggle { display: none; }
+  @media (max-width: 860px) {
+    #panel {
+      top: auto; right: 0; left: 0; bottom: 34px;
+      width: 100%; max-height: 42vh;
+      padding: 0 8px;
+    }
+    body.snapshot-mode #panel { top: auto; }
+    body.panel-collapsed #panel .panel-box { display: none; }
+    #panel-toggle {
+      display: block; position: fixed; right: 12px; bottom: 40px; z-index: 6;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+      background: rgba(12,16,24,0.9); color: var(--ink-2);
+      border: 1px solid var(--panel-edge); border-radius: 4px; padding: 5px 10px;
+      cursor: pointer;
+    }
+    body.panel-collapsed #panel-toggle { bottom: 40px; }
+    #hud-title .sub { display: none; }
+    #detail { display: none; }
+  }
+  button:focus-visible, .rank-row:focus-visible { outline: 2px solid var(--water-300); outline-offset: 1px; }
+  @media (prefers-reduced-motion: reduce) {
+    .chip.live .dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div id="demo-banner">SIMULATED SNAPSHOT — live data sources unreachable from this page; all values below are illustrative, not real market data</div>
+<canvas id="map" aria-label="Animated map of liquidity lakes per blockchain"></canvas>
+
+<div id="hud-title">
+  <h1>LIQUIDITY LAKES</h1>
+  <div class="sub">Chains as lakes · bridges as rivers · trench activity as bubbling water. Lake area = DEX liquidity, water depth = stablecoin reserve, glow = 24h net bridge flow.</div>
+  <div class="chips">
+    <span class="chip" id="mode-chip"><span class="dot"></span><span id="mode-label">CONNECTING…</span></span>
+    <span class="chip"><span id="updated-ago">—</span></span>
+    <span class="chip">METHOD v0.1</span>
+  </div>
+</div>
+
+<div id="panel">
+  <div class="panel-box" id="ranking">
+    <h2>ROTATION — NET FLOW INTENSITY, 24H</h2>
+    <div id="ranking-rows"></div>
+  </div>
+  <div class="panel-box" id="detail">
+    <h2 id="detail-title">SELECT A LAKE</h2>
+    <div id="detail-body"><div class="note">Click a lake or a row above to inspect a chain: liquidity, stablecoin reserve, turnover, top pools and data coverage.</div></div>
+  </div>
+</div>
+<button id="panel-toggle" aria-label="Toggle data panel">PANEL</button>
+
+<div id="statusbar">
+  <span class="src" id="src-tvl"><span class="dot"></span>LLAMA·TVL</span>
+  <span class="src" id="src-stables"><span class="dot"></span>LLAMA·STABLES</span>
+  <span class="src" id="src-dex"><span class="dot"></span>LLAMA·DEXVOL</span>
+  <span class="src" id="src-bridges"><span class="dot"></span>LLAMA·BRIDGES</span>
+  <span class="src" id="src-corridors"><span class="dot"></span>WORMHOLE·CORRIDORS</span>
+  <span class="src" id="src-pools"><span class="dot"></span>GECKO·POOLS</span>
+  <span class="spacer"></span>
+  <span class="fine">ambient particles = rolling 24h flow rate, not individual transfers · coverage is partial &amp; labeled</span>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+'use strict';
+(function () {
+
+/* =========================================================================
+   CONFIG
+   ========================================================================= */
+
+// Fixed geography: lakes never move. Positions are normalized to the map
+// region (which excludes the right panel on desktop).
+const CHAINS = [
+  { id: 'solana',      label: 'Solana',      x: 0.20, y: 0.40,
+    llamaChain: 'Solana',    llamaAliases: ['solana'],
+    gecko: 'solana', wormholeId: 1 },
+  { id: 'ethereum',    label: 'Ethereum',    x: 0.50, y: 0.28,
+    llamaChain: 'Ethereum',  llamaAliases: ['ethereum'],
+    gecko: 'eth', wormholeId: 2 },
+  { id: 'base',        label: 'Base',        x: 0.36, y: 0.66,
+    llamaChain: 'Base',      llamaAliases: ['base'],
+    gecko: 'base', wormholeId: 30 },
+  { id: 'bsc',         label: 'BSC',         x: 0.78, y: 0.26,
+    llamaChain: 'BSC',       llamaAliases: ['bsc', 'binance', 'bnb', 'bnb smart chain'],
+    gecko: 'bsc', wormholeId: 4 },
+  { id: 'arbitrum',    label: 'Arbitrum',    x: 0.67, y: 0.52,
+    llamaChain: 'Arbitrum',  llamaAliases: ['arbitrum'],
+    gecko: 'arbitrum', wormholeId: 23 },
+  { id: 'hyperliquid', label: 'Hyperliquid', x: 0.85, y: 0.72,
+    llamaChain: 'Hyperliquid', llamaAliases: ['hyperliquid', 'hyperliquid l1'],
+    gecko: null, wormholeId: null, harbor: true },
+];
+const CHAIN_BY_ID = Object.fromEntries(CHAINS.map(c => [c.id, c]));
+
+const API = {
+  stables:  'https://stablecoins.llama.fi/stablecoinchains',
+  chains:   'https://api.llama.fi/v2/chains',
+  protocols:'https://api.llama.fi/protocols',
+  dexVol:   (chain) => `https://api.llama.fi/overview/dexs/${encodeURIComponent(chain)}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`,
+  bridgeVol:(chain) => `https://bridges.llama.fi/bridgevolume/${encodeURIComponent(chain)}`,
+  corridors:'https://api.wormholescan.io/api/v1/x-chain-activity/tops?timespan=1d',
+  pools:    (net)   => `https://api.geckoterminal.com/api/v2/networks/${net}/pools?page=1`,
+  newPools: (net)   => `https://api.geckoterminal.com/api/v2/networks/${net}/new_pools?page=1`,
+};
+
+// Polling cadence (ms). Staggered so no burst hits any one host.
+const POLL = {
+  stables:   10 * 60e3,
+  chains:    10 * 60e3,
+  protocols: 30 * 60e3,
+  dexVol:     5 * 60e3,
+  bridges:   10 * 60e3,
+  corridors:  5 * 60e3,
+  pools:      2 * 60e3,
+};
+
+const WORMHOLE_TO_CHAIN = {};
+for (const c of CHAINS) if (c.wormholeId != null) WORMHOLE_TO_CHAIN[c.wormholeId] = c.id;
+
+/* =========================================================================
+   SIMULATED SNAPSHOT (preview / offline fallback)
+   Clearly labeled in the UI. Magnitudes are plausible for mid-2026 but are
+   NOT real market data. Live mode replaces all of this wholesale.
+   ========================================================================= */
+
+const DEMO = {
+  ts: null, // stamped at load
+  simulated: true,
+  chains: {
+    solana:      { dexTvl: 2.2e9,  stables: 13.0e9, vol24h: 3.0e9,  chainTvl: 9.0e9,
+                   netBridge24h:  +9.5e7, liqChangePct: +2.1, launchRate: 310,
+                   topPools: [['SOL/USDC', 2.1e8], ['WIF/SOL', 3.8e7], ['POPCAT/SOL', 2.2e7]] },
+    ethereum:    { dexTvl: 5.5e9,  stables: 130.0e9, vol24h: 2.2e9, chainTvl: 65.0e9,
+                   netBridge24h: -1.4e8, liqChangePct: -0.5, launchRate: 12,
+                   topPools: [['WETH/USDC', 3.1e8], ['WETH/USDT', 1.6e8], ['PEPE/WETH', 4.5e7]] },
+    base:        { dexTvl: 1.1e9,  stables: 4.5e9,  vol24h: 1.2e9,  chainTvl: 4.0e9,
+                   netBridge24h:  +6.2e7, liqChangePct: +3.4, launchRate: 190,
+                   topPools: [['WETH/USDC', 9.5e7], ['BRETT/WETH', 2.8e7], ['AERO/USDC', 1.9e7]] },
+    bsc:         { dexTvl: 1.6e9,  stables: 11.0e9, vol24h: 2.5e9,  chainTvl: 6.0e9,
+                   netBridge24h:  +0.4e7, liqChangePct: +0.3, launchRate: 55,
+                   topPools: [['WBNB/USDT', 1.8e8], ['CAKE/WBNB', 2.5e7], ['USDT/USDC', 2.1e7]] },
+    arbitrum:    { dexTvl: 0.6e9,  stables: 3.5e9,  vol24h: 0.5e9,  chainTvl: 2.8e9,
+                   netBridge24h: -2.6e7, liqChangePct: -1.2, launchRate: 7,
+                   topPools: [['WETH/USDC', 8.8e7], ['ARB/WETH', 2.1e7], ['GMX/WETH', 9.0e6]] },
+    hyperliquid: { dexTvl: 0.9e9,  stables: 6.0e9,  vol24h: 0.9e9,  chainTvl: 2.0e9,
+                   netBridge24h:  +8.1e7, liqChangePct: +4.0, launchRate: 6,
+                   topPools: [['HYPE/USDC', 1.2e8], ['PURR/USDC', 1.4e7], ['HFUN/USDC', 6.0e6]] },
+  },
+  corridors: [
+    ['ethereum', 'solana',      4.5e7], ['solana', 'ethereum',   3.8e7],
+    ['ethereum', 'base',        6.2e7], ['base', 'ethereum',     3.0e7],
+    ['ethereum', 'arbitrum',    2.4e7], ['arbitrum', 'ethereum', 2.0e7],
+    ['solana',   'base',        1.2e7], ['base', 'solana',       0.9e7],
+    ['arbitrum', 'hyperliquid', 8.5e7], ['hyperliquid', 'arbitrum', 6.0e7],
+    ['bsc',      'ethereum',    1.5e7], ['ethereum', 'bsc',      1.1e7],
+    ['solana',   'bsc',         0.4e7], ['bsc', 'solana',        0.3e7],
+  ],
+};
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+
+const state = {
+  mode: 'connecting',            // connecting | live | snapshot
+  lastUpdate: null,
+  sources: {},                   // key -> { status: ok|stale|down|off, at: ms }
+  targets: null,                 // latest normalized snapshot (fetch targets)
+  current: null,                 // interpolated values rendered each frame
+  selected: null,
+  hover: null,
+};
+
+function blankChainMetrics() {
+  return { dexTvl: 0, stables: 0, vol24h: 0, chainTvl: 0,
+           netBridge24h: 0, liqChangePct: 0, launchRate: 0, topPools: [] };
+}
+function blankSnapshot() {
+  const chains = {};
+  for (const c of CHAINS) chains[c.id] = blankChainMetrics();
+  return { ts: Date.now(), simulated: false, chains, corridors: [] };
+}
+
+function setSource(key, status) {
+  state.sources[key] = { status, at: Date.now() };
+  const el = document.getElementById('src-' + key);
+  if (el) { el.classList.remove('ok', 'stale', 'down'); if (status !== 'off') el.classList.add(status); }
+}
+
+/* =========================================================================
+   DATA LAYER — live adapters (defensive: every source degrades separately)
+   ========================================================================= */
+
+async function fetchJSON(url, timeoutMs = 15000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers: { 'accept': 'application/json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally { clearTimeout(t); }
+}
+
+function matchChain(nameRaw) {
+  if (!nameRaw) return null;
+  const name = String(nameRaw).toLowerCase();
+  for (const c of CHAINS) {
+    if (c.llamaChain.toLowerCase() === name) return c.id;
+    if (c.llamaAliases.some(a => a === name)) return c.id;
+  }
+  return null;
+}
+
+const live = {
+  // stablecoins.llama.fi/stablecoinchains -> [{ name, totalCirculatingUSD: { peggedUSD } }]
+  async stables() {
+    const data = await fetchJSON(API.stables);
+    if (!Array.isArray(data)) throw new Error('unexpected shape');
+    let hits = 0;
+    for (const row of data) {
+      const id = matchChain(row.name);
+      if (!id) continue;
+      const v = row.totalCirculatingUSD && (row.totalCirculatingUSD.peggedUSD ?? row.totalCirculatingUSD.total);
+      if (typeof v === 'number') { state.targets.chains[id].stables = v; hits++; }
+    }
+    if (!hits) throw new Error('no chains matched');
+  },
+
+  // api.llama.fi/v2/chains -> [{ name, tvl }]
+  async chains() {
+    const data = await fetchJSON(API.chains);
+    if (!Array.isArray(data)) throw new Error('unexpected shape');
+    let hits = 0;
+    for (const row of data) {
+      const id = matchChain(row.name);
+      if (id && typeof row.tvl === 'number') { state.targets.chains[id].chainTvl = row.tvl; hits++; }
+    }
+    if (!hits) throw new Error('no chains matched');
+  },
+
+  // api.llama.fi/protocols -> [{ category, chainTvls: { Chain: tvl } }]
+  // Sums DEX-category TVL per chain: our honest v1 "lake area" metric.
+  async protocols() {
+    const data = await fetchJSON(API.protocols, 30000);
+    if (!Array.isArray(data)) throw new Error('unexpected shape');
+    const sums = {};
+    for (const p of data) {
+      const cat = String(p.category || '').toLowerCase();
+      if (cat !== 'dexes' && cat !== 'dexs') continue;
+      const byChain = p.chainTvls || {};
+      for (const [chainName, v] of Object.entries(byChain)) {
+        const id = matchChain(chainName);
+        if (id && typeof v === 'number' && v > 0) sums[id] = (sums[id] || 0) + v;
+      }
+    }
+    if (!Object.keys(sums).length) throw new Error('no DEX TVL found');
+    for (const [id, v] of Object.entries(sums)) state.targets.chains[id].dexTvl = v;
+  },
+
+  // api.llama.fi/overview/dexs/{chain} -> { total24h, change_1d }
+  async dexVol() {
+    let ok = 0;
+    for (const c of CHAINS) {
+      try {
+        const data = await fetchJSON(API.dexVol(c.llamaChain));
+        if (typeof data.total24h === 'number') {
+          state.targets.chains[c.id].vol24h = data.total24h;
+          if (typeof data.change_1d === 'number') state.targets.chains[c.id].liqChangePct = data.change_1d;
+          ok++;
+        }
+      } catch (e) { /* per-chain miss tolerated; source health reflects the aggregate */ }
+    }
+    if (!ok) throw new Error('all chains failed');
+  },
+
+  // bridges.llama.fi/bridgevolume/{chain} -> [{ date, depositUSD, withdrawUSD }]
+  // SIGN NOTE: whether deposit means "into this chain" must be verified against
+  // the defillama.com/bridges/chains UI before live launch (see README
+  // verification checklist). We compute net = deposit - withdraw and the
+  // README documents how to flip it if the UI disagrees.
+  async bridges() {
+    let ok = 0;
+    for (const c of CHAINS) {
+      if (c.harbor) continue; // Hyperliquid flows come from corridors/coverage note
+      try {
+        const data = await fetchJSON(API.bridgeVol(c.llamaChain));
+        if (Array.isArray(data) && data.length) {
+          const last = data[data.length - 1];
+          const dep = Number(last.depositUSD) || 0;
+          const wit = Number(last.withdrawUSD) || 0;
+          state.targets.chains[c.id].netBridge24h = dep - wit;
+          ok++;
+        }
+      } catch (e) { /* tolerated per chain */ }
+    }
+    if (!ok) throw new Error('all chains failed');
+  },
+
+  // wormholescan x-chain-activity — corridor pair volumes. Shape is normalized
+  // defensively; on any surprise the source just degrades.
+  async corridors() {
+    const data = await fetchJSON(API.corridors);
+    const rows = Array.isArray(data) ? data : (data && (data.txs || data.data || data.activity)) || [];
+    const found = [];
+    for (const r of rows) {
+      const srcId = WORMHOLE_TO_CHAIN[Number(r.emitter_chain ?? r.source_chain ?? r.sourceChain)];
+      const dstId = WORMHOLE_TO_CHAIN[Number(r.destination_chain ?? r.target_chain ?? r.destinationChain)];
+      const vol = Number(r.volume ?? r.notional ?? r.volume_usd);
+      if (srcId && dstId && srcId !== dstId && isFinite(vol) && vol > 0) found.push([srcId, dstId, vol]);
+    }
+    if (!found.length) throw new Error('no corridors parsed');
+    state.targets.corridors = found;
+  },
+
+  // geckoterminal pools + new_pools per network
+  async pools() {
+    let ok = 0;
+    for (const c of CHAINS) {
+      if (!c.gecko) continue;
+      try {
+        const top = await fetchJSON(API.pools(c.gecko));
+        const rows = (top && top.data) || [];
+        state.targets.chains[c.id].topPools = rows.slice(0, 3).map(p => {
+          const a = p.attributes || {};
+          const vol = Number(a.volume_usd && a.volume_usd.h24) || 0;
+          return [a.name || '?', vol];
+        });
+        const fresh = await fetchJSON(API.newPools(c.gecko));
+        const newRows = (fresh && fresh.data) || [];
+        const hourAgo = Date.now() - 3600e3;
+        const perHour = newRows.filter(p => {
+          const t = Date.parse((p.attributes || {}).pool_created_at || 0);
+          return t > hourAgo;
+        }).length;
+        // page 1 caps at ~20; if the whole page is <1h old the true rate is higher
+        state.targets.chains[c.id].launchRate = perHour >= newRows.length && newRows.length > 0
+          ? newRows.length * 3 : perHour;
+        ok++;
+      } catch (e) { /* tolerated per chain */ }
+    }
+    if (!ok) throw new Error('all networks failed');
+  },
+};
+
+/* ---------- polling scheduler ---------- */
+
+const pollTimers = [];
+function schedule(key, fn, interval, initialDelay) {
+  const run = async () => {
+    try {
+      await fn();
+      setSource(key, 'ok');
+      state.lastUpdate = Date.now();
+      if (state.mode !== 'live') enterLiveMode();
+    } catch (e) {
+      const prev = state.sources[key];
+      setSource(key, prev && prev.status === 'ok' ? 'stale' : 'down');
+    }
+  };
+  pollTimers.push(setTimeout(() => { run(); pollTimers.push(setInterval(run, interval)); }, initialDelay));
+}
+
+function startPolling() {
+  state.targets = blankSnapshot();
+  schedule('stables',   live.stables,   POLL.stables,     0);
+  schedule('tvl',       live.chains,    POLL.chains,    400);
+  schedule('dex',       live.dexVol,    POLL.dexVol,    900);
+  schedule('bridges',   live.bridges,   POLL.bridges,  1600);
+  schedule('corridors', live.corridors, POLL.corridors, 2300);
+  schedule('pools',     live.pools,     POLL.pools,    3000);
+  // protocols is heavy — fetch it last, reuse the dex health chip
+  schedule('dex',       live.protocols, POLL.protocols, 5000);
+
+  // If nothing has come back after 20s, present the labeled simulated snapshot
+  // (live polling keeps retrying underneath and takes over the moment it works).
+  setTimeout(() => { if (state.mode === 'connecting') enterSnapshotMode(); }, 20000);
+}
+
+function enterLiveMode() {
+  state.mode = 'live';
+  document.body.classList.remove('snapshot-mode');
+  const chip = document.getElementById('mode-chip');
+  chip.classList.add('live'); chip.classList.remove('snapshot');
+  document.getElementById('mode-label').textContent = 'LIVE';
+}
+
+function enterSnapshotMode() {
+  state.mode = 'snapshot';
+  document.body.classList.add('snapshot-mode');
+  const chip = document.getElementById('mode-chip');
+  chip.classList.remove('live'); chip.classList.add('snapshot');
+  document.getElementById('mode-label').textContent = 'SIMULATED SNAPSHOT';
+  DEMO.ts = Date.now();
+  state.lastUpdate = Date.now();
+  // Load demo values as targets
+  state.targets = blankSnapshot();
+  state.targets.simulated = true;
+  for (const [id, m] of Object.entries(DEMO.chains)) Object.assign(state.targets.chains[id], m);
+  state.targets.corridors = DEMO.corridors.map(c => c.slice());
+  for (const k of ['tvl','stables','dex','bridges','corridors','pools']) setSource(k, 'off');
+}
+
+// Gentle deterministic drift so the simulated preview still shows dynamics.
+// Applied ONLY in snapshot mode, and the banner labels everything simulated.
+function driftDemo(now) {
+  if (state.mode !== 'snapshot' || !state.targets || !state.targets.simulated) return;
+  const t = now / 1000;
+  let i = 0;
+  for (const id of Object.keys(DEMO.chains)) {
+    const base = DEMO.chains[id]; const tgt = state.targets.chains[id];
+    const w = Math.sin(t * 0.05 + i * 1.7) * 0.5 + Math.sin(t * 0.013 + i * 3.1) * 0.5;
+    tgt.vol24h = base.vol24h * (1 + 0.04 * w);
+    tgt.netBridge24h = base.netBridge24h + base.vol24h * 0.006 * Math.sin(t * 0.03 + i * 2.3);
+    i++;
+  }
+  state.targets.corridors = DEMO.corridors.map(([a, b, v], j) =>
+    [a, b, v * (1 + 0.15 * Math.sin(t * 0.04 + j * 1.3))]);
+}
+
+/* =========================================================================
+   INTERPOLATION — current eases toward targets so the map never jumps
+   ========================================================================= */
+
+function lerpSnapshot(dt) {
+  if (!state.targets) return;
+  if (!state.current) {
+    state.current = JSON.parse(JSON.stringify(state.targets));
+    return;
+  }
+  const k = 1 - Math.exp(-dt / 2.5); // ~2.5s time constant
+  for (const c of CHAINS) {
+    const cur = state.current.chains[c.id], tgt = state.targets.chains[c.id];
+    for (const f of ['dexTvl', 'stables', 'vol24h', 'chainTvl', 'netBridge24h', 'liqChangePct', 'launchRate']) {
+      cur[f] += (tgt[f] - cur[f]) * k;
+    }
+    cur.topPools = tgt.topPools;
+  }
+  // Corridors: keyed merge so lanes ease too
+  const curMap = new Map(state.current.corridors.map(r => [r[0] + '>' + r[1], r]));
+  const next = [];
+  for (const [a, b, v] of state.targets.corridors) {
+    const key = a + '>' + b;
+    const prev = curMap.get(key);
+    next.push([a, b, prev ? prev[2] + (v - prev[2]) * k : v]);
+  }
+  state.current.corridors = next;
+}
+
+/* =========================================================================
+   FORMATTING
+   ========================================================================= */
+
+function fmtUsd(v) {
+  const a = Math.abs(v);
+  if (a >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+  if (a >= 1e9)  return '$' + (v / 1e9).toFixed(2) + 'B';
+  if (a >= 1e6)  return '$' + (v / 1e6).toFixed(1) + 'M';
+  if (a >= 1e3)  return '$' + (v / 1e3).toFixed(0) + 'K';
+  return '$' + v.toFixed(0);
+}
+function fmtNet(v) {
+  if (Math.abs(v) < 1e5) return '≈ flat';
+  return (v > 0 ? '▲ in ' : '▼ out ') + fmtUsd(Math.abs(v));
+}
+function fmtAgo(ms) {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 90) return s + 's ago';
+  const m = Math.round(s / 60);
+  if (m < 90) return m + 'm ago';
+  return Math.round(m / 60) + 'h ago';
+}
+
+/* =========================================================================
+   LAYOUT + SCALES
+   ========================================================================= */
+
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1, mapW = 0;
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const panelVisible = W > 860;
+  mapW = panelVisible ? W - 340 : W;
+  gradientCache.clear();
+  if (typeof hideTooltip === 'function') hideTooltip();
+}
+window.addEventListener('resize', resize);
+
+// asinh compression: ~linear for small lakes, ~log for whales.
+// L0 = $500M reads as the "reference" lake.
+function lakeRadius(dexTvl) {
+  const minR = Math.min(mapW, H) * 0.033;
+  const kR   = Math.min(mapW, H) * 0.045;
+  return minR + kR * Math.asinh(Math.max(0, dexTvl) / 5e8);
+}
+function lakeCenter(c) {
+  const topPad = document.body.classList.contains('snapshot-mode') ? 96 : 70;
+  const botPad = 70;
+  return { x: c.x * mapW, y: topPad + c.y * (H - topPad - botPad) };
+}
+
+// Water depth color from stablecoin reserve relative to DEX liquidity
+const WATER = ['#86b6ef', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+function depthColorIdx(stables) {
+  // $100M -> shallow, $100B -> deepest
+  const t = Math.max(0, Math.min(1, (Math.log10(Math.max(stables, 1)) - 8) / 3));
+  return Math.min(WATER.length - 1, Math.round(t * (WATER.length - 1)));
+}
+
+/* =========================================================================
+   RENDERER
+   ========================================================================= */
+
+const gradientCache = new Map();
+function lakeGradient(cx, cy, r, colorIdx) {
+  // Gradients are cheap to build but we cache by rounded radius + color anyway
+  const key = colorIdx + ':' + Math.round(r / 4);
+  let g = gradientCache.get(key);
+  if (!g) {
+    g = ctx.createRadialGradient(0, 0, r * 0.15, 0, 0, r);
+    const deep = WATER[Math.min(colorIdx + 1, WATER.length - 1)];
+    g.addColorStop(0, WATER[Math.max(colorIdx, 1)]);
+    g.addColorStop(0.75, deep);
+    g.addColorStop(1, shade(deep, 0.55));
+    gradientCache.set(key, g);
+  }
+  return g;
+}
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
+  return `rgb(${r},${g},${b})`;
+}
+
+// Blob outline: radius modulated by 3 slow harmonics per lake
+function lakePath(cx, cy, r, seed, t) {
+  const pts = 44;
+  ctx.beginPath();
+  for (let i = 0; i <= pts; i++) {
+    const th = (i / pts) * Math.PI * 2;
+    const wobble = REDUCED ? 0 :
+      0.045 * Math.sin(3 * th + seed * 2.1 + t * 0.35) +
+      0.030 * Math.sin(5 * th - seed * 1.3 + t * 0.22) +
+      0.018 * Math.sin(8 * th + seed * 4.7 - t * 0.5);
+    const rr = r * (1 + wobble + 0.02 * Math.sin(seed * 9 + 7 * th));
+    const x = cx + rr * Math.cos(th), y = cy + rr * Math.sin(th);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+/* ---------- particles ---------- */
+
+const MAX_RIVER_P = 900, MAX_BUBBLE_P = 500;
+const riverP = [];   // { corridorKey, t, speed, lane }
+const bubbleP = [];  // { chainId, x, y, r, life, maxLife }
+let riverGeom = new Map(); // corridorKey -> { pts: [...], width, vol, from, to }
+
+function corridorKey(a, b) { return a + '>' + b; }
+
+function buildRiverGeometry() {
+  riverGeom = new Map();
+  if (!state.current) return;
+  for (const [a, b, vol] of state.current.corridors) {
+    if (vol < 5e5) continue;
+    const A = CHAIN_BY_ID[a], B = CHAIN_BY_ID[b];
+    if (!A || !B) continue;
+    const pa = lakeCenter(A), pb = lakeCenter(B);
+    const ra = lakeRadius(state.current.chains[a].dexTvl);
+    const rb = lakeRadius(state.current.chains[b].dexTvl);
+    // Direction unit vector + perpendicular for two-lane offset (A->B lane on the right)
+    const dx = pb.x - pa.x, dy = pb.y - pa.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const px = -uy, py = ux;
+    // Rivers run shore to shore. If the shores (nearly) touch, the channel is a
+    // short straight strait — curving it collapses into loops.
+    const segLen = len - ra - rb - 8;
+    if (segLen < 12) continue;
+    const laneOff = 5 + Math.min(8, segLen * 0.02);
+    const start = { x: pa.x + ux * (ra + 4) + px * laneOff, y: pa.y + uy * (ra + 4) + py * laneOff };
+    const end   = { x: pb.x - ux * (rb + 4) + px * laneOff, y: pb.y - uy * (rb + 4) + py * laneOff };
+    const bend  = segLen < 60 ? 0 : Math.min(34, segLen * 0.12);
+    const mid   = { x: (start.x + end.x) / 2 + px * bend, y: (start.y + end.y) / 2 + py * bend };
+    // Sample quadratic bezier
+    const pts = [];
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24, mt = 1 - t;
+      pts.push({
+        x: mt * mt * start.x + 2 * mt * t * mid.x + t * t * end.x,
+        y: mt * mt * start.y + 2 * mt * t * mid.y + t * t * end.y,
+      });
+    }
+    const width = 1 + 2.6 * Math.asinh(vol / 1e7);
+    riverGeom.set(corridorKey(a, b), { pts, width, vol, from: a, to: b });
+  }
+}
+
+function pointOnRiver(geom, t) {
+  const f = t * (geom.pts.length - 1);
+  const i = Math.min(geom.pts.length - 2, Math.floor(f));
+  const frac = f - i;
+  const p0 = geom.pts[i], p1 = geom.pts[i + 1];
+  return { x: p0.x + (p1.x - p0.x) * frac, y: p0.y + (p1.y - p0.y) * frac };
+}
+
+function spawnParticles(dt) {
+  if (REDUCED) return;
+  // Rivers: spawn ∝ volume
+  for (const [key, geom] of riverGeom) {
+    const rate = Math.min(26, 1.5 * Math.asinh(geom.vol / 5e6) * 4);
+    if (riverP.length < MAX_RIVER_P && Math.random() < rate * dt) {
+      riverP.push({ key, t: 0, speed: 0.055 + 0.05 * Math.random() + Math.min(0.12, geom.vol / 4e8 * 0.05) });
+    }
+  }
+  // Bubbles: spawn ∝ launch rate + turnover
+  if (!state.current) return;
+  for (const c of CHAINS) {
+    const m = state.current.chains[c.id];
+    const turnover = m.dexTvl > 0 ? m.vol24h / m.dexTvl : 0;
+    const rate = Math.min(30, m.launchRate * 0.045 + turnover * 4);
+    if (bubbleP.length < MAX_BUBBLE_P && Math.random() < rate * dt) {
+      const ctr = lakeCenter(c);
+      const r = lakeRadius(m.dexTvl);
+      const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r * 0.8;
+      bubbleP.push({
+        chainId: c.id,
+        x: ctr.x + Math.cos(a) * d, y: ctr.y + Math.sin(a) * d,
+        r: 0.8 + Math.random() * 1.6, life: 0, maxLife: 0.9 + Math.random() * 1.2,
+      });
+    }
+  }
+}
+
+function drawFrame(now, dt) {
+  ctx.clearRect(0, 0, W, H);
+
+  // ---- ground wash: faint radial vignette
+  const bg = ctx.createRadialGradient(mapW / 2, H / 2, 0, mapW / 2, H / 2, Math.max(mapW, H) * 0.75);
+  bg.addColorStop(0, '#0a0e16');
+  bg.addColorStop(1, '#07090e');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  if (!state.current) return;
+  const t = now / 1000;
+
+  buildRiverGeometry();
+
+  // ---- river lanes (faint)
+  for (const geom of riverGeom.values()) {
+    ctx.beginPath();
+    ctx.moveTo(geom.pts[0].x, geom.pts[0].y);
+    for (const p of geom.pts) ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = 'rgba(57, 135, 229, 0.20)';
+    ctx.lineWidth = geom.width;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    // arrowhead at destination
+    const p1 = geom.pts[geom.pts.length - 1], p0 = geom.pts[geom.pts.length - 3];
+    const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p1.x - 7 * Math.cos(ang - 0.45), p1.y - 7 * Math.sin(ang - 0.45));
+    ctx.lineTo(p1.x - 7 * Math.cos(ang + 0.45), p1.y - 7 * Math.sin(ang + 0.45));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(134, 182, 239, 0.35)';
+    ctx.fill();
+  }
+
+  // ---- river particles
+  spawnParticles(dt);
+  for (let i = riverP.length - 1; i >= 0; i--) {
+    const p = riverP[i];
+    const geom = riverGeom.get(p.key);
+    if (!geom) { riverP.splice(i, 1); continue; }
+    p.t += p.speed * dt * 3.2;
+    if (p.t >= 1) { riverP.splice(i, 1); continue; }
+    const pos = pointOnRiver(geom, p.t);
+    const fade = Math.min(1, p.t * 6) * Math.min(1, (1 - p.t) * 6);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, Math.max(1, geom.width * 0.32), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(134, 182, 239, ${0.55 * fade})`;
+    ctx.fill();
+  }
+
+  // ---- lakes
+  CHAINS.forEach((c, idx) => {
+    const m = state.current.chains[c.id];
+    const ctr = lakeCenter(c);
+    const r = lakeRadius(m.dexTvl);
+    const colorIdx = depthColorIdx(m.stables);
+
+    // net-flow shoreline glow (color + the ▲/▼ label below carry the meaning)
+    const net = m.netBridge24h;
+    const glowStrength = Math.min(1, Math.abs(net) / 1.2e8);
+    if (glowStrength > 0.05) {
+      ctx.save();
+      ctx.shadowColor = net > 0 ? 'rgba(12,163,12,0.85)' : 'rgba(230,103,103,0.85)';
+      ctx.shadowBlur = 14 + 26 * glowStrength;
+      lakePath(ctr.x, ctr.y, r, idx + 1, t);
+      ctx.strokeStyle = net > 0 ? `rgba(12,163,12,${0.35 + 0.4 * glowStrength})` : `rgba(230,103,103,${0.35 + 0.4 * glowStrength})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // water body
+    ctx.save();
+    ctx.translate(ctr.x, ctr.y);
+    lakePath(0, 0, r, idx + 1, t);
+    ctx.fillStyle = lakeGradient(0, 0, r, colorIdx);
+    ctx.fill();
+    // shoreline
+    ctx.strokeStyle = 'rgba(134, 182, 239, 0.30)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // surface turbulence shimmer ∝ turnover
+    if (!REDUCED) {
+      const turnover = m.dexTvl > 0 ? Math.min(3, m.vol24h / m.dexTvl) : 0;
+      const shimmerN = Math.round(turnover * 7);
+      ctx.save();
+      lakePath(ctr.x, ctr.y, r, idx + 1, t);
+      ctx.clip();
+      for (let s = 0; s < shimmerN; s++) {
+        const sx = ctr.x + Math.sin(t * 0.7 + s * 2.4 + idx) * r * 0.6;
+        const sy = ctr.y + Math.cos(t * 0.5 + s * 1.9 + idx * 2) * r * 0.55;
+        const sr = r * (0.10 + 0.05 * Math.sin(t + s));
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.abs(sr), 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(134, 182, 239, 0.07)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // harbor marker for venue-type ecosystems (Hyperliquid)
+    if (c.harbor) {
+      ctx.save();
+      ctx.translate(ctr.x, ctr.y - r - 12);
+      ctx.strokeStyle = 'rgba(134, 182, 239, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, Math.PI * 0.15, Math.PI * 0.85, false);
+      ctx.moveTo(0, -4); ctx.lineTo(0, 3);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // labels
+    const selected = state.selected === c.id || state.hover === c.id;
+    ctx.font = (selected ? '600 ' : '500 ') + '12px ' + 'ui-monospace, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = selected ? '#ffffff' : '#c3c2b7';
+    ctx.fillText(c.label.toUpperCase(), ctr.x, ctr.y + r + 16);
+    ctx.font = '10.5px ui-monospace, Menlo, monospace';
+    ctx.fillStyle = '#898781';
+    ctx.fillText(fmtUsd(m.dexTvl) + ' liq', ctr.x, ctr.y + r + 29);
+    if (Math.abs(net) >= 1e5) {
+      ctx.fillStyle = net > 0 ? '#0ca30c' : '#e66767';
+      ctx.fillText(fmtNet(net) + '/24h', ctr.x, ctr.y + r + 42);
+    }
+  });
+
+  // ---- bubbles (drawn above lakes)
+  for (let i = bubbleP.length - 1; i >= 0; i--) {
+    const b = bubbleP[i];
+    b.life += dt;
+    if (b.life >= b.maxLife) { bubbleP.splice(i, 1); continue; }
+    const f = b.life / b.maxLife;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y - f * 4, b.r * (1 + f * 1.5), 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(237, 161, 0, ${0.5 * (1 - f)})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+/* =========================================================================
+   INTERACTION — hover, tooltip, selection
+   ========================================================================= */
+
+const tooltip = document.getElementById('tooltip');
+let mouse = { x: -1, y: -1 };
+
+function hitTest(x, y) {
+  if (!state.current) return null;
+  for (const c of CHAINS) {
+    const ctr = lakeCenter(c);
+    const r = lakeRadius(state.current.chains[c.id].dexTvl);
+    if (Math.hypot(x - ctr.x, y - ctr.y) <= r * 1.12) return { type: 'lake', id: c.id };
+  }
+  let best = null, bestD = 12;
+  for (const [key, geom] of riverGeom) {
+    for (let i = 0; i < geom.pts.length; i += 2) {
+      const d = Math.hypot(x - geom.pts[i].x, y - geom.pts[i].y);
+      if (d < bestD) { bestD = d; best = { type: 'river', key }; }
+    }
+  }
+  return best;
+}
+
+function showTooltip(hit, x, y) {
+  let html = '';
+  if (hit.type === 'lake') {
+    const c = CHAIN_BY_ID[hit.id], m = state.current.chains[hit.id];
+    const turnover = m.dexTvl > 0 ? (m.vol24h / m.dexTvl) : 0;
+    html = `<div class="tt-title">${c.label.toUpperCase()}${c.harbor ? ' · HARBOR' : ''}</div>
+      <div class="tt-row"><span>DEX liquidity</span><span>${fmtUsd(m.dexTvl)}</span></div>
+      <div class="tt-row"><span>Stablecoin reserve</span><span>${fmtUsd(m.stables)}</span></div>
+      <div class="tt-row"><span>DEX volume 24h</span><span>${fmtUsd(m.vol24h)}</span></div>
+      <div class="tt-row"><span>Turnover (vol/liq)</span><span>${turnover.toFixed(2)}×</span></div>
+      <div class="tt-row"><span>Net bridge 24h</span><span>${fmtNet(m.netBridge24h)}</span></div>
+      <div class="tt-row"><span>New pools /h</span><span>${Math.round(m.launchRate)}</span></div>
+      ${c.harbor ? '<div class="tt-note">Trading venue — order-book collateral, not directly comparable to L1 TVL.</div>' : ''}`;
+  } else {
+    const geom = riverGeom.get(hit.key);
+    if (!geom) return hideTooltip();
+    const back = riverGeom.get(corridorKey(geom.to, geom.from));
+    html = `<div class="tt-title">${CHAIN_BY_ID[geom.from].label} → ${CHAIN_BY_ID[geom.to].label}</div>
+      <div class="tt-row"><span>This lane 24h</span><span>${fmtUsd(geom.vol)}</span></div>
+      ${back ? `<div class="tt-row"><span>Return lane 24h</span><span>${fmtUsd(back.vol)}</span></div>` : ''}
+      <div class="tt-note">Observed bridge corridor volume (partial coverage — see sources below).</div>`;
+  }
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+  const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+  tooltip.style.left = Math.min(W - tw - 10, x + 14) + 'px';
+  tooltip.style.top = (y - th - 12 > 0 ? y - th - 12 : y + 16) + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+canvas.addEventListener('mousemove', (e) => {
+  mouse = { x: e.clientX, y: e.clientY };
+  const hit = hitTest(mouse.x, mouse.y);
+  state.hover = hit && hit.type === 'lake' ? hit.id : null;
+  canvas.style.cursor = hit ? 'pointer' : 'crosshair';
+  if (hit) showTooltip(hit, mouse.x, mouse.y); else hideTooltip();
+});
+canvas.addEventListener('mouseleave', () => { state.hover = null; hideTooltip(); });
+canvas.addEventListener('click', (e) => {
+  const hit = hitTest(e.clientX, e.clientY);
+  if (hit && hit.type === 'lake') selectChain(hit.id);
+  if (!hit || W <= 860) hideTooltip(); // touch: don't leave a stranded tooltip
+});
+
+/* =========================================================================
+   PANEL — ranking + detail
+   ========================================================================= */
+
+function selectChain(id) {
+  state.selected = id;
+  renderPanel();
+}
+
+function netIntensity(m) {
+  // net-inflow relative to lake size: the honest rotation ordering
+  return m.dexTvl > 0 ? m.netBridge24h / m.dexTvl : 0;
+}
+
+function renderPanel() {
+  if (!state.current) return;
+  const rows = CHAINS
+    .map(c => ({ c, m: state.current.chains[c.id] }))
+    .sort((a, b) => netIntensity(b.m) - netIntensity(a.m));
+
+  const host = document.getElementById('ranking-rows');
+  host.innerHTML = '';
+  rows.forEach((row, i) => {
+    const div = document.createElement('div');
+    div.className = 'rank-row' + (state.selected === row.c.id ? ' selected' : '');
+    div.tabIndex = 0;
+    div.setAttribute('role', 'button');
+    const net = row.m.netBridge24h;
+    const cls = Math.abs(net) < 1e5 ? 'flat' : (net > 0 ? 'in' : 'out');
+    div.innerHTML = `<span class="idx">${i + 1}</span>
+      <span class="name">${row.c.label}<small>${fmtUsd(row.m.vol24h)} vol</small></span>
+      <span class="flow ${cls}">${fmtNet(net)}</span>`;
+    div.addEventListener('click', () => selectChain(row.c.id));
+    div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectChain(row.c.id); } });
+    host.appendChild(div);
+  });
+
+  const title = document.getElementById('detail-title');
+  const body = document.getElementById('detail-body');
+  if (!state.selected) return;
+  const c = CHAIN_BY_ID[state.selected], m = state.current.chains[state.selected];
+  const turnover = m.dexTvl > 0 ? m.vol24h / m.dexTvl : 0;
+  title.textContent = c.label.toUpperCase() + (c.harbor ? ' · HARBOR' : '');
+  const d = m.liqChangePct;
+  body.innerHTML = `
+    <div class="metric-grid">
+      <div class="metric"><div class="k">DEX LIQUIDITY</div><div class="v">${fmtUsd(m.dexTvl)}</div>
+        <div class="d" style="color:${d >= 0 ? 'var(--flow-in)' : 'var(--flow-out)'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}% 24h</div></div>
+      <div class="metric"><div class="k">STABLE RESERVE</div><div class="v">${fmtUsd(m.stables)}</div></div>
+      <div class="metric"><div class="k">DEX VOL 24H</div><div class="v">${fmtUsd(m.vol24h)}</div></div>
+      <div class="metric"><div class="k">TURNOVER</div><div class="v">${turnover.toFixed(2)}×</div></div>
+      <div class="metric"><div class="k">NET BRIDGE 24H</div><div class="v" style="color:${m.netBridge24h >= 0 ? 'var(--flow-in)' : 'var(--flow-out)'}">${fmtNet(m.netBridge24h)}</div></div>
+      <div class="metric"><div class="k">NEW POOLS /H</div><div class="v">${Math.round(m.launchRate)}</div></div>
+    </div>
+    <div class="pools-title">TOP POOLS BY 24H VOLUME</div>
+    ${(m.topPools || []).map(p => `<div class="pool-row"><span>${escapeHtml(p[0])}</span><span>${fmtUsd(p[1])}</span></div>`).join('') || '<div class="note">no pool data for this chain yet</div>'}
+    ${c.harbor ? '<div class="note">Hyperliquid is a trading venue (order-book collateral). Its lake uses spot-ecosystem figures; perp collateral flows arrive via the Arbitrum river. Coverage: partial.</div>' : ''}
+    ${state.current.simulated ? '<div class="note" style="color:#f0c469">Simulated snapshot values — not real market data.</div>' : ''}`;
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+
+document.getElementById('panel-toggle').addEventListener('click', () => {
+  document.body.classList.toggle('panel-collapsed');
+});
+
+/* =========================================================================
+   MAIN LOOP
+   ========================================================================= */
+
+let lastFrame = 0, lastPanel = 0, running = true;
+
+function frame(now) {
+  if (!running) return;
+  const dt = Math.min(0.1, (now - lastFrame) / 1000) || 0.016;
+  lastFrame = now;
+  driftDemo(now);
+  lerpSnapshot(dt);
+  drawFrame(now, dt);
+  if (now - lastPanel > 2000) {
+    lastPanel = now;
+    renderPanel();
+    const ago = document.getElementById('updated-ago');
+    ago.textContent = state.lastUpdate ? 'updated ' + fmtAgo(state.lastUpdate) : 'waiting for data…';
+  }
+  requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => {
+  running = !document.hidden;
+  if (running) { lastFrame = performance.now(); requestAnimationFrame(frame); }
+});
+
+resize();
+startPolling();
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
