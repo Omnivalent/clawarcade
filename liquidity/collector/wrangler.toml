@@ -3,10 +3,11 @@ main = "src/index.js"
 compatibility_date = "2024-09-23"
 account_id = "76dd5a6deda8397492f265b9716ce411"
 
-# Runs the fast lane every minute; the code self-throttles the slow lane
-# (protocols/TVL/stablecoins/bridges) to every ~10 min via a KV counter.
+# Every 2 minutes => 720 runs/day, and the code does exactly ONE KV write per
+# run, so it stays under KV's free tier (1,000 writes/day). On the $5 Workers
+# Paid plan you can change this to "* * * * *" (1 min) for finer history.
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/2 * * * *"]
 
 # KV holds the current snapshot + the rolling history ring used by the
 # time machine. Create it once with:

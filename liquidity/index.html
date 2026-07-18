@@ -206,11 +206,17 @@ const CHAINS = [
 const CHAIN_BY = Object.fromEntries(CHAINS.map(c => [c.id, c]));
 const WH_TO = {}; for (const c of CHAINS) if (c.wormholeId != null) WH_TO[c.wormholeId] = c.id;
 
+// Superset of possible rivers. Only the ones with actual data become buttons
+// (see renderFilters) — no dead toggles, and only real bridges ever appear.
 const BRIDGES = [
-  { id:'wormhole', label:'Wormhole', on:true },
-  { id:'debridge', label:'deBridge', on:true },
-  { id:'layerzero',label:'LayerZero',on:true },
-  { id:'swaps',    label:'Swaps (in-chain)', on:true },
+  { id:'wormhole',   label:'Wormhole',   on:true },
+  { id:'debridge',   label:'deBridge',   on:true },
+  { id:'hyperliquid',label:'Hyperliquid',on:true },
+  { id:'cctp',       label:'CCTP',       on:true },
+  { id:'across',     label:'Across',     on:true },
+  { id:'stargate',   label:'Stargate',   on:true },
+  { id:'layerzero',  label:'LayerZero',  on:true },
+  { id:'swaps',      label:'Swaps (in-chain)', on:true },
 ];
 
 /* =========================================================================
@@ -349,7 +355,7 @@ async function loadFromCollector(){
     ch.launch = ch.launchRate ?? 0;
   }
   for(const k of ['tvl','stables','dex','bridges','corridors','pools']) setSrc(k,'ok');
-  const h = snap.meta && snap.meta.health || {};
+  state.bridgeMeta = (snap.meta && snap.meta.bridges) || null;
   return snap;
 }
 
@@ -873,10 +879,14 @@ function showTip(h,x,y){
         <div class="tr"><span>Vol 24h</span><span>${fmtUsd(n.vol)}</span></div>`; }
   } else { const rv=h.rv; const bl=BRIDGES.find(b=>b.id===rv.bridge);
     const fresh = state.lastUpdate ? fmtAgo(state.lastUpdate) : '—';
+    const cov = state.bridgeMeta && state.bridgeMeta[rv.bridge] && state.bridgeMeta[rv.bridge].coverage;
+    const note = rv.illustrative ? 'in-chain swap activity — illustrative, not a measured transfer'
+      : DEMO ? 'DEMO — simulated corridor'
+      : 'observed '+(bl?bl.label:rv.bridge)+' corridor'+(cov&&cov!=='observed'?' · '+cov:'')+' · partial coverage';
     html=`<div class="tt">${CHAIN_BY[rv.from]?CHAIN_BY[rv.from].label:rv.from} → ${CHAIN_BY[rv.to]?CHAIN_BY[rv.to].label:rv.to}</div>
       <div class="tr"><span>${bl?bl.label:rv.bridge}</span><span>${fmtUsd(rv.vol)}</span></div>
       <div class="tr"><span>as of</span><span>${fresh}</span></div>
-      <div class="tn">${rv.illustrative?'in-chain swap activity — illustrative, not a measured transfer':(DEMO?'DEMO — simulated corridor':'observed '+(bl?bl.label:rv.bridge)+' corridor · partial coverage')}</div>`;
+      <div class="tn">${note}</div>`;
   }
   tip.innerHTML=html; tip.style.display='block';
   const tw=tip.offsetWidth, th=tip.offsetHeight;
@@ -899,9 +909,18 @@ function renderCrumbs(){
     if(i!==parts.length-1){ c.onclick=()=>zoomOutTo(p.len); c.onkeydown=e=>{if(e.key==='Enter')zoomOutTo(p.len);}; }
     el.appendChild(c); });
 }
+let filtersSig='';
 function renderFilters(){
+  const cor=(state.data&&state.data.corridors)||{};
+  // only bridges that actually have corridors (plus the in-chain swaps toggle)
+  const present=BRIDGES.filter(b=> b.id==='swaps' || (cor[b.id]&&cor[b.id].length));
+  const sig=present.map(b=>b.id).join(',');
+  if(sig===filtersSig) return; filtersSig=sig;
   const el=document.getElementById('filters'); el.innerHTML='';
-  for(const b of BRIDGES){ const btn=document.createElement('button'); btn.className='fbtn'+(b.on?' on':''); btn.innerHTML=`<span class="sw"></span>${b.label}`;
+  for(const b of present){ const bm=state.bridgeMeta&&state.bridgeMeta[b.id];
+    const btn=document.createElement('button'); btn.className='fbtn'+(b.on?' on':'');
+    const cov = bm&&bm.coverage&&bm.coverage!=='observed' ? ` · ${bm.coverage}` : '';
+    btn.innerHTML=`<span class="sw"></span>${b.label}${cov}`;
     btn.onclick=()=>{ b.on=!b.on; btn.classList.toggle('on',b.on); }; el.appendChild(btn); }
 }
 function renderTimeUI(){
@@ -998,7 +1017,7 @@ function frame(now){
   updateTime(dt);
   interp(dt);
   draw(now, dt);
-  if(now-lastPanel>1500){ lastPanel=now; renderPanel();
+  if(now-lastPanel>1500){ lastPanel=now; renderPanel(); renderFilters();
     document.getElementById('ago').textContent = state.lastUpdate?('updated '+fmtAgo(state.lastUpdate)):'waiting…';
   }
   requestAnimationFrame(frame);

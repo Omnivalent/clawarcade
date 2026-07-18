@@ -1,31 +1,49 @@
-# Liquidity Lakes — collector Worker
+# Liquidity Lakes — collector Worker (v2)
 
-Server-side data collector for the Liquidity Lakes map. Runs on a 1-minute
-Cloudflare cron, fetches every source without browser CORS limits, fixes the
-bridge-flow sign in one place, normalizes a hierarchical snapshot
-(chains → platforms → tokens + per-bridge corridors), and serves it to the
-front-end. Also records a rolling history ring that powers the time machine.
+Server-side data collector for the Liquidity Lakes map. Runs on a Cloudflare
+cron, fetches every source without browser CORS limits, normalizes a
+hierarchical snapshot (chains → platforms → tokens) plus a **multi-bridge
+corridor set**, and serves it to the front-end. Records a rolling history ring
+that powers the time machine.
 
-## Why it exists
+## Design principles (honesty)
 
-1. **No CORS.** The static page can't always fetch third-party APIs directly.
-   The Worker fetches server-side and serves same-policy JSON with
-   `Access-Control-Allow-Origin: *`.
-2. **One place to verify data.** The bridge-flow sign, field-name quirks, and
-   protocol→gecko-dex mapping live here, not scattered in the browser.
-3. **History.** The time machine needs stored frames at 1-minute resolution;
-   a static page has no memory. The ring holds ~26h (1600 frames).
+- **Never fabricate.** An adapter that can't get data returns nothing and its
+  health goes `down`; the front-end dims/hides that river. There is no simulated
+  fallback anywhere in the collector.
+- **Each bridge is its own adapter** with its own coverage flag. Bridges are
+  **never summed** into one generic "bridge volume." LayerZero generic messages
+  are not value; aggregator routes are not their settlement rails.
+- **Directional corridors** are stored `[fromChain, toChain, usd]`; the two
+  directions are separate entries (the UI draws two lanes).
+- **History starts on deploy day.** Nothing is backfilled or invented.
+
+## Bridge adapters
+
+| Adapter | Status | Coverage | Notes |
+|---|---|---|---|
+| Wormhole | **on** | `observed` | Wormholescan x-chain-activity. Known-good, directional. |
+| deBridge | **on** | `verify` | DLN `filteredList` orders → corridors. **Verify field names after deploy** (see checklist). |
+| Hyperliquid Bridge2 | **on** | `approx-net` | Arbitrum↔HyperCore via DefiLlama `hyperliquid-bridge` TVL delta (net, labeled). A precise gross adapter is a follow-up. |
+| Circle CCTP | off (stub) | — | Implement with verified burn/mint indexing. Never faked. |
+| Across | off (stub) | — | Needs an event indexer (FundsDeposited/FilledRelay). |
+| Stargate | off (stub) | — | Custom OFT-event adapter; buses batch transfers. |
+| LayerZero | off (stub) | — | **Only** allowlisted value-transfer OApps/OFTs — never generic messages. |
+
+Turn a stub on by writing its `fn` and setting `enabled: true` in
+`BRIDGE_ADAPTERS`. Each adapter's live status shows at `/api/health` under
+`bridges`.
 
 ## Endpoints
 
 | Path | Returns |
 |---|---|
-| `GET /api/snapshot` | current normalized state (chains, platforms, tokens, corridors, health) |
+| `GET /api/snapshot` | current normalized state (chains, platforms, tokens, corridors, per-bridge meta) |
 | `GET /api/history?window=1h` | compact frames within the window (`1m,5m,30m,1h,3h,6h,12h,1d`) |
-| `GET /api/health` | source health + frame count |
-| `GET /run` | run the cron once immediately (handy right after deploy) |
+| `GET /api/health` | per-source **and per-bridge** health, coverage, freshness |
+| `GET /run` | run one collection immediately (seed right after deploy) |
 
-## Deploy
+## Deploy (CLI)
 
 ```bash
 cd liquidity/collector
@@ -33,40 +51,54 @@ wrangler login
 wrangler kv namespace create LIQUIDITY_KV      # copy the returned id
 # paste the id into wrangler.toml -> [[kv_namespaces]] id = "..."
 wrangler deploy
-curl "https://clawarcade-liquidity.<your-subdomain>.workers.dev/run"   # seed first snapshot
-curl "https://clawarcade-liquidity.<your-subdomain>.workers.dev/api/snapshot"
+curl "https://clawarcade-liquidity.<your-subdomain>.workers.dev/run"        # seed
+curl "https://clawarcade-liquidity.<your-subdomain>.workers.dev/api/health" # check adapters
 ```
 
-Then point the front-end at it: open `liquidity/index.html` and set
+No terminal / disk? Deploy through the Cloudflare **dashboard** instead — the
+Worker is a single ES-module file (`src/index.js`); create a Worker, paste it,
+add a KV namespace binding named `LIQUIDITY_KV`, add a `*/2 * * * *` cron
+trigger, deploy. Ask and I'll walk you through the clicks.
+
+Then point the front-end at it — open `liquidity/index.html` and set, in the
+`CONFIG` block near the top:
 
 ```js
 const COLLECTOR_URL = 'https://clawarcade-liquidity.<your-subdomain>.workers.dev';
 ```
 
-near the top (there's a labeled `CONFIG` block). Commit + push; Pages redeploys.
+Commit + push; Pages redeploys and flips to `LIVE · COLLECTOR`.
 
-## Verify once (checklist)
+## Verify after deploy (checklist)
 
-- [ ] `/api/health` shows every source `ok` after a few minutes.
-- [ ] **Bridge sign:** compare one chain's `netBridge24h` to
-      defillama.com/bridges/chains. If in/out is reversed, flip the one line in
-      `slowLane()` marked `SIGN:` (`deposit - withdraw` → `withdraw - deposit`).
-- [ ] Protocol names resolve to gecko dex ids in `PLATFORM_TO_GECKO_DEX` for the
-      platforms you care about (pump.fun, Raydium, Uniswap, Aerodrome…); add any
-      missing mappings so level-3 token lakes populate.
-- [ ] History grows: `/api/history?window=1h` frame count climbs each minute.
+- [ ] `/api/health` — `health` sources `ok`; `bridges` shows `wormhole: ok`.
+- [ ] **deBridge:** if `bridges.debridge.status` is `down`, open the error — the
+      `filteredList` response shape or USD field names need adjusting in
+      `adDebridge()` (they're wrapped in try-several already; confirm against a
+      real payload at docs.debridge.finance). It fails safe (no river) until fixed.
+- [ ] **Bridge net sign:** compare a chain's `netBridge24h` to
+      defillama.com/bridges/chains. If reversed, flip the line marked `SIGN:`.
+- [ ] **Hyperliquid:** confirm `hyperliquid-bridge` series parses; the corridor
+      is labeled `approx-net` (net direction only) by design.
+- [ ] Level-3 tokens: add any missing `PLATFORM_TO_GECKO_DEX` mappings.
+- [ ] History grows: `/api/history?window=1h` frame count climbs every ~2 min.
 
-## Cost
+## Cost / free tier
 
-Cron fires 1/min (~43k invocations/month) — within the Workers free tier's
-100k/day. KV writes are ~1/min. Effectively free at this traffic.
+- Cron every **2 minutes** = 720 runs/day. The code does **exactly one KV write
+  per run** (single `state` key), so it stays under KV's free **1,000 writes/day**.
+- Worker invocations (cron + browser polls) stay within the free 100k/day at
+  normal traffic.
+- Want 1-minute history resolution? That's 1,440 writes/day — enable the **$5
+  Workers Paid** plan and change the cron to `* * * * *`.
 
 ## Notes / limitations
 
-- deBridge and LayerZero corridors are best-effort hooks; if their endpoints
-  aren't reachable/parseable the source degrades and Wormhole carries the rivers.
-- Level-3 platform tokens are fetched on a rotation (a few platforms per minute)
-  to respect GeckoTerminal rate limits, so a given platform refreshes every few
-  minutes, not every minute.
-- Robinhood: see the front-end note — represented as a labeled thin-coverage
-  node; there is no clean public DeFi liquidity feed for it yet.
+- deBridge USD valuation depends on the API exposing a USD field; if it only
+  exposes raw token amounts we'll add source-side pricing (a follow-up).
+- Hyperliquid corridor is net (TVL delta), not gross in/out — labeled as such.
+- Level-3 platform tokens refresh on a rotation (3 platforms/run) to respect
+  GeckoTerminal rate limits.
+- Robinhood: labeled thin-coverage node; no clean public DeFi liquidity feed yet.
+- Aggregators (LI.FI/Jumper) are not counted, avoiding double-counting with the
+  underlying bridges for now.
