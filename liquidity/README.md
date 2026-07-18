@@ -24,6 +24,19 @@ data (see below).
   history comes from the collector; without it, playback runs on the simulated
   drift model (labeled).
 
+## Honesty rule (production shows real data only)
+
+The default URL never shows fabricated data. Chain lakes render from real
+metrics; rivers render only from real observed corridors; anything a source
+can't provide stays empty and the UI says why. If sources are unreachable the
+page shows **NO LIVE DATA** / **STALE** with a timestamp — it never falls back
+to fake lakes. The full simulated experience (all platforms, tokens, rivers,
+playback) lives **only** behind `?demo=1` and is always labeled **DEMO**.
+
+Deep levels (platforms, tokens) and non-Wormhole bridges require the collector;
+without it the default view shows real chain-level data + real Wormhole rivers,
+and diving into a chain says "needs the collector."
+
 ## Data modes (automatic, in priority order)
 
 1. **Collector** — if `COLLECTOR_URL` is set in `index.html`, one call returns the

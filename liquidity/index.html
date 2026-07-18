@@ -128,7 +128,7 @@
 </style>
 </head>
 <body>
-<div id="simbanner">SIMULATED DATA — illustrative values, not real market data</div>
+<div id="simbanner">DEMO — simulated data for preview, not real market data · remove ?demo=1 for the live view</div>
 <canvas id="map" aria-label="Animated map of liquidity lakes"></canvas>
 
 <div id="topbar">
@@ -187,6 +187,12 @@
    hierarchical + historical data (and immunity to browser CORS):
    ========================================================================= */
 const COLLECTOR_URL = ''; // e.g. 'https://clawarcade-liquidity.<sub>.workers.dev'
+
+// Honesty rule: the default (production) view shows REAL data only. Simulated
+// data lives behind ?demo=1 — never pretends to be real. When a source fails
+// the affected rivers/levels dim or disappear and show their timestamp; nothing
+// is ever fabricated in production.
+const DEMO = new URLSearchParams(location.search).has('demo');
 
 const CHAINS = [
   { id:'solana',      label:'Solana',      x:0.20, y:0.38, gecko:'solana',   wormholeId:1  },
@@ -300,6 +306,16 @@ function normFromSim() {
 }
 function deep(o){ return JSON.parse(JSON.stringify(o)); }
 
+// Real-only shell: chains with zeroed metrics, NO fabricated platforms/tokens,
+// NO fabricated corridors. loadDirect / loadFromCollector fill in real values;
+// anything not fetched stays empty (and the UI says so) rather than faked.
+function blankTree(){
+  const chains={};
+  for(const c of CHAINS){ chains[c.id]={ label:c.label, harbor:!!c.harbor, thin:!!c.thin,
+    dexTvl:0, stables:0, vol24h:0, chainTvl:0, net:0, chg:0, launch:0, platforms:[], _tt:[] }; }
+  return { ts:Date.now(), simulated:false, chains, corridors:{ wormhole:[], debridge:[], layerzero:[] }, meta:{} };
+}
+
 /* =========================================================================
    DATA LAYER — collector first, else direct browser fetch, else sim
    ========================================================================= */
@@ -337,10 +353,11 @@ async function loadFromCollector(){
   return snap;
 }
 
-// Direct browser fetch (level-1 real data; platforms/tokens stay simulated).
+// Direct browser fetch — REAL level-1 data only. Platforms/tokens require the
+// collector; without it the deeper levels stay empty and the UI says so
+// (rather than showing fabricated pools). No fake corridors are ever added.
 async function loadDirect(){
-  const tree = normFromSim();          // start from sim shape, overwrite L1 with real
-  tree.simulated = false;
+  const tree = blankTree();
   let anyReal = false;
 
   await guard('stables', async()=>{
@@ -350,7 +367,8 @@ async function loadDirect(){
   });
   await guard('tvl', async()=>{
     const rows = await fetchJSON('https://api.llama.fi/v2/chains');
-    for(const r of rows){ const id=matchChain(r.name); if(id&&typeof r.tvl==='number'){ tree.chains[id].chainTvl=r.tvl; anyReal=true; } }
+    for(const r of rows){ const id=matchChain(r.name); if(id&&typeof r.tvl==='number'){
+      tree.chains[id].chainTvl=r.tvl; tree.chains[id].dexTvl=r.tvl; anyReal=true; } } // real TVL sizes the lake
   });
   await guard('dex', async()=>{
     let ok=0;
@@ -401,16 +419,14 @@ async function guard(k, fn){ try{ await fn(); setSrc(k,'ok'); }catch(e){ setSrc(
    LOADING ORCHESTRATION
    ========================================================================= */
 async function tick(){
+  if(DEMO) return; // demo is static simulated data — no live polling
   try{
-    let tree;
-    if(COLLECTOR_URL){ tree = await loadFromCollector(); }
-    else { tree = await loadDirect(); }
+    const tree = COLLECTOR_URL ? await loadFromCollector() : await loadDirect();
     state.data = tree;
     state.lastUpdate = Date.now();
-    if(state.mode!=='live') enterLive();
-    if(state.time.mode!=='live' && !COLLECTOR_URL) {/* keep playback from sim history */}
+    enterLive();
   }catch(e){
-    if(state.mode==='connecting') enterSim();
+    markStale();
   }
 }
 function enterLive(){
@@ -419,11 +435,26 @@ function enterLive(){
   const ch=document.getElementById('mode-chip'); ch.classList.add('live'); ch.classList.remove('sim');
   document.getElementById('mode-lbl').textContent = COLLECTOR_URL ? 'LIVE · COLLECTOR' : 'LIVE · DIRECT';
 }
-function enterSim(){
-  state.mode='sim';
+function enterConnecting(){
+  state.mode='connecting';
+  document.body.classList.remove('sim');
+  state.data = blankTree();
+  const ch=document.getElementById('mode-chip'); ch.classList.remove('live','sim');
+  document.getElementById('mode-lbl').textContent='CONNECTING…';
+}
+// Production has NO simulated fallback. If nothing loads, we say so plainly.
+function markStale(){
+  const lbl=document.getElementById('mode-lbl'); const ch=document.getElementById('mode-chip');
+  ch.classList.remove('live');
+  if(state.mode==='live'||state.mode==='stale'){ state.mode='stale'; lbl.textContent='STALE — last real data'; }
+  else { state.mode='nodata'; lbl.textContent='NO LIVE DATA'; }
+}
+// The full simulated experience — only via ?demo=1, always labeled DEMO.
+function enterDemo(){
+  state.mode='demo';
   document.body.classList.add('sim');
   const ch=document.getElementById('mode-chip'); ch.classList.remove('live'); ch.classList.add('sim');
-  document.getElementById('mode-lbl').textContent='SIMULATED';
+  document.getElementById('mode-lbl').textContent='DEMO';
   state.data = normFromSim();
   state.lastUpdate = Date.now();
   for(const k of ['tvl','stables','dex','bridges','corridors','pools']) setSrc(k,'off');
@@ -751,23 +782,39 @@ function draw(now, dt){
     else { camScale=1.28-0.28*e; alpha=e; }
   }
 
+  // world-level with no real liquidity yet = don't draw placeholder lakes
+  const worldEmpty = !DEMO && path.length===0 && !nodes.some(n=>n.size>1);
+
   ctx.save();
   ctx.translate(mapW/2+ox, H/2+oy); ctx.scale(camScale,camScale); ctx.translate(-mapW/2,-H/2);
 
-  // rivers first (under lakes)
-  curRivers=currentRivers(nodes, path);
-  // need node positions before rivers → precompute radii/positions
-  nodes.forEach((n,i)=>{ n._r=radiusFor(n.kind,n.size); n._x=n.x; n._y=n.y; });
-  for(const rv of curRivers) drawRiver(rv, t);
-  spawnParticles(curRivers, dt); drawParticles(dt);
-
-  // lakes
-  nodes.forEach((n,i)=>{ drawLake(n, n.x, n.y, n._r, i+1, t, camScale, alpha); });
-
-  // bubbles above
-  spawnBubbles(nodes, dt); drawBubbles(dt);
+  if(!worldEmpty){
+    // rivers first (under lakes)
+    curRivers=currentRivers(nodes, path);
+    nodes.forEach((n,i)=>{ n._r=radiusFor(n.kind,n.size); n._x=n.x; n._y=n.y; });
+    for(const rv of curRivers) drawRiver(rv, t);
+    spawnParticles(curRivers, dt); drawParticles(dt);
+    // lakes
+    nodes.forEach((n,i)=>{ drawLake(n, n.x, n.y, n._r, i+1, t, camScale, alpha); });
+    // bubbles above
+    spawnBubbles(nodes, dt); drawBubbles(dt);
+  } else { curRivers=[]; }
 
   ctx.restore();
+
+  // honest empty states (production only)
+  if(!DEMO){
+    const anyData = nodes.some(n=>n.size>1);
+    if(path.length===0 && !anyData){
+      emptyMsg(state.mode==='connecting'?'Connecting to live data…':'NO LIVE DATA — sources unreachable from your browser.\nDeploy the collector, or open ?demo=1 to preview.');
+    } else if(path.length>=1 && nodes.length===0){
+      emptyMsg('Real platform & token breakdown needs the collector.\nDeploy it (see status), or open ?demo=1 to preview the depth.');
+    }
+  }
+}
+function emptyMsg(text){
+  ctx.save(); ctx.textAlign='center'; ctx.fillStyle='#8b8981'; ctx.font='13px ui-monospace, Menlo, monospace';
+  const lines=text.split('\n'); lines.forEach((ln,i)=> ctx.fillText(ln, mapW/2, H/2 + i*20)); ctx.restore();
 }
 function easeOut(t){ return 1-Math.pow(1-t,3); }
 
@@ -825,9 +872,11 @@ function showTip(h,x,y){
         <div class="tr"><span>Liquidity</span><span>${fmtUsd(n.size)}</span></div>
         <div class="tr"><span>Vol 24h</span><span>${fmtUsd(n.vol)}</span></div>`; }
   } else { const rv=h.rv; const bl=BRIDGES.find(b=>b.id===rv.bridge);
+    const fresh = state.lastUpdate ? fmtAgo(state.lastUpdate) : '—';
     html=`<div class="tt">${CHAIN_BY[rv.from]?CHAIN_BY[rv.from].label:rv.from} → ${CHAIN_BY[rv.to]?CHAIN_BY[rv.to].label:rv.to}</div>
       <div class="tr"><span>${bl?bl.label:rv.bridge}</span><span>${fmtUsd(rv.vol)}</span></div>
-      <div class="tn">${rv.illustrative?'swap activity — illustrative, not a measured transfer':'observed bridge corridor (partial coverage)'}</div>`;
+      <div class="tr"><span>as of</span><span>${fresh}</span></div>
+      <div class="tn">${rv.illustrative?'in-chain swap activity — illustrative, not a measured transfer':(DEMO?'DEMO — simulated corridor':'observed '+(bl?bl.label:rv.bridge)+' corridor · partial coverage')}</div>`;
   }
   tip.innerHTML=html; tip.style.display='block';
   const tw=tip.offsetWidth, th=tip.offsetHeight;
@@ -961,11 +1010,10 @@ document.addEventListener('visibilitychange',()=>{ running=!document.hidden; if(
    ========================================================================= */
 resize();
 renderFilters(); renderTimeUI();
-enterSim();                 // show something instantly; live takes over if it loads
+if(DEMO) enterDemo(); else enterConnecting();
 state.cur=state.data;
 renderCrumbs(); renderPanel(); showHintForLevel();
-tick();                      // first load attempt
-setInterval(tick, COLLECTOR_URL?20000:90000);
+if(!DEMO){ tick(); setInterval(tick, COLLECTOR_URL?20000:60000); }
 requestAnimationFrame(frame);
 
 })();
