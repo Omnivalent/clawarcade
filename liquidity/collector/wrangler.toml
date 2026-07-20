@@ -15,7 +15,7 @@ crons = ["*/2 * * * *"]
 # then paste the returned id below.
 [[kv_namespaces]]
 binding = "LIQUIDITY_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "8cbb38e85114482998376485fd61c0a6"
 
 [observability]
 enabled = true
