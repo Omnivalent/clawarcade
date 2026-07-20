@@ -177,7 +177,7 @@ async function adDebridge() {
     giveChainIds: CHAINS.filter(c => c.debridgeId != null).map(c => c.debridgeId),
     takeChainIds: CHAINS.filter(c => c.debridgeId != null).map(c => c.debridgeId),
     orderStates: ['Fulfilled', 'SentUnlock', 'ClaimedUnlock'],
-    limit: 200, skip: 0,
+    take: 100, skip: 0,   // deBridge uses take/skip, not limit
   };
   const data = await j('https://stats-api.dln.trade/api/Orders/filteredList', { method: 'POST', body, timeoutMs: 12000 });
   const orders = data.orders || data.items || (Array.isArray(data) ? data : []);
