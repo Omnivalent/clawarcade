@@ -167,6 +167,78 @@ test('full launch: TokenFactory + GarlicRegistry — name is minted, custodied, 
   assert.equal(await h.call(reg, 'available', ['supercat']), false);
 });
 
+// ---- Coin binding: the identity layer (attach a name to a coin, uniquely) ----
+
+async function registerName(h, reg, label, who) {
+  const price = await h.call(reg, 'priceOf', [label, 1n]);
+  const acct = h.accounts[who].toString();
+  await h.call(reg, 'register', [label, acct, acct, 1n, ZERO32], { from: who, value: price });
+}
+
+test('attachToken binds a name to a coin, both directions, uniquely', async () => {
+  const h = await Harness.create();
+  const reg = await h.deploy('GarlicRegistry', [], []);
+  await registerName(h, reg, 'pepe', 'alice');
+  const coin = '0x' + 'ab'.repeat(20);
+
+  await h.call(reg, 'attachToken', ['pepe', coin], { from: 'alice' });
+  assert.equal((await h.call(reg, 'tokenForName', ['pepe'])).toLowerCase(), coin, 'name → coin');
+  assert.equal(await h.call(reg, 'nameForToken', [coin]), 'pepe', 'coin → name (verified identity)');
+  // attaching also points the resolver at the coin
+  assert.equal((await h.call(reg, 'resolve', ['pepe'])).toLowerCase(), coin);
+});
+
+test('one coin, one name: a second name cannot claim a bound coin', async () => {
+  const h = await Harness.create();
+  const reg = await h.deploy('GarlicRegistry', [], []);
+  await registerName(h, reg, 'pepe', 'alice');
+  await registerName(h, reg, 'pepecoin', 'bob');
+  const coin = '0x' + 'cd'.repeat(20);
+
+  await h.call(reg, 'attachToken', ['pepe', coin], { from: 'alice' });
+  await assert.rejects(
+    h.call(reg, 'attachToken', ['pepecoin', coin], { from: 'bob' }),
+    /coin already named/, 'copycat name is blocked from the same coin');
+});
+
+test('only the live name owner can attach or detach', async () => {
+  const h = await Harness.create();
+  const reg = await h.deploy('GarlicRegistry', [], []);
+  await registerName(h, reg, 'pepe', 'alice');
+  const coin = '0x' + 'ef'.repeat(20);
+  await assert.rejects(h.call(reg, 'attachToken', ['pepe', coin], { from: 'bob' }), /not your live name/);
+  await h.call(reg, 'attachToken', ['pepe', coin], { from: 'alice' });
+  await assert.rejects(h.call(reg, 'detachToken', ['pepe'], { from: 'bob' }), /not your live name/);
+});
+
+test('rebinding a name to a new coin frees the old coin', async () => {
+  const h = await Harness.create();
+  const reg = await h.deploy('GarlicRegistry', [], []);
+  await registerName(h, reg, 'pepe', 'alice');
+  const coinA = '0x' + '1a'.repeat(20);
+  const coinB = '0x' + '2b'.repeat(20);
+  await h.call(reg, 'attachToken', ['pepe', coinA], { from: 'alice' });
+  await h.call(reg, 'attachToken', ['pepe', coinB], { from: 'alice' });
+  assert.equal(await h.call(reg, 'nameForToken', [coinA]), '', 'old coin released');
+  assert.equal(await h.call(reg, 'nameForToken', [coinB]), 'pepe', 'new coin bound');
+  // and the freed coin can now be claimed by another name
+  await registerName(h, reg, 'wojak', 'bob');
+  await h.call(reg, 'attachToken', ['wojak', coinA], { from: 'bob' });
+  assert.equal(await h.call(reg, 'nameForToken', [coinA]), 'wojak');
+});
+
+test('detachToken frees both sides', async () => {
+  const h = await Harness.create();
+  const reg = await h.deploy('GarlicRegistry', [], []);
+  await registerName(h, reg, 'pepe', 'alice');
+  const coin = '0x' + '3c'.repeat(20);
+  await h.call(reg, 'attachToken', ['pepe', coin], { from: 'alice' });
+  await h.call(reg, 'detachToken', ['pepe'], { from: 'alice' });
+  assert.equal((await h.call(reg, 'tokenForName', ['pepe'])).toLowerCase(), ZERO);
+  assert.equal(await h.call(reg, 'nameForToken', [coin]), '');
+  await assert.rejects(h.call(reg, 'detachToken', ['pepe'], { from: 'alice' }), /not attached/);
+});
+
 (async () => {
   let failed = 0;
   for (const [name, fn] of tests) {

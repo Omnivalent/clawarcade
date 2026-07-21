@@ -39,6 +39,14 @@ contract GarlicRegistry is INameRegistrar {
     mapping(address => string) public primaryName; // reverse identity
     mapping(bytes32 => uint256) public commitments;
 
+    // ---- coin binding (the identity layer) ----
+    // A .hood name can be attached to exactly one coin, and a coin can carry
+    // exactly one .hood name — the anti-copycat guarantee. Coins launched on any
+    // Robinhood Chain platform (Pons, Hood.fun, …) bind here; wallets/explorers
+    // read nameForToken(coin) to show the verified identity.
+    mapping(uint256 => address) public tokenOf;        // name id => bound coin
+    mapping(address => uint256) private _nameIdOfToken; // coin => name id (uniqueness)
+
     // ---- admin + pricing (owner-configurable) ----
     address public owner;
     uint256 public price3;      // per year, 3-char labels
@@ -55,6 +63,8 @@ contract GarlicRegistry is INameRegistrar {
     event NameRenewed(string label, uint256 newExpiry);
     event PrimaryNameSet(address indexed account, string label);
     event PricesChanged(uint256 price3, uint256 price4, uint256 price5plus);
+    event TokenAttached(string label, uint256 indexed tokenId, address indexed token);
+    event TokenDetached(string label, uint256 indexed tokenId, address indexed token);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "only owner");
@@ -178,12 +188,79 @@ contract GarlicRegistry is INameRegistrar {
         emit PrimaryNameSet(msg.sender, label);
     }
 
+    // =========================================================================
+    // Coin binding — the identity layer. Attach a .hood name to a coin so the
+    // name is UNIQUE to that coin (and the coin to that name). This is how a
+    // token launched on any Robinhood Chain platform gets an unspoofable name.
+    // =========================================================================
+
+    /// @notice Attach your live `.hood` name to `token` (a coin on any platform).
+    ///         Enforces one-name-one-coin: the coin must be unbound or already
+    ///         bound to this same name. Also points the resolver at the coin, so
+    ///         resolve(label) returns it. Rebinding to a new coin releases the old.
+    ///         The name owner is the authority — they vouch "this name = this coin".
+    function attachToken(string calldata label, address token) external {
+        uint256 id = _id(label);
+        Record storage r = _records[id];
+        require(r.owner == msg.sender && r.expiry >= block.timestamp, "not your live name");
+        require(token != address(0), "zero token");
+
+        uint256 boundName = _nameIdOfToken[token];
+        require(boundName == 0 || boundName == id, "coin already named");
+
+        address prevToken = tokenOf[id];
+        if (prevToken != address(0) && prevToken != token) {
+            delete _nameIdOfToken[prevToken]; // free the name's old coin
+        }
+        tokenOf[id] = token;
+        _nameIdOfToken[token] = id;
+        r.resolveTo = token;
+        emit TokenAttached(label, id, token);
+    }
+
+    /// @notice Detach your name from its coin (frees both sides).
+    function detachToken(string calldata label) external {
+        uint256 id = _id(label);
+        Record storage r = _records[id];
+        require(r.owner == msg.sender && r.expiry >= block.timestamp, "not your live name");
+        address t = tokenOf[id];
+        require(t != address(0), "not attached");
+        delete tokenOf[id];
+        delete _nameIdOfToken[t];
+        emit TokenDetached(label, id, t);
+    }
+
+    /// @notice The coin a live name points to, or address(0) if none/expired.
+    function tokenForName(string calldata label) external view returns (address) {
+        uint256 id = _id(label);
+        Record storage r = _records[id];
+        if (r.owner == address(0) || r.expiry < block.timestamp) return address(0);
+        return tokenOf[id];
+    }
+
+    /// @notice The verified `.hood` name for a coin, or "" if none/lapsed. This
+    ///         is the call wallets, explorers, and other launchpads make to show
+    ///         a coin's unspoofable identity.
+    function nameForToken(address token) external view returns (string memory) {
+        uint256 id = _nameIdOfToken[token];
+        if (id == 0) return "";
+        Record storage r = _records[id];
+        if (r.owner == address(0) || r.expiry < block.timestamp) return ""; // name lapsed
+        if (tokenOf[id] != token) return ""; // binding was moved/cleared
+        return labelOf[id];
+    }
+
     function _registerCore(string calldata label, address to, address resolveTo, uint256 durationYears) internal {
         uint256 id = _id(label);
         address prev = _records[id].owner;
         if (prev != address(0)) {
             _balances[prev] -= 1; // reclaim the expired name from its old owner
             _clearPrimaryIfMatch(prev, id);
+            address staleToken = tokenOf[id]; // release any coin the lapsed name held
+            if (staleToken != address(0)) {
+                delete _nameIdOfToken[staleToken];
+                delete tokenOf[id];
+            }
         }
         _balances[to] += 1;
         delete _tokenApprovals[id];
