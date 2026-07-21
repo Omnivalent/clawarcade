@@ -126,7 +126,7 @@ async function deployContracts(btn) {
 
     const step = (t) => { btn.textContent = t; $('setupMsg').textContent = t + ' — approve in your wallet.'; };
     step('Deploying name registry…');
-    const reg = await factoryOf(B.MockRegistrar).deploy(); await reg.waitForDeployment();
+    const reg = await factoryOf(B.GarlicRegistry).deploy(); await reg.waitForDeployment();
     step('Deploying pool handler…');
     const esc = await factoryOf(B.GraduationEscrow).deploy(); await esc.waitForDeployment();
     step('Deploying launchpad…');

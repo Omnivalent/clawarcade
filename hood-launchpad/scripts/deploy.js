@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Deploys the full launchpad stack (MockRegistrar + GraduationEscrow +
+// Deploys the full launchpad stack (GarlicRegistry + GraduationEscrow +
 // TokenFactory + BondingCurve) with YOUR key, defaulting to Robinhood Chain
 // TESTNET with ZERO fees — the private-testing configuration.
 //
@@ -63,7 +63,7 @@ function artifact(name) {
   const commentCooldown = BigInt(process.env.COMMENT_COOLDOWN || '15');
 
   console.log('\ndeploying…');
-  const registrar = await deploy('MockRegistrar');
+  const registrar = await deploy('GarlicRegistry');
   const escrow = await deploy('GraduationEscrow');
   const factory = await deploy('TokenFactory', [
     feeRecipient, await registrar.getAddress(), await escrow.getAddress(),

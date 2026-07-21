@@ -47,7 +47,8 @@ open it, connect a wallet, and click Deploy. No terminal. See
 | `TokenFactory.sol` | One-tx launch, name lifecycle, fees, hardening |
 | `BondingCurve.sol` | Singleton virtual-reserve curve; quote = execution; slippage + deadline |
 | `LaunchToken.sol` | Minimal ERC-20 — no owner, no mint, no pause (rug-proof) |
-| `interfaces/INameRegistrar.sol` + `adapters/HoodAgAdapter.sol` | Pluggable .hood name service (targets hood.ag) |
+| `GarlicRegistry.sol` | **Our own .hood name service** — names as ERC-721 NFTs (expiry, renew, resolver, reverse identity, commit-reveal). No external dependency. |
+| `interfaces/INameRegistrar.sol` + `adapters/HoodAgAdapter.sol` | Pluggable adapter — swap in a 3rd-party .hood provider for cross-app interop if one wins |
 | `CommentBoard.sol` | Event-only social layer |
 | `mocks/` | Local registrar / graduation escrow / reentrancy attacker |
 
@@ -67,6 +68,9 @@ node test/curve.test.js   # curve property tests
 
 ## Status
 
-Testnet-ready. Before mainnet: wire hood.ag's verified contract addresses into
-the adapter, add a Uniswap v3 graduation handler + an events indexer, and get a
-professional audit. Not investment advice; testnet tokens have no value.
+Testnet-ready, and **self-contained** — with `GarlicRegistry` the launchpad
+runs its own `.hood` name service and depends on no external provider. Before
+mainnet: add a Uniswap v3 graduation handler + an events indexer, and get a
+professional audit. (Optionally integrate a 3rd-party `.hood` provider later
+for cross-app name resolution.) Not investment advice; testnet tokens have no
+value.
