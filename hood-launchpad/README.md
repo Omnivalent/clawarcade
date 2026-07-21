@@ -49,8 +49,9 @@ open it, connect a wallet, and click Deploy. No terminal. See
 | `LaunchToken.sol` | Minimal ERC-20 — no owner, no mint, no pause (rug-proof) |
 | `GarlicRegistry.sol` | **Our own .hood name service** — names as ERC-721 NFTs (expiry, renew, resolver, reverse identity, commit-reveal). No external dependency. |
 | `interfaces/INameRegistrar.sol` + `adapters/HoodAgAdapter.sol` | Pluggable adapter — swap in a 3rd-party .hood provider for cross-app interop if one wins |
+| `adapters/UniswapV3GraduationHandler.sol` | **Real graduation** — wraps ETH, seeds a Uniswap v3 pool at the graduation price, **burns the LP position** (locked forever). Wire to the DEX's Robinhood Chain addresses + fork-test before mainnet. |
 | `CommentBoard.sol` | Event-only social layer |
-| `mocks/` | Local registrar / graduation escrow / reentrancy attacker |
+| `mocks/` | Local registrar / graduation escrow / reentrancy attacker / Uniswap v3 mocks |
 
 See **[docs/MECHANISMS.md](docs/MECHANISMS.md)** for the full deep-dive on the
 anti-vamp stack and renewal-on-bond, [PITCH.md](PITCH.md) for the concept &
@@ -62,15 +63,18 @@ market, [REVIEW_REQUEST.md](REVIEW_REQUEST.md) for the external-review brief, an
 ```bash
 npm install
 node scripts/compile.js   # compile all contracts
-node test/evm.test.js     # 29 end-to-end tests on real bytecode
-node test/curve.test.js   # curve property tests
+node test/evm.test.js         # 29 launchpad end-to-end tests on real bytecode
+node test/registry.test.js    # 11 GarlicRegistry (ERC-721 name service) tests
+node test/graduation.test.js  # 5 Uniswap v3 graduation-handler tests
+node test/curve.test.js       # curve property tests
 ```
 
 ## Status
 
-Testnet-ready, and **self-contained** — with `GarlicRegistry` the launchpad
-runs its own `.hood` name service and depends on no external provider. Before
-mainnet: add a Uniswap v3 graduation handler + an events indexer, and get a
-professional audit. (Optionally integrate a 3rd-party `.hood` provider later
-for cross-app name resolution.) Not investment advice; testnet tokens have no
-value.
+Testnet-ready and **self-contained** — with `GarlicRegistry` the launchpad
+runs its own `.hood` name service (no external provider), and
+`UniswapV3GraduationHandler` does the real pool-seed + LP-burn. Before mainnet:
+wire the handler to Uniswap v3's Robinhood Chain addresses and **fork-test** a
+full graduation, add an events indexer, and get a professional audit.
+(Optionally integrate a 3rd-party `.hood` provider later for cross-app name
+resolution.) Not investment advice; testnet tokens have no value.
