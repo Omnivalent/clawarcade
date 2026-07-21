@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>garlic.hood — the .hood identity layer for Robinhood Chain</title>
+<style>
+:root{
+  --green:#00c805;--green-ink:#00a504;--red:#ff5000;
+  --bg:#000;--surface:#0f0f10;--surface-2:#17171a;--hair:#262629;
+  --text:#fff;--text-2:#a6a6ad;--text-3:#6c6c73;
+  --sans:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Segoe UI',Roboto,sans-serif;
+  --num:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme:light){:root{--bg:#fff;--surface:#fff;--surface-2:#f5f6f7;--hair:#e6e8ea;--text:#1b1b1d;--text-2:#5b5b63;--text-3:#9a9aa2;}}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased;}
+.num{font-family:var(--num);}.muted{color:var(--text-2);}.dim{color:var(--text-3);}
+.up{color:var(--green);}.down{color:var(--red);}.ok{color:var(--green);}.bad{color:var(--red);}.warn{color:var(--red);}
+.wrap{max-width:760px;margin:0 auto;padding:0 1.1rem 6rem;}
+.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 0;margin-bottom:1.2rem;}
+.brand{display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:1.15rem;letter-spacing:-.01em;}
+.brand .mark{font-size:1.35rem;}.brand .dot{color:var(--green);}
+.netchip{font-size:.66rem;color:var(--text-3);font-family:var(--num);border:1px solid var(--hair);border-radius:999px;padding:.2rem .6rem;letter-spacing:.03em;}
+.netchip.live{color:var(--green);border-color:var(--green);}
+button{font-family:var(--sans);cursor:pointer;border:none;border-radius:999px;font-weight:600;letter-spacing:-.01em;transition:transform .04s,background .15s,opacity .15s;}
+button:active{transform:scale(.98);}
+.pill{background:var(--green);color:#04210a;padding:.6rem 1.2rem;font-size:.92rem;}
+.pill:hover{background:var(--green-ink);}
+.outline{background:transparent;color:var(--text);border:1.5px solid var(--hair);padding:.55rem 1.1rem;font-size:.9rem;}
+.outline:hover{border-color:var(--text-3);}
+button:disabled{opacity:.4;cursor:not-allowed;}
+input{background:var(--surface-2);border:1px solid var(--hair);border-radius:12px;color:var(--text);font-family:var(--sans);padding:.7rem .9rem;outline:none;font-size:1rem;width:100%;}
+input:focus{border-color:var(--green);}
+input::placeholder{color:var(--text-3);}
+.hero{padding:.5rem 0 1.4rem;}
+.hero h1{font-size:clamp(1.9rem,6vw,2.9rem);font-weight:700;letter-spacing:-.03em;line-height:1.05;text-wrap:balance;}
+.hero h1 .dot{color:var(--green);}
+.hero p{color:var(--text-2);font-size:1.05rem;margin-top:.6rem;max-width:48ch;line-height:1.5;}
+.garlicline{margin-top:.9rem;display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--text-2);background:var(--surface-2);border:1px solid var(--hair);border-radius:999px;padding:.35rem .8rem;}
+.banner{border:1px solid var(--hair);border-radius:12px;padding:.8rem 1rem;margin-bottom:1rem;font-size:.9rem;line-height:1.5;}
+.banner.warn{border-color:var(--red);background:color-mix(in srgb,var(--red) 8%,transparent);}
+.banner.info{background:var(--surface-2);}
+.banner code{font-family:var(--num);font-size:.82rem;}
+.section{border-top:1px solid var(--hair);padding:1.5rem 0;}
+.section:first-of-type{border-top:none;}
+.section h2{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:700;margin-bottom:1rem;}
+.searchrow{display:flex;gap:.6rem;align-items:stretch;}
+.field{flex:1;display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--hair);border-radius:12px;padding-right:.9rem;}
+.field input{border:none;background:transparent;}
+.field .suf{color:var(--green);font-weight:600;font-size:.95rem;white-space:nowrap;}
+#searchResult{margin-top:1rem;line-height:1.55;}
+.resline{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.15rem;}
+.gscore{font-family:var(--num);font-size:.72rem;font-weight:600;padding:.05rem .4rem;border-radius:999px;margin-left:.35rem;white-space:nowrap;}
+.gscore.g-hi{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+.gscore.g-mid{background:color-mix(in srgb,#d9a400 22%,transparent);color:#d99400;}
+.gscore.g-lo{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+.simwarn{font-size:.9rem;margin:.35rem 0;padding:.4rem .7rem;border-radius:10px;}
+.simwarn.note{color:var(--text-2);background:var(--surface-2);}
+.simwarn.warn,.simwarn.block{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid var(--red);}
+.attach{display:none;margin-top:1rem;flex-direction:column;gap:.7rem;}
+.attach.show{display:flex;}
+.attach label{font-size:.8rem;color:var(--text-3);font-weight:600;}
+.attach .hint{font-size:.8rem;color:var(--text-3);}
+.recordcard{background:var(--surface-2);border:1px solid var(--hair);border-radius:14px;padding:1rem 1.1rem;margin-top:1rem;}
+.recordcard .row{display:flex;justify-content:space-between;gap:1rem;padding:.35rem 0;font-size:.95rem;flex-wrap:wrap;}
+.recordcard .k{color:var(--text-3);}.recordcard .v{font-family:var(--num);word-break:break-all;text-align:right;}
+.dir{display:flex;flex-direction:column;}
+.dirrow{display:grid;grid-template-columns:auto 1fr auto;gap:.7rem;align-items:center;border-bottom:1px solid var(--hair);padding:.7rem 0;}
+.dirrow:last-child{border-bottom:none;}
+.dirrow .tick{width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;}
+.dirrow b{font-weight:600;}.dirrow .sub{color:var(--text-3);font-size:.78rem;font-family:var(--num);word-break:break-all;}
+.forlp{background:var(--surface-2);border:1px solid var(--hair);border-radius:16px;padding:1.2rem;}
+.forlp h3{font-size:1.05rem;font-weight:700;margin-bottom:.5rem;letter-spacing:-.01em;}
+.forlp p{color:var(--text-2);font-size:.95rem;line-height:1.5;margin-bottom:.8rem;}
+.code{background:var(--bg);border:1px solid var(--hair);border-radius:10px;padding:.8rem;font-family:var(--num);font-size:.82rem;color:var(--text-2);overflow-x:auto;line-height:1.6;}
+.code .g{color:var(--green);}
+.badge{display:inline-flex;align-items:center;gap:.35rem;background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green);border:1px solid var(--green);border-radius:999px;padding:.2rem .6rem;font-size:.78rem;font-weight:600;}
+.toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%) translateY(180%);background:var(--surface-2);border:1px solid var(--hair);border-radius:14px;padding:.8rem 1.2rem;font-size:.92rem;font-weight:500;transition:transform .28s cubic-bezier(.2,.8,.2,1);z-index:40;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.4);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:var(--green);}.toast.bad,.toast.warn{border-color:var(--red);}
+footer{border-top:1px solid var(--hair);margin-top:2rem;padding-top:1.4rem;text-align:center;color:var(--text-3);font-size:.82rem;line-height:1.7;}
+footer a{color:var(--text-2);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand"><span class="mark">🧄</span> garlic<span class="dot">.hood</span> <span class="dim" style="font-weight:500;font-size:.9rem;">registry</span></div>
+    <div style="display:flex;align-items:center;gap:.8rem;"><span class="netchip" id="netChip">connecting…</span><button class="pill" id="connectBtn">Connect wallet</button></div>
+  </nav>
+
+  <section class="hero">
+    <h1>The identity layer<br>for Robinhood Chain<span class="dot">.</span></h1>
+    <p>Attach a unique <b>.hood</b> name to any coin — launched on Pons, Hood.fun, or anywhere on Robinhood Chain — with a <b>Garlic Score</b> that proves it's the original, not a copycat. One on-chain registry the whole chain resolves.</p>
+    <div class="garlicline">🧄 Our own registry (GarlicRegistry) — one name ↔ one coin, enforced on-chain.</div>
+  </section>
+
+  <div id="stateBanner"></div>
+
+  <section class="section">
+    <h2>Claim a .hood &amp; attach it to a coin</h2>
+    <div class="searchrow">
+      <div class="field"><input id="searchInput" placeholder="pepe" autocomplete="off" spellcheck="false" maxlength="32"><span class="suf">.hood</span></div>
+      <button class="outline" id="searchBtn">Check</button>
+    </div>
+    <div id="searchResult"><span class="muted">Search a name. Any coin — even one launched on another platform — can claim its canonical .hood identity here.</span></div>
+    <div class="attach" id="attachForm">
+      <label>Coin / contract address this name should point to</label>
+      <input id="addrInput" class="num" placeholder="0x… (paste the token address)">
+      <div class="hint">Two quick transactions: register the name to you, then bind it to the coin (one name ↔ one coin, on-chain).</div>
+      <button class="pill" id="attachBtn" style="align-self:flex-start;">Register &amp; attach</button>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Resolve — names ⇄ coins</h2>
+    <div class="searchrow">
+      <div class="field"><input id="lookupInput" placeholder="pepe.hood  or  0x…" autocomplete="off" spellcheck="false"></div>
+      <button class="outline" id="lookupBtn">Resolve</button>
+    </div>
+    <div id="lookupResult" style="margin-top:.8rem;"></div>
+  </section>
+
+  <section class="section">
+    <h2>Recently named on the registry</h2>
+    <div class="dir" id="directory"><span class="muted">Loading from chain…</span></div>
+  </section>
+
+  <section class="section">
+    <h2>For launchpads (Pons, Hood.fun, anyone)</h2>
+    <div class="forlp">
+      <h3>Give every coin a verified identity — one call.</h3>
+      <p>Your launchpad has the copycat problem: name + ticker, nothing stops clones. Read one public contract and every coin you list can show a unique <b>.hood</b> name with an on-chain originality guarantee — a <span class="badge">🧄 verified original</span> badge buyers trust.</p>
+      <div class="code" id="sdkCode">
+<span class="dim">// GarlicRegistry — one public contract, no partnership needed</span><br>
+registry.<span class="g">nameForToken</span>(coin)      <span class="dim">// → "pepe"  (verified) or ""  (none)</span><br>
+registry.<span class="g">tokenForName</span>(<span class="g">"pepe"</span>)   <span class="dim">// → 0x…  the one true pepe</span><br>
+registry.<span class="g">attachToken</span>(<span class="g">"pepe"</span>, coin) <span class="dim">// name owner binds it — one name ↔ one coin</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    garlic<span class="dot" style="color:var(--green)">.hood</span> registry · the <b>.hood</b> identity layer · names are ERC-721s in our own on-chain registry (<span class="num">GarlicRegistry.sol</span>)<br>
+    <span id="footAddr"></span>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/ethers.umd.min.js"></script>
+<script src="garlic.js"></script>
+<script src="abi.js"></script>
+<script src="registry-app.js"></script>
+</body>
+</html>

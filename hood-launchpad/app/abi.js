@@ -30,6 +30,13 @@ window.HOODPAD_ABI = {
     'function nameOf(address account) view returns (string)',
     'function resolve(string label) view returns (address)',
     'function registerSelf(string label, uint256 durationYears) payable',
+    // coin binding — the identity layer
+    'function attachToken(string label, address token)',
+    'function detachToken(string label)',
+    'function tokenForName(string label) view returns (address)',
+    'function nameForToken(address token) view returns (string)',
+    'event NameRegistered(string label, address indexed owner, address indexed resolveTo, uint256 expiry)',
+    'event TokenAttached(string label, uint256 indexed tokenId, address indexed token)',
   ],
   token: [
     'function name() view returns (string)',
