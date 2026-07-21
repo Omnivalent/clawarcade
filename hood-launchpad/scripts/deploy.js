@@ -62,15 +62,48 @@ function artifact(name) {
 
   const commentCooldown = BigInt(process.env.COMMENT_COOLDOWN || '15');
 
+  // Graduation handler selection:
+  //   GRADUATION=escrow (default) → GraduationEscrow: holds the raise, no DEX.
+  //     The safe testnet placeholder — graduation "succeeds" without a real pool.
+  //   GRADUATION=sushi              → UniswapV3GraduationHandler pointed at
+  //     SushiSwap CLAMM on Robinhood Chain: seeds a real token/WETH pool at the
+  //     graduation price and BURNS the LP (rug-proof). Requires WETH + (optionally)
+  //     an override of the Sushi NonfungiblePositionManager address.
+  //     Defaults come from config/robinhood-chain.json. FORK-TEST before mainnet.
+  const gradMode = (process.env.GRADUATION || 'escrow').toLowerCase();
+  const SUSHI_NPM = process.env.SUSHI_NPM || '0x51d0e5188afe12d502e29d982d20c190e7816107'; // Robinhood Chain
+  const WETH = process.env.WETH || '';
+  const GRAD_FEE = BigInt(process.env.GRAD_FEE || '3000'); // 0.3% — matches handler ticks
+
   console.log('\ndeploying…');
   const registrar = await deploy('GarlicRegistry');
-  const escrow = await deploy('GraduationEscrow');
+
+  let escrow;
+  if (gradMode === 'sushi') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(WETH)) {
+      console.error('GRADUATION=sushi needs the WETH address: WETH=0x... (Robinhood Chain wrapped-ETH). See config/robinhood-chain.json.');
+      process.exit(1);
+    }
+    console.log(`graduation       : SushiSwap CLAMM (NPM ${SUSHI_NPM}, WETH ${WETH}, fee ${GRAD_FEE})`);
+    escrow = await deploy('UniswapV3GraduationHandler', [SUSHI_NPM, WETH, GRAD_FEE, feeRecipient]);
+  } else {
+    console.log('graduation       : GraduationEscrow (testnet placeholder — no DEX pool)');
+    escrow = await deploy('GraduationEscrow');
+  }
+
   const factory = await deploy('TokenFactory', [
     feeRecipient, await registrar.getAddress(), await escrow.getAddress(),
     platformFee, feeBps, virtualEth0, graduationEth, enforceVanity, commitAge,
   ]);
   const curveAddr = await factory.curve();
   console.log(`${'BondingCurve'.padEnd(17)}: ${curveAddr}`);
+
+  // The Sushi handler must be told which curve may trigger graduation (one-time).
+  if (gradMode === 'sushi') {
+    const tx = await escrow.setCurve(curveAddr);
+    await tx.wait();
+    console.log(`handler.setCurve : ${curveAddr}`);
+  }
   const board = await deploy('CommentBoard', [commentCooldown]);
 
   const out = {

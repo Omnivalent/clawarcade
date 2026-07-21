@@ -1,0 +1,32 @@
+{
+  "_note": "Verified deployment addresses on Robinhood Chain. SushiSwap CLAMM (SushiSwap V3) is a Uniswap v3 fork — its NonfungiblePositionManager is what UniswapV3GraduationHandler targets for the rug-proof graduation (seed pool + burn LP). Source: https://docs.sushi.com/contracts/clamm (docs last updated 2026-07-14).",
+
+  "chain": {
+    "name": "Robinhood Chain",
+    "nativeToken": "ETH",
+    "testnet": {
+      "chainId": 46630,
+      "rpc": "https://rpc.testnet.chain.robinhood.com/rpc",
+      "explorer": "https://explorer.testnet.chain.robinhood.com",
+      "faucet": "https://faucet.testnet.chain.robinhood.com"
+    },
+    "mainnet": {
+      "chainId": "TODO — confirm from https://docs.robinhood.com/chain/connecting",
+      "rpc": "TODO — confirm mainnet RPC URL",
+      "explorer": "TODO — confirm mainnet explorer"
+    }
+  },
+
+  "weth": "TODO — wrapped-ETH (WETH9) address on Robinhood Chain; needed by the graduation handler. Find on docs.robinhood.com or the Sushi token list.",
+
+  "sushiV3Clamm": {
+    "_source": "https://docs.sushi.com/contracts/clamm (ROBINHOOD CHAIN row)",
+    "nonfungiblePositionManager": "0x51d0e5188afe12d502e29d982d20c190e7816107",
+    "factory": "0xe51960f1b45f1c9fb6d166e6a884f866fc70433b",
+    "quoter": "0x3e290e5e01818002a0b672148bdc7514d861c7b3",
+    "tickLens": "0x80126a8d806d029ac551ac6f30baf06b785175d1",
+    "initCodeHash": "0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54",
+    "graduationFeeTier": 3000,
+    "graduationFeeTierNote": "0.3% / 60 tick-spacing — matches UniswapV3GraduationHandler's TICK_LOWER/UPPER (±887220). Confirm this tier is enabled on the factory before mainnet."
+  }
+}

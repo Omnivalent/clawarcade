@@ -83,13 +83,21 @@ money you must, in this order:
    `CHAIN.explorer` in `app/app.js` to Robinhood Chain **mainnet**, turn the
    platform fee back on if you want revenue (`feeBps` in the deploy call), and
    re-deploy (Step 1) against mainnet.
-3. **Wire the real v3 handler** — point `UniswapV3GraduationHandler` at the
-   mainnet `NonfungiblePositionManager` + `WETH` of whichever v3 DEX is live on
-   Robinhood Chain: **Uniswap v3 or [SushiSwap CLAMM](https://docs.sushi.com/contracts/clamm)**.
-   Sushi's CLAMM is a Uniswap v3 fork with the identical ABI, so the handler
-   needs no code change — just Sushi's addresses (Sushi is deployed on ~30
-   chains, so it's the likely venue if Uniswap isn't on Robinhood Chain).
-   **Fork-test a full graduation** against the real periphery before launch.
+3. **Wire the real v3 handler — SushiSwap CLAMM is live on Robinhood Chain.**
+   Verified addresses are recorded in [`config/robinhood-chain.json`](config/robinhood-chain.json):
+   - NonfungiblePositionManager: `0x51d0e5188afe12d502e29d982d20c190e7816107`
+   - Factory: `0xe51960f1b45f1c9fb6d166e6a884f866fc70433b`
+
+   The deploy script wires it for you — just supply the **WETH** (wrapped-ETH)
+   address on Robinhood Chain (the one field still marked TODO in the config):
+
+   ```bash
+   GRADUATION=sushi WETH=0x<robinhood-chain-weth> PRIVATE_KEY=0x... node scripts/deploy.js
+   ```
+
+   This deploys `UniswapV3GraduationHandler` against Sushi's position manager and
+   calls `setCurve` automatically. **Fork-test a full graduation** against the
+   live Sushi periphery before mainnet.
 4. **Know your legal footing** — a purely permissionless launchpad is lower-risk
    than one where you custody names/funds, but get local advice before taking
    fees from real users.
