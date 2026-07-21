@@ -4,7 +4,8 @@ pragma solidity ^0.8.26;
 import {IGraduationHandler} from "../BondingCurve.sol";
 import {IWETH9, INonfungiblePositionManager} from "../interfaces/IUniswapV3.sol";
 
-/// @title UniswapV3GraduationHandler — seed a Uniswap v3 pool and burn the LP
+/// @title UniswapV3GraduationHandler — seed a v3 (Uniswap or SushiSwap CLAMM)
+///        pool and burn the LP
 /// @notice The production graduation handler. When a token graduates, the curve
 ///         sends it the raised ETH + the reserved tokens; this contract wraps
 ///         the ETH, creates/initializes the token/WETH pool at the graduation
@@ -12,12 +13,21 @@ import {IWETH9, INonfungiblePositionManager} from "../interfaces/IUniswapV3.sol"
 ///         position NFT** (sends it to 0x…dEaD) so the liquidity is locked
 ///         forever — the rug-proof graduation.
 ///
+///         DEX-agnostic: `positionManager` is any Uniswap-v3-compatible
+///         NonfungiblePositionManager. SushiSwap CLAMM (SushiSwap V3) is a
+///         direct Uniswap v3 fork — identical `createAndInitializePoolIfNecessary`
+///         + `mint(MintParams)` ABI and the same 0.3% fee tier / 60 tick spacing —
+///         so this handler works unchanged against Sushi's periphery. Pick the
+///         venue by the addresses you pass in: Uniswap v3 *or* SushiSwap CLAMM,
+///         whichever is deployed on Robinhood Chain.
+///
 ///         ┌───────────────────────── INTEGRATION NOTE ────────────────────────┐
-///         │ Wire `positionManager` + `weth` to Uniswap v3's real deployment on │
-///         │ Robinhood Chain, then FORK-TEST a full graduation against the live │
-///         │ periphery before mainnet. The sqrtPrice/tick math here is unit-    │
-///         │ tested against known Uniswap vectors, but the end-to-end mint must │
-///         │ be verified against the real NonfungiblePositionManager.          │
+///         │ Wire `positionManager` + `weth` to the real v3 deployment on       │
+///         │ Robinhood Chain — Uniswap v3 OR SushiSwap CLAMM (docs.sushi.com/   │
+///         │ contracts/clamm) — then FORK-TEST a full graduation against the    │
+///         │ live periphery before mainnet. The sqrtPrice/tick math here is     │
+///         │ unit-tested against known Uniswap vectors, but the end-to-end mint │
+///         │ must be verified against the real NonfungiblePositionManager.      │
 ///         └────────────────────────────────────────────────────────────────────┘
 contract UniswapV3GraduationHandler is IGraduationHandler {
     address public constant BURN = 0x000000000000000000000000000000000000dEaD;

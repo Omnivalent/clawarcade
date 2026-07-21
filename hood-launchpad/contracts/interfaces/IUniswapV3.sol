@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-/// @dev Minimal Uniswap v3 periphery interfaces the graduation handler needs.
+/// @dev Minimal Uniswap-v3 periphery interfaces the graduation handler needs.
+///      SushiSwap CLAMM (SushiSwap V3) is a Uniswap v3 fork and exposes the
+///      identical ABI, so these interfaces are equally valid for Sushi's
+///      NonfungiblePositionManager — the handler is DEX-agnostic.
 ///      The NonfungiblePositionManager is itself an ERC-721 (positions are
 ///      NFTs), so it also exposes transferFrom for burning the LP position.
 

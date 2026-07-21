@@ -49,7 +49,7 @@ open it, connect a wallet, and click Deploy. No terminal. See
 | `LaunchToken.sol` | Minimal ERC-20 — no owner, no mint, no pause (rug-proof) |
 | `GarlicRegistry.sol` | **Our own .hood name service** — names as ERC-721 NFTs (expiry, renew, resolver, reverse identity, commit-reveal). No external dependency. |
 | `interfaces/INameRegistrar.sol` + `adapters/HoodAgAdapter.sol` | Pluggable adapter — swap in a 3rd-party .hood provider for cross-app interop if one wins |
-| `adapters/UniswapV3GraduationHandler.sol` | **Real graduation** — wraps ETH, seeds a Uniswap v3 pool at the graduation price, **burns the LP position** (locked forever). Wire to the DEX's Robinhood Chain addresses + fork-test before mainnet. |
+| `adapters/UniswapV3GraduationHandler.sol` | **Real graduation** — wraps ETH, seeds a v3 pool at the graduation price, **burns the LP position** (locked forever). **DEX-agnostic:** works unchanged with Uniswap v3 **or [SushiSwap CLAMM](https://docs.sushi.com/contracts/clamm)** (a v3 fork with the identical NonfungiblePositionManager ABI) — pick the venue by the addresses you pass in. Wire to Robinhood Chain's addresses + fork-test before mainnet. |
 | `CommentBoard.sol` | Event-only social layer |
 | `mocks/` | Local registrar / graduation escrow / reentrancy attacker / Uniswap v3 mocks |
 

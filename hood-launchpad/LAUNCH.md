@@ -83,9 +83,13 @@ money you must, in this order:
    `CHAIN.explorer` in `app/app.js` to Robinhood Chain **mainnet**, turn the
    platform fee back on if you want revenue (`feeBps` in the deploy call), and
    re-deploy (Step 1) against mainnet.
-3. **Wire the real Uniswap v3 handler** — point
-   `UniswapV3GraduationHandler` at Uniswap's mainnet `NonfungiblePositionManager`
-   + `WETH`, and **fork-test a full graduation** before launch.
+3. **Wire the real v3 handler** — point `UniswapV3GraduationHandler` at the
+   mainnet `NonfungiblePositionManager` + `WETH` of whichever v3 DEX is live on
+   Robinhood Chain: **Uniswap v3 or [SushiSwap CLAMM](https://docs.sushi.com/contracts/clamm)**.
+   Sushi's CLAMM is a Uniswap v3 fork with the identical ABI, so the handler
+   needs no code change — just Sushi's addresses (Sushi is deployed on ~30
+   chains, so it's the likely venue if Uniswap isn't on Robinhood Chain).
+   **Fork-test a full graduation** against the real periphery before launch.
 4. **Know your legal footing** — a purely permissionless launchpad is lower-risk
    than one where you custody names/funds, but get local advice before taking
    fees from real users.
