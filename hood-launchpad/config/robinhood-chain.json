@@ -11,9 +11,11 @@
       "faucet": "https://faucet.testnet.chain.robinhood.com"
     },
     "mainnet": {
-      "chainId": "TODO — confirm from https://docs.robinhood.com/chain/connecting",
-      "rpc": "TODO — confirm mainnet RPC URL",
-      "explorer": "TODO — confirm mainnet explorer"
+      "chainId": 4663,
+      "rpc": "https://rpc.mainnet.chain.robinhood.com",
+      "explorer": "https://robinhoodchain.blockscout.com",
+      "verifierApi": "https://robinhoodchain.blockscout.com/api/",
+      "_source": "https://docs.robinhood.com/chain/ (Deploy a Contract)"
     }
   },
 
