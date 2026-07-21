@@ -148,6 +148,7 @@ async function deployContracts(btn) {
     void bal;
     toast('🧄 garlic.hood is live — deployed from your wallet!', 'ok');
     startApp();
+    renderOwnerConfig(dep);
   } catch (e) {
     $('setupMsg').innerHTML = `<span class="bad">${rpcError(e)}</span>`;
     btn.disabled = false; btn.textContent = 'Deploy garlic.hood';
@@ -639,6 +640,32 @@ function renderAccount() {
 function renderChainInfo() {
   const d = state.deployment;
   $('chainInfo').innerHTML = `chain ${d.chainId} · fees ${d.feeBps === 0 ? 'OFF (test)' : (d.feeBps / 100) + '%'} · ${d.enforceVanity ? '…600d addresses' : 'plain addresses'}`;
+}
+
+// After the owner deploys, offer the deployment.json so they can bake ONE shared
+// deployment into the hosted site — every visitor to the domain then uses the
+// same registry/factory (a real shared dApp, not a per-browser copy).
+function renderOwnerConfig(dep) {
+  let bar = $('ownerConfig');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'ownerConfig';
+    bar.style.cssText = 'margin:.6rem 0;padding:.7rem .9rem;border:1px solid #2f7;border-radius:10px;background:rgba(34,255,119,.06);font-size:.9rem;line-height:1.5';
+    const host = document.querySelector('main') || document.body;
+    host.insertBefore(bar, host.firstChild);
+  }
+  bar.innerHTML =
+    `<b>🧄 You deployed the shared contracts.</b> To make <i>this exact deployment</i> the one everyone uses on your domain: ` +
+    `<button id="dlDeployment" class="mini">⬇ Download deployment.json</button> ` +
+    `then drop that file into the <code>app/</code> folder you host. ` +
+    `<span class="muted">Visitors will skip setup and use these contracts directly.</span>`;
+  $('dlDeployment').onclick = () => {
+    const blob = new Blob([JSON.stringify(dep, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'deployment.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
 }
 function stat(k, v) { return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
 function normalizeLabel(s) { return (s || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, ''); }
