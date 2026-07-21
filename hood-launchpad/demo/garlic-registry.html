@@ -1,0 +1,239 @@
+<style>
+:root {
+  --green:#00c805; --green-ink:#00a504; --red:#ff5000;
+  --bg:#000; --surface:#0f0f10; --surface-2:#17171a; --hair:#262629;
+  --text:#fff; --text-2:#a6a6ad; --text-3:#6c6c73;
+  --sans:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Segoe UI',Roboto,sans-serif;
+  --num:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme: light){:root{--bg:#fff;--surface:#fff;--surface-2:#f5f6f7;--hair:#e6e8ea;--text:#1b1b1d;--text-2:#5b5b63;--text-3:#9a9aa2;}}
+:root[data-theme="dark"]{--bg:#000;--surface:#0f0f10;--surface-2:#17171a;--hair:#262629;--text:#fff;--text-2:#a6a6ad;--text-3:#6c6c73;}
+:root[data-theme="light"]{--bg:#fff;--surface:#fff;--surface-2:#f5f6f7;--hair:#e6e8ea;--text:#1b1b1d;--text-2:#5b5b63;--text-3:#9a9aa2;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased;}
+.num{font-family:var(--num);} .muted{color:var(--text-2);} .dim{color:var(--text-3);}
+.up{color:var(--green);} .down{color:var(--red);} .ok{color:var(--green);} .bad{color:var(--red);} .warn{color:var(--red);}
+.wrap{max-width:760px;margin:0 auto;padding:0 1.1rem 6rem;}
+.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 0;margin-bottom:1.2rem;}
+.brand{display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:1.15rem;letter-spacing:-.01em;}
+.brand .mark{font-size:1.35rem;} .brand .dot{color:var(--green);}
+.simchip{font-size:.66rem;color:var(--text-3);font-family:var(--num);border:1px solid var(--hair);border-radius:999px;padding:.2rem .6rem;letter-spacing:.03em;}
+button{font-family:var(--sans);cursor:pointer;border:none;border-radius:999px;font-weight:600;letter-spacing:-.01em;transition:transform .04s,background .15s,opacity .15s;}
+button:active{transform:scale(.98);}
+.pill{background:var(--green);color:#04210a;padding:.6rem 1.2rem;font-size:.92rem;}
+.pill:hover{background:var(--green-ink);}
+.outline{background:transparent;color:var(--text);border:1.5px solid var(--hair);padding:.55rem 1.1rem;font-size:.9rem;}
+.outline:hover{border-color:var(--text-3);}
+button:disabled{opacity:.4;cursor:not-allowed;}
+input{background:var(--surface-2);border:1px solid var(--hair);border-radius:12px;color:var(--text);font-family:var(--sans);padding:.7rem .9rem;outline:none;font-size:1rem;width:100%;}
+input:focus{border-color:var(--green);}
+input::placeholder{color:var(--text-3);}
+.hero{padding:.5rem 0 1.4rem;}
+.hero h1{font-size:clamp(1.9rem,6vw,2.9rem);font-weight:700;letter-spacing:-.03em;line-height:1.05;text-wrap:balance;}
+.hero h1 .dot{color:var(--green);}
+.hero p{color:var(--text-2);font-size:1.05rem;margin-top:.6rem;max-width:48ch;line-height:1.5;}
+.garlicline{margin-top:.9rem;display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--text-2);background:var(--surface-2);border:1px solid var(--hair);border-radius:999px;padding:.35rem .8rem;}
+.readnote{color:var(--text-3);font-size:.85rem;margin:.3rem 0 .2rem;}
+.section{border-top:1px solid var(--hair);padding:1.5rem 0;}
+.section:first-of-type{border-top:none;}
+.section h2{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:700;margin-bottom:1rem;}
+.searchrow{display:flex;gap:.6rem;align-items:stretch;}
+.field{flex:1;display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--hair);border-radius:12px;padding-right:.9rem;}
+.field input{border:none;background:transparent;}
+.field .suf{color:var(--green);font-weight:600;font-size:.95rem;white-space:nowrap;}
+#searchResult{margin-top:1rem;line-height:1.55;}
+.resline{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.15rem;}
+.gscore{font-family:var(--num);font-size:.72rem;font-weight:600;padding:.05rem .4rem;border-radius:999px;margin-left:.35rem;white-space:nowrap;}
+.gscore.g-hi{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+.gscore.g-mid{background:color-mix(in srgb,#d9a400 22%,transparent);color:#d99400;}
+.gscore.g-lo{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+.simwarn{font-size:.9rem;margin:.35rem 0;padding:.4rem .7rem;border-radius:10px;}
+.simwarn.note{color:var(--text-2);background:var(--surface-2);}
+.simwarn.warn,.simwarn.block{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid var(--red);}
+.attach{display:none;margin-top:1rem;flex-direction:column;gap:.7rem;}
+.attach.show{display:flex;}
+.attach label{font-size:.8rem;color:var(--text-3);font-weight:600;}
+.attach .hint{font-size:.8rem;color:var(--text-3);}
+.recordcard{background:var(--surface-2);border:1px solid var(--hair);border-radius:14px;padding:1rem 1.1rem;margin-top:1rem;}
+.recordcard .row{display:flex;justify-content:space-between;gap:1rem;padding:.35rem 0;font-size:.95rem;flex-wrap:wrap;}
+.recordcard .k{color:var(--text-3);} .recordcard .v{font-family:var(--num);word-break:break-all;text-align:right;}
+.dir{display:flex;flex-direction:column;}
+.dirrow{display:grid;grid-template-columns:auto 1fr auto;gap:.7rem;align-items:center;border-bottom:1px solid var(--hair);padding:.7rem 0;}
+.dirrow:last-child{border-bottom:none;}
+.dirrow .tick{width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;}
+.dirrow b{font-weight:600;} .dirrow .sub{color:var(--text-3);font-size:.78rem;font-family:var(--num);}
+.forlp{background:var(--surface-2);border:1px solid var(--hair);border-radius:16px;padding:1.2rem;}
+.forlp h3{font-size:1.05rem;font-weight:700;margin-bottom:.5rem;letter-spacing:-.01em;}
+.forlp p{color:var(--text-2);font-size:.95rem;line-height:1.5;margin-bottom:.8rem;}
+.code{background:var(--bg);border:1px solid var(--hair);border-radius:10px;padding:.8rem;font-family:var(--num);font-size:.82rem;color:var(--text-2);overflow-x:auto;line-height:1.6;}
+.code .g{color:var(--green);}
+.badge{display:inline-flex;align-items:center;gap:.35rem;background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green);border:1px solid var(--green);border-radius:999px;padding:.2rem .6rem;font-size:.78rem;font-weight:600;}
+.toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%) translateY(180%);background:var(--surface-2);border:1px solid var(--hair);border-radius:14px;padding:.8rem 1.2rem;font-size:.92rem;font-weight:500;transition:transform .28s cubic-bezier(.2,.8,.2,1);z-index:40;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.4);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:var(--green);} .toast.bad,.toast.warn{border-color:var(--red);}
+footer{border-top:1px solid var(--hair);margin-top:2rem;padding-top:1.4rem;text-align:center;color:var(--text-3);font-size:.82rem;line-height:1.7;}
+</style>
+
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand"><span class="mark">🧄</span> garlic<span class="dot">.hood</span> <span class="dim" style="font-weight:500;font-size:.9rem;">registry</span></div>
+    <div style="display:flex;align-items:center;gap:.8rem;"><span class="simchip">SIMULATION</span><button class="pill" id="connectBtn">Connect</button></div>
+  </nav>
+
+  <section class="hero">
+    <h1>The identity layer<br>for Robinhood Chain<span class="dot">.</span></h1>
+    <p>Attach a unique <b>.hood</b> name to any token or contract — with a built-in <b>Garlic Score</b> that proves it's the original, not a copycat. One registry the whole chain can resolve.</p>
+    <div class="garlicline">🧄 Our own on-chain registry — not hood.ag. Launchpads plug in; every token gets a verified identity.</div>
+  </section>
+
+  <div class="accountbar" id="accountBox" style="font-size:.85rem;margin-bottom:.2rem;"></div>
+  <div class="readnote">Click-through simulation — nothing on-chain. Connect (simulated) to claim a name and attach it to a contract.</div>
+
+  <section class="section">
+    <h2>Claim a .hood &amp; attach it to a contract</h2>
+    <div class="searchrow">
+      <div class="field"><input id="searchInput" placeholder="pepe" autocomplete="off" spellcheck="false" maxlength="24"><span class="suf">.hood</span></div>
+      <button class="outline" id="searchBtn">Check</button>
+    </div>
+    <div id="searchResult"><span class="muted">Search a name. Any launchpad token — even one launched on Pons — can claim a canonical .hood identity here.</span></div>
+    <div class="attach" id="attachForm">
+      <label>Contract address this name should point to</label>
+      <input id="addrInput" class="num" placeholder="0x… (paste any token/contract address)">
+      <div class="hint">e.g. a token you launched on Pons, Hood.fun, or anywhere on Robinhood Chain.</div>
+      <button class="pill" id="attachBtn" style="align-self:flex-start;">Register &amp; attach</button>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Resolve — names ⇄ addresses</h2>
+    <div class="searchrow">
+      <div class="field"><input id="lookupInput" placeholder="pepe.hood  or  0x…" autocomplete="off" spellcheck="false"></div>
+      <button class="outline" id="lookupBtn">Resolve</button>
+    </div>
+    <div id="lookupResult" style="margin-top:.8rem;"></div>
+  </section>
+
+  <section class="section">
+    <h2>Named on the registry</h2>
+    <div class="dir" id="directory"></div>
+  </section>
+
+  <section class="section">
+    <h2>For launchpads (Pons, Hood.fun, anyone)</h2>
+    <div class="forlp">
+      <h3>Give every token a verified identity — one integration.</h3>
+      <p>Your launchpad has the copycat problem: name + ticker, nothing stops clones. Drop in the Garlic layer and every token you list gets a unique <b>.hood</b> name and an on-chain originality score. Show a <span class="badge">🧄 verified original</span> badge and buyers instantly trust it.</p>
+      <div class="code">
+import { garlic } from <span class="g">'@garlic/sdk'</span><br><br>
+await garlic.<span class="g">attach</span>(tokenAddress, <span class="g">'pepe'</span>)   <span class="dim">// claim pepe.hood → your token</span><br>
+garlic.<span class="g">resolve</span>(<span class="g">'pepe'</span>)                <span class="dim">// → 0x… the one true pepe</span><br>
+garlic.<span class="g">score</span>(<span class="g">'pepe'</span>)                  <span class="dim">// → 100  (originality)</span><br>
+garlic.<span class="g">isOriginal</span>(<span class="g">'pepes'</span>)            <span class="dim">// → false — 🧛 vampire of pepe.hood</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    garlic<span class="dot" style="color:var(--green)">.hood</span> registry · a click-through simulation of the identity layer · names are ERC-721s in our own on-chain registry (GarlicRegistry.sol)<br>
+    launchpads resolve one registry · every token gets a canonical name + Garlic Score
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* GARLIC brain — similarity + originality score (inlined) */
+(function(g){
+  const LEET={'0':'o','1':'l','3':'e','4':'a','5':'s','7':'t','8':'b','9':'g'};
+  const skeleton=l=>(l||'').toLowerCase().replace(/[^a-z0-9]/g,'').split('').map(c=>LEET[c]||c).join('');
+  const AFFIXES=['inu','coin','token','sol','eth','hood','2','x','ai','fi','dao','v2','og','real','the'];
+  function root(l){let s=skeleton(l),ch=true;while(ch){ch=false;for(const a of AFFIXES){if(s.length-a.length>=3&&s.endsWith(a)){s=s.slice(0,-a.length);ch=true;}if(s.length-a.length>=3&&s.startsWith(a)){s=s.slice(a.length);ch=true;}}}return s;}
+  function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;const d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);for(let j=0;j<=n;j++)d[0][j]=j;for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n];}
+  function similarity(a,b){const sa=skeleton(a),sb=skeleton(b);if(!sa||!sb)return 0;if(sa===sb)return 1;if(root(a)&&root(a)===root(b))return 0.95;return 1-lev(sa,sb)/Math.max(sa.length,sb.length);}
+  function nearest(l,others){let best=null,bs=0;for(const o of others){if(o===l)continue;const s=similarity(l,o);if(s>bs){bs=s;best=o;}}return best?{label:best,sim:bs}:null;}
+  function garlicScore(l,others){let sc=100;for(const o of others){if(o===l)continue;const s=similarity(l,o);if(s>=0.995)sc-=40;else if(s>=0.9)sc-=18;else if(s>=0.75)sc-=8;else if(s>=0.6)sc-=3;}return Math.max(0,Math.min(100,Math.round(sc)));}
+  function similarityWarning(l,others){const n=nearest(l,others);if(!n)return null;const pct=Math.round(n.sim*100);if(n.sim>=0.995)return{level:'block',pct,other:n.label,text:`identical to ${n.label}.hood`};if(n.sim>=0.8)return{level:'warn',pct,other:n.label,text:`${pct}% similar to ${n.label}.hood — looks like a vampire of it`};if(n.sim>=0.6)return{level:'note',pct,other:n.label,text:`${pct}% similar to ${n.label}.hood`};return null;}
+  g.GARLIC={similarity,nearest,garlicScore,similarityWarning};
+})(window);
+
+const $=id=>document.getElementById(id);
+const norm=s=>(s||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const short=a=>a.slice(0,6)+'…'+a.slice(-4);
+function toast(m,k){const t=$('toast');t.textContent=m;t.className='toast show '+(k||'');clearTimeout(toast._t);toast._t=setTimeout(()=>t.className='toast',3600);}
+function randAddr(){let s='0x';const h='0123456789abcdef';for(let i=0;i<40;i++)s+=h[Math.floor(Math.random()*16)];return s;}
+function garlicBadge(score){const cls=score>=90?'g-hi':score>=60?'g-mid':'g-lo';return `<span class="gscore ${cls}">🧄 ${score}</span>`;}
+
+let account=null, signedIn=false;
+// seed registry: label -> {addr, when}
+const registry=new Map([
+  ['pepe',{addr:'0x7a3f…c0de',when:'launched on Pons'}],
+  ['doge',{addr:'0x11d0…9e0a',when:'launched on Hood.fun'}],
+  ['garlic',{addr:'0x600d…600d',when:'launched on garlic.hood'}],
+  ['moon',{addr:'0x4f2a…88bc',when:'launched on Pons'}],
+]);
+const labels=()=>[...registry.keys()];
+
+$('connectBtn').onclick=()=>{ if(!account){ account=randAddr(); signedIn=true; $('connectBtn').textContent=short(account); $('accountBox').innerHTML='<span class="up">● signed in</span> <span class="num">'+short(account)+'</span>'; toast('Wallet connected (simulated).','ok'); } };
+
+// ---- claim + attach ----
+$('searchBtn').onclick=check;
+$('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')check();});
+function check(){
+  const label=norm($('searchInput').value); const out=$('searchResult'); $('attachForm').classList.remove('show');
+  if(label.length<3){out.innerHTML='<span class="muted">Enter at least 3 characters.</span>';return;}
+  const others=labels();
+  if(registry.has(label)){
+    const r=registry.get(label);
+    out.innerHTML=`<div class="resline"><span class="down">${label}.hood</span> is taken ${garlicBadge(window.GARLIC.garlicScore(label,others))}</div>`+
+      `<div class="muted">Already the canonical identity of <span class="num">${esc(r.addr)}</span> · ${esc(r.when)}.</div>`;
+    return;
+  }
+  const warn=window.GARLIC.similarityWarning(label,others);
+  const score=window.GARLIC.garlicScore(label,others);
+  out.innerHTML=`<div class="resline"><span class="up">${label}.hood</span> is available ${garlicBadge(score)}</div>`+
+    (warn?`<div class="simwarn ${warn.level}">🧛 ${warn.text}</div>`:'')+
+    `<div class="muted">Claim it and point it at any contract address — even a token launched elsewhere.</div>`;
+  $('attachForm').classList.add('show'); $('attachForm').dataset.label=label;
+}
+$('attachBtn').onclick=()=>{
+  if(!account){toast('Connect a wallet first.','warn');return;}
+  const label=$('attachForm').dataset.label; let addr=$('addrInput').value.trim();
+  if(!/^0x[0-9a-fA-F]{6,}$/.test(addr)){toast('Paste a valid contract address (0x…).','warn');return;}
+  if(addr.length>14)addr=addr.slice(0,6)+'…'+addr.slice(-4);
+  registry.set(label,{addr,when:'attached just now'});
+  toast(`🧄 ${label}.hood attached to ${addr}`,'ok');
+  $('attachForm').classList.remove('show'); $('searchInput').value=''; $('searchResult').innerHTML=`<span class="ok">✓ ${label}.hood now resolves to ${addr}. It's the one true ${label} — no copycat can take the name.</span>`;
+  renderDir();
+};
+
+// ---- resolve both ways ----
+$('lookupBtn').onclick=resolve;
+$('lookupInput').addEventListener('keydown',e=>{if(e.key==='Enter')resolve();});
+function resolve(){
+  const q=$('lookupInput').value.trim(); const out=$('lookupResult');
+  if(!q){out.innerHTML='';return;}
+  if(q.startsWith('0x')){
+    let found=null; for(const [l,r] of registry){ if(r.addr.toLowerCase().startsWith(q.slice(0,6).toLowerCase())) found=[l,r]; }
+    out.innerHTML=found?record(found[0],found[1]):'<span class="muted">No .hood name attached to that address (yet).</span>';
+  } else {
+    const label=norm(q.replace(/\.hood$/,''));
+    out.innerHTML=registry.has(label)?record(label,registry.get(label)):`<span class="muted">${esc(label)}.hood is unregistered — it's available to claim above.</span>`;
+  }
+}
+function record(label,r){
+  return `<div class="recordcard">`+
+    `<div class="row"><span class="k">Name</span><span class="v up">${esc(label)}.hood ${garlicBadge(window.GARLIC.garlicScore(label,labels()))}</span></div>`+
+    `<div class="row"><span class="k">Resolves to</span><span class="v">${esc(r.addr)}</span></div>`+
+    `<div class="row"><span class="k">Origin</span><span class="v">${esc(r.when)}</span></div>`+
+    `<div class="row"><span class="k">Status</span><span class="v"><span class="badge">🧄 verified original</span></span></div>`+
+  `</div>`;
+}
+
+// ---- directory ----
+function renderDir(){
+  $('directory').innerHTML=[...registry.entries()].map(([l,r])=>
+    `<div class="dirrow"><span class="tick">🧄</span><span><b>${esc(l)}.hood</b> ${garlicBadge(window.GARLIC.garlicScore(l,labels()))}<div class="sub">${esc(r.addr)} · ${esc(r.when)}</div></span><span class="badge">original</span></div>`).join('');
+}
+renderDir();
+</script>
