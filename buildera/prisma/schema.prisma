@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  wallet        String?        @unique
+  email         String?        @unique
+  handle        String?
+  credits       Int            @default(0)
+  earnedCredits Int            @default(0)
+  simSol        Float          @default(0)
+  createdAt     DateTime       @default(now())
+  agents        Agent[]
+  runs          Run[]
+  sessions      Session[]
+  balances      TokenBalance[]
+  trades        Trade[]
+  purchases     CreditPurchase[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AuthChallenge {
+  id        String   @id @default(cuid())
+  kind      String // "wallet" | "email"
+  subject   String // wallet pubkey or email
+  nonce     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Agent {
+  id           String       @id @default(cuid())
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id])
+  slug         String       @unique
+  name         String
+  tagline      String       @default("")
+  description  String
+  systemPrompt String
+  model        String
+  priceCredits Int
+  toolsEnabled String[]
+  imageUrl     String?
+  accent       String       @default("#d9ff5a")
+  tokenMint    String?      @unique
+  status       String       @default("published") // draft | published | suspended
+  runCount     Int          @default(0)
+  createdAt    DateTime     @default(now())
+  runs         Run[]
+  token        TokenLaunch?
+}
+
+model Run {
+  id             String     @id @default(cuid())
+  agentId        String
+  agent          Agent      @relation(fields: [agentId], references: [id])
+  userId         String
+  user           User       @relation(fields: [userId], references: [id])
+  prompt         String
+  status         String     @default("queued") // queued | running | completed | failed | rejected
+  logs           Json       @default("[]")
+  files          Json       @default("[]")
+  creditsCharged Int        @default(0)
+  artifactUrl    String?
+  summary        String?
+  error          String?
+  sandbox        String?
+  steps          Int        @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime   @default(now())
+  fee            FeeLedger?
+}
+
+model TokenLaunch {
+  id                  String   @id @default(cuid())
+  agentId             String   @unique
+  agent               Agent    @relation(fields: [agentId], references: [id])
+  mint                String   @unique
+  name                String
+  symbol              String
+  decimals            Int      @default(6)
+  supply              BigInt
+  virtualSolReserve   Float
+  virtualTokenReserve Float
+  creatorFeeBps       Int      @default(100)
+  onChain             Boolean  @default(false)
+  network             String   @default("devnet")
+  launchTx            String?
+  vault               String?
+  createdAt           DateTime @default(now())
+  trades              Trade[]
+  prices              PricePoint[]
+}
+
+model FeeLedger {
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  run           Run      @relation(fields: [runId], references: [id])
+  agentId       String
+  creatorShare  Int
+  tokenShare    Int
+  platformShare Int
+  tokenSolAdded Float    @default(0)
+  createdAt     DateTime @default(now())
+}
+
+model TokenBalance {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  mint   String
+  amount Float  @default(0)
+
+  @@unique([userId, mint])
+}
+
+model Trade {
+  id        String      @id @default(cuid())
+  launchId  String
+  launch    TokenLaunch @relation(fields: [launchId], references: [id])
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  side      String // buy | sell
+  solAmount Float
+  tokAmount Float
+  price     Float
+  createdAt DateTime    @default(now())
+}
+
+model PricePoint {
+  id        String      @id @default(cuid())
+  launchId  String
+  launch    TokenLaunch @relation(fields: [launchId], references: [id])
+  price     Float
+  source    String // launch | trade | fee
+  createdAt DateTime    @default(now())
+
+  @@index([launchId, createdAt])
+}
+
+model CreditPurchase {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  signature String   @unique
+  lamports  BigInt
+  credits   Int
+  createdAt DateTime @default(now())
+}
