@@ -1088,6 +1088,189 @@ def pnl_mode(a):
     print(f"\nSaved {base}.csv (all {len(ranked)} wallets ranked) and {base}.json")
 
 
+# ----------------------------------------------------------------- sides mode
+def load_kols(path):
+    out = {}
+    if path and os.path.exists(path):
+        with open(path, newline="") as f:
+            for r in csv.DictReader(f):
+                if r.get("wallet"):
+                    out[r["wallet"]] = r.get("name") or "KOL"
+    return out
+
+
+def recent_activity(w, n, max_pages=40, fetch_cap=800):
+    """The wallet's own recent activity: txs it signed or whose balances it changed (copy-trade bots
+    put popular wallets into thousands of their own txs, which are skipped). Returns SOL/token
+    counterparties, real co-signers, earliest buy time per mint, txs kept, time span, noise share."""
+    kept, fetched, before, pages = [], 0, None, 0
+    while len(kept) < n and pages < max_pages and fetched < fetch_cap:
+        opts = {"limit": 1000}
+        if before:
+            opts["before"] = before
+        page = rpc("getSignaturesForAddress", [w, opts])
+        pages += 1
+        ok = [s for s in page if not s.get("err")]
+        for i in range(0, len(ok), 100):
+            chunk = ok[i:i + 100]
+            for s, tx in zip(chunk, pmap(lambda s: get_tx(s["signature"]), chunk)):
+                fetched += 1
+                if not tx:
+                    continue
+                own = w in signers_of(tx) or abs(lamport_delta(tx, w)) > 0 or any(
+                    b.get("owner") == w for b in (tx.get("meta") or {}).get("postTokenBalances") or [])
+                if own:
+                    kept.append((s, tx))
+            if len(kept) >= n or fetched >= fetch_cap:
+                break
+        if len(page) < 1000:
+            break
+        before = page[-1]["signature"]
+    kept = kept[:n]
+    noise = 1 - len(kept) / fetched if fetched else 0.0
+    cp = defaultdict(lambda: {"sent": 0.0, "recv": 0.0, "tok_out": 0, "tok_in": 0, "n": 0, "sigs": []})
+    cosig = defaultdict(list)
+    buys = {}  # mint -> earliest buy time
+    for s, tx in kept:
+        sg = signers_of(tx)
+        if w in sg:
+            for k in sg:
+                if k != w and on_curve(k):
+                    cosig[k].append(s["signature"])
+        for asset, src, dst, amt in edges(tx):
+            if w not in (src, dst) or src == dst:
+                continue
+            o = dst if src == w else src
+            if not on_curve(o):
+                continue
+            c = cp[o]
+            if asset == "SOL":
+                if amt < MIN_FUND_SOL:
+                    continue
+                c["sent" if src == w else "recv"] += amt
+            else:
+                c["tok_out" if src == w else "tok_in"] += 1
+            c["n"] += 1
+            if len(c["sigs"]) < 3:
+                c["sigs"].append(s["signature"])
+        for b in (tx.get("meta") or {}).get("postTokenBalances") or []:
+            m = b.get("mint")
+            if b.get("owner") == w and m not in (WSOL, USDC):
+                d = token_deltas(tx, m).get(w, 0.0)
+                t = tx.get("blockTime") or 0
+                if d > 0 and (m not in buys or t < buys[m]):
+                    buys[m] = t
+    times = [tx.get("blockTime") for _, tx in kept if tx.get("blockTime")]
+    span = (min(times), max(times)) if times else (None, None)
+    return cp, cosig, buys, len(kept), span, noise
+
+
+def sides_mode(a):
+    kols = load_kols(a.kols)
+    labels = load_labels(a.labels)
+    targets = [a.wallet] if a.wallet else list(kols)[: a.max_kols]
+    report = []
+    for kw in targets:
+        name = kols.get(kw, "wallet")
+        log(f"\n### {name} {kw}")
+        log(f"Reading last {a.kol_txs} txs ...")
+        cp, cosig, kbuys, ntx, span, noise = recent_activity(kw, a.kol_txs)
+        log("Following its funding chain ...")
+        chain, cur = [], kw
+        for _ in range(3):
+            f = find_funder(cur)
+            if not f:
+                break
+            F = f["funder"]
+            busy = F in labels or is_hub(F, a.hub_threshold)
+            chain.append({"addr": F, "sol": f["sol"], "time": f["time"], "sig": f["sig"], "busy": busy})
+            if busy:
+                break
+            cur = F
+        # candidates: biggest flows + all co-signers + non-busy chain members
+        flow = lambda o: cp[o]["sent"] + cp[o]["recv"] + 0.5 * (cp[o]["tok_out"] + cp[o]["tok_in"])
+        cands = sorted(cp, key=lambda o: -flow(o))[: a.candidates]
+        cands += [o for o in cosig if o not in cands]
+        cands += [c["addr"] for c in chain if not c["busy"] and c["addr"] not in cands]
+        cands = [c for c in cands if c not in labels][: a.candidates + 5]
+        log(f"Checking {len(cands)} candidate wallets ...")
+        busy_of = dict(zip(cands, pmap(lambda x: is_hub(x, a.hub_threshold), cands)))
+        kf = chain[0]["addr"] if chain else None
+        results = []
+        for c in cands:
+            ev, score = [], 0
+            v = cp.get(c)
+            if c in cosig:
+                score += 5; ev.append(f"co-signed {len(cosig[c])} tx(s) with the KOL, e.g. {cosig[c][0]}")
+            if v and v["sent"] > 0:
+                score += 2; ev.append(f"KOL sent it {v['sent']:.3f} SOL (e.g. tx {v['sigs'][0]})")
+            if v and v["recv"] > 0:
+                score += 2; ev.append(f"it sent the KOL {v['recv']:.3f} SOL")
+            if v and (v["tok_out"] or v["tok_in"]):
+                score += min(4, 2 * (v["tok_out"] + v["tok_in"]))
+                ev.append(f"token transfers: KOL->it {v['tok_out']}, it->KOL {v['tok_in']}")
+            if any(ch["addr"] == c for ch in chain):
+                score += 3; ev.append("in the KOL's own funding chain")
+            if busy_of.get(c):
+                results.append({"wallet": c, "score": 0, "verdict": "busy wallet (exchange, bot or service)",
+                                "evidence": ev, "kol": kols.get(c)})
+                continue
+            f = find_funder(c)
+            if f and f["funder"] == kw:
+                score += 4; ev.append(f"first funded by the KOL: {f['sol']:.3f} SOL, tx {f['sig']}")
+            elif f and kf and f["funder"] == kf and not chain[0]["busy"]:
+                score += 4; ev.append(f"same first funder as the KOL: {kf}")
+            elif f and kf and f["funder"] == kf and chain[0]["busy"]:
+                dt = abs((f.get("time") or 0) - (chain[0].get("time") or 0))
+                if dt <= 3600:
+                    score += 1; ev.append(f"funded by the same busy wallet {kf} within {int(dt)}s of the KOL")
+            ccp, ccos, cbuys, cn, _, _ = recent_activity(c, a.cand_txs, max_pages=5, fetch_cap=150)
+            # exchange deposit address: forwards almost everything to one busy address
+            outs = sorted(((o, x["sent"]) for o, x in ccp.items() if x["sent"] > 0), key=lambda z: -z[1])
+            tot_out = sum(x for _, x in outs)
+            if outs and tot_out > 0 and outs[0][1] / tot_out > 0.9 and is_hub(outs[0][0], a.hub_threshold) \
+                    and not cbuys:
+                results.append({"wallet": c, "score": 0, "evidence": ev + [f"forwards {100 * outs[0][1] / tot_out:.0f}% "
+                                f"of its SOL to busy {outs[0][0]}"], "verdict": "exchange deposit address",
+                                "kol": kols.get(c)})
+                continue
+            common = set(kbuys) & set(cbuys)
+            if common:
+                score += min(3, len(common)); ev.append(f"bought {len(common)} of the same tokens")
+                early = [m for m in common if cbuys[m] and kbuys[m] and 0 < kbuys[m] - cbuys[m] <= 3600]
+                if early:
+                    score += 2; ev.append(f"bought {len(early)} of them up to 1h BEFORE the KOL: "
+                                          + ", ".join(early[:3]))
+            verdict = "likely side wallet" if score >= 7 else "possible side wallet" if score >= 4 else "weak link"
+            results.append({"wallet": c, "score": score, "verdict": verdict, "evidence": ev, "kol": kols.get(c),
+                            "common_tokens": len(common), "txs_seen": cn})
+        results.sort(key=lambda r: -r["score"])
+        report.append({"kol": kw, "name": name, "txs_read": ntx, "span": span, "noise": noise, "chain": chain, "candidates": results})
+
+        print(f"\n=== {name}  {kw} ===")
+        print(f"Read {ntx} of its own recent txs ({ts(span[0])} to {ts(span[1])})"
+              + (f"; {100 * noise:.0f}% of txs mentioning it were other wallets' (copy-trade bots), skipped"
+                 if noise > 0.2 else ""))
+        if chain:
+            print("Funding chain: " + " <- ".join(f"{c['addr']} ({c['sol']:.3f} SOL{', busy' if c['busy'] else ''})"
+                                                  for c in chain))
+        shown = [r for r in results if r["score"] >= 4]
+        print("Side-wallet candidates:" if shown else "No side-wallet candidates scored 4+.")
+        for r in shown:
+            tag = f"  [also a KOL: {r['kol']}]" if r.get("kol") else ""
+            print(f"  {r['wallet']}  score {r['score']}  {r['verdict']}{tag}")
+            for e in r["evidence"]:
+                print(f"     - {e}")
+        other = [r for r in results if r["score"] < 4]
+        if other:
+            print(f"  ({len(other)} weaker or ruled-out counterparties in the JSON: busy wallets, deposit addresses, "
+                  f"one-off transfers)")
+    out = f"sides_{(a.wallet or 'kols')[:6]}.json"
+    with open(out, "w") as fh:
+        json.dump({"generated": int(time.time()), "results": report}, fh, indent=1)
+    print(f"\nSaved {out}")
+
+
 # ---------------------------------------------------------------- wallet mode
 def wallet_mode(a):
     w, labels = a.address, load_labels(a.labels)
@@ -1229,15 +1412,27 @@ def main():
     q.add_argument("--pages", type=int, default=60)
     q.add_argument("--hub-threshold", type=int, default=1000)
     q.add_argument("--labels")
+    k = sub.add_parser("sides", help="find likely side wallets of a KOL (or every KOL in kols.csv)")
+    k.add_argument("wallet", nargs="?", help="one wallet; omit to scan kols.csv")
+    k.add_argument("--kols", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "kols.csv"))
+    k.add_argument("--max-kols", type=int, default=5, help="how many KOLs from kols.csv (in file order)")
+    k.add_argument("--kol-txs", type=int, default=200, help="recent txs of the KOL to read")
+    k.add_argument("--candidates", type=int, default=12, help="top counterparties to check")
+    k.add_argument("--cand-txs", type=int, default=60, help="recent txs of each candidate to read")
+    k.add_argument("--hub-threshold", type=int, default=1000)
+    k.add_argument("--labels")
     a = p.parse_args()
     if a.mode in ("token", "pnl"):
         need_addr(a.mint, "token mint")
         if a.source:
             need_addr(a.source, "source")
+    elif a.mode == "sides":
+        if a.wallet:
+            need_addr(a.wallet, "wallet")
     else:
         need_addr(a.address, "wallet")
     try:
-        {"token": token_mode, "pnl": pnl_mode, "wallet": wallet_mode}[a.mode](a)
+        {"token": token_mode, "pnl": pnl_mode, "wallet": wallet_mode, "sides": sides_mode}[a.mode](a)
     except (RuntimeError, ValueError) as e:
         sys.exit(f"Error: {e}")
 
