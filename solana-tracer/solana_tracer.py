@@ -748,9 +748,23 @@ def lamport_delta(tx, wallet):
 
 def sol_usd_near(sig, samples=40):
     """SOL/USD at the time of `sig`, from swaps in a big SOL/USDC pool just before it (median)."""
-    page = rpc("getSignaturesForAddress", [SOL_USDC_POOL, {"limit": samples, "before": sig}])
+    prices, before = [], sig
+    for _ in range(6):  # most pool txs can be failed arbitrage; keep sampling until 5+ real swaps
+        page = rpc("getSignaturesForAddress", [SOL_USDC_POOL, {"limit": samples, "before": before}])
+        if not page:
+            break
+        before = page[-1]["signature"]
+        ok = [s for s in page if not s.get("err")]
+        prices += _pool_prices(pmap(lambda s: get_tx(s["signature"]), ok))
+        if len(prices) >= 5:
+            break
+    prices.sort()
+    return prices[len(prices) // 2] if len(prices) >= 3 else None
+
+
+def _pool_prices(txs):
     prices = []
-    for s, tx in zip(page, pmap(lambda s: get_tx(s["signature"]), [s for s in page if not s.get("err")])):
+    for tx in txs:
         if not tx:
             continue
         d = defaultdict(float)
@@ -761,8 +775,7 @@ def sol_usd_near(sig, samples=40):
         a, u = d.get(WSOL, 0.0), d.get(USDC, 0.0)
         if abs(a) > 0.01 and a * u < 0:
             prices.append(abs(u / a))
-    prices.sort()
-    return prices[len(prices) // 2] if len(prices) >= 3 else None
+    return prices
 
 
 def owner_ata(owner, mint, token_program):

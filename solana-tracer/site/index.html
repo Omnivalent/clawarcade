@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KOL Wallet Networks</title>
+<meta name="description" content="Wallets that moved $500 or more to or from Solana KOL wallets, swaps and liquidity pools excluded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: case files. Summary strip, search, then one expandable file per KOL: map on top, ledger of counterparties below, each private wallet expandable to its own counterparties. */
+:root{
+  --bg:#f2f4f7; --panel:#ffffff; --ink:#121925; --muted:#5a6577; --line:#d7dde7;
+  --accent:#0d7a8a; --kol:#7a52c7; --private:#c25a00; --busy:#8a94a6; --gain:#13814a; --loss:#b4372f;
+  --display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1119; --panel:#131a25; --ink:#e5eaf1; --muted:#93a0b4; --line:#243041;
+  --accent:#3cc3d4; --kol:#b393ff; --private:#ff9d45; --busy:#6b7790; --gain:#3ccf86; --loss:#ff7a6e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1119; --panel:#131a25; --ink:#e5eaf1; --muted:#93a0b4; --line:#243041;
+  --accent:#3cc3d4; --kol:#b393ff; --private:#ff9d45; --busy:#6b7790; --gain:#3ccf86; --loss:#ff7a6e; color-scheme:dark}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:12.5px;word-break:break-all}
+.eyebrow{font:600 12px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(28px,4.4vw,42px)/1.08 var(--display);margin:4px 0 6px;text-wrap:balance}
+.sub{color:var(--muted);margin:0;max-width:72ch}
+.small{font-size:12.5px;color:var(--muted)}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.stat{background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.stat b{font:600 22px var(--display);font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:12.5px}
+.rules{display:flex;flex-direction:column;gap:4px;border-left:3px solid var(--line);padding:2px 0 2px 12px;font-size:13px;color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.controls input,.controls select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.controls input{flex:1 1 280px;min-width:0}
+.controls label{display:flex;gap:6px;align-items:center;font-size:13.5px;color:var(--muted);white-space:nowrap}
+.list{display:flex;flex-direction:column;gap:10px}
+details.kol{background:var(--panel);border:1px solid var(--line);border-radius:6px}
+details.kol>summary{list-style:none;cursor:pointer;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:start}
+details.kol>summary::-webkit-details-marker{display:none}
+details.kol[open]>summary{border-bottom:1px solid var(--line)}
+.kname{font:600 18px var(--display);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.kname .chev{display:inline-block;transition:transform .15s;color:var(--muted)}
+details[open]>summary .chev{transform:rotate(90deg)}
+.counts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-block;font:500 11.5px var(--body);padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.private{border-color:var(--private);color:var(--private)}
+.pill.kol{border-color:var(--kol);color:var(--kol)}
+.pill.busy{border-color:var(--busy);color:var(--busy)}
+.pill.none{border-style:dashed}
+.body{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.mapbox{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+svg{display:block;width:100%;height:auto;max-height:520px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;min-width:980px;font-variant-numeric:tabular-nums}
+td.txs{max-width:260px}
+th,td{padding:9px 11px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font:600 11px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td.num,th.num{text-align:right;white-space:nowrap}
+tr.r2 td{background:color-mix(in srgb,var(--private) 5%,transparent)}
+tr.r2 td:first-child{padding-left:28px}
+button.exp{font:500 12px var(--body);color:var(--accent);background:none;border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer;margin-top:4px}
+.empty{padding:14px 16px}
+.err{background:var(--panel);border:1px solid var(--loss);border-radius:6px;padding:14px 16px}
+@media (max-width:640px){details.kol>summary{grid-template-columns:1fr}.counts{justify-content:flex-start}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Solana tracer · KOL wallet networks</div>
+  <h1>KOL Wallet Networks</h1>
+  <p class="sub">Wallets that moved $500 or more in SOL, USDC or USDT directly to or from a KOL's public wallet. Open a KOL to see the map and the ledger; open a private wallet to see who it moved money with.</p>
+</header>
+
+<div class="strip" id="strip"></div>
+
+<div class="rules">
+  <div>Only plain transfers count. Any transaction that touches a DEX, AMM, bonding curve, liquidity pool or other program is excluded, and pool or vault accounts never appear.</div>
+  <div>"Private wallet" means an ordinary wallet with fewer than 1,000 transactions. It is a <b>suspected</b> side wallet, not a confirmed one: friends, OTC deals, payments and team wallets look the same on chain.</div>
+  <div>"Exchange / service" marks busy addresses (1,000+ transactions) such as exchange hot wallets and bots. They are shown but not expanded.</div>
+  <div id="cov"></div>
+</div>
+
+<div class="controls">
+  <input id="q" type="search" placeholder="Search a KOL name or any wallet address" aria-label="Search">
+  <select id="sort" aria-label="Sort">
+    <option value="private">Most private wallets</option>
+    <option value="usd">Most money moved</option>
+    <option value="name">Name A–Z</option>
+  </select>
+  <label><input id="onlylinks" type="checkbox" checked> Only KOLs with links found</label>
+</div>
+
+<div class="list" id="list"><div class="empty small">Loading data…</div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const B58 = /^[1-9A-HJ-NP-Za-km-z]{32,90}$/;
+const acct = a => B58.test(a) ? `<a class="mono" href="https://solscan.io/account/${a}" target="_blank" rel="noopener">${a}</a>` : esc(a);
+const txl = s => B58.test(s) ? `<a class="mono" href="https://solscan.io/tx/${s}" target="_blank" rel="noopener">${s}</a>` : "";
+const usd = n => "$" + Math.round(n).toLocaleString("en-US");
+const day = t => t ? new Date(t*1000).toISOString().slice(0,10) : "";
+const safeUrl = u => /^https:\/\/(x\.com|twitter\.com|t\.me)\//.test(u||"") ? u : "";
+const KIND = {wallet:["private","Private wallet"], busy:["busy","Exchange / service"], kol:["kol","KOL"]};
+
+let D = null;
+fetch("data/kol_network.json", {cache:"no-store"}).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => { D = d; render(); })
+  .catch(e => { $("list").innerHTML = `<div class="err">Could not load <span class="mono">data/kol_network.json</span> (${esc(e.message)}). Run <span class="mono">python3 kol_network.py</span> to create it.</div>`; });
+
+function stats(){
+  const priv = new Set(), all = D.kols;
+  let tot = 0;
+  all.forEach(k => { tot += k.total_usd; k.ring1.forEach(e => { if(e.kind==="wallet") priv.add(e.wallet); }); });
+  const withLinks = all.filter(k => k.ring1.length).length;
+  const reads = all.reduce((a,k)=>a+k.coverage.txs_read,0);
+  $("strip").innerHTML = [
+    [all.length, "KOL wallets tracked"],
+    [withLinks, "with $500+ transfers found"],
+    [priv.size, "private wallets linked"],
+    [usd(tot), "moved in qualifying transfers"],
+    [new Date(D.generated*1000).toISOString().slice(0,16).replace("T"," ")+" UTC", "last updated"],
+  ].map(([b,s])=>`<div class="stat"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("");
+  const full = all.filter(k=>k.coverage.complete).length;
+  $("cov").textContent = `Coverage: ${reads.toLocaleString("en-US")} KOL transactions read so far; full history reached for ${full} of ${all.length} KOLs. Each scheduled run reads newer activity and goes further back. SOL valued at $${D.sol_usd.toFixed(2)} (price at the last run), so older SOL transfers are approximate in dollars. Minimum: $${D.min_usd}.`;
+}
+
+function counts(k){
+  const c = {wallet:0,busy:0,kol:0}; k.ring1.forEach(e=>c[e.kind]++);
+  const p = [];
+  if (c.wallet) p.push(`<span class="pill private">${c.wallet} private wallet${c.wallet>1?"s":""}</span>`);
+  if (c.kol) p.push(`<span class="pill kol">${c.kol} other KOL${c.kol>1?"s":""}</span>`);
+  if (c.busy) p.push(`<span class="pill busy">${c.busy} exchange/service</span>`);
+  if (!p.length) p.push(`<span class="pill none">no $500+ transfers found yet</span>`);
+  return p.join("");
+}
+
+function render(){
+  stats();
+  const q = $("q").value.trim().toLowerCase(), only = $("onlylinks").checked, sort = $("sort").value;
+  let ks = D.kols.filter(k => !only || k.ring1.length);
+  if (q) ks = ks.filter(k => k.name.toLowerCase().includes(q) || k.wallet.toLowerCase().includes(q) ||
+     k.ring1.some(e => e.wallet.toLowerCase().includes(q) || (e.ring2||[]).some(x=>x.wallet.toLowerCase().includes(q))));
+  const nPriv = k => k.ring1.filter(e=>e.kind==="wallet").length;
+  ks.sort(sort==="name" ? (a,b)=>a.name.localeCompare(b.name) : sort==="usd" ? (a,b)=>b.total_usd-a.total_usd : (a,b)=>nPriv(b)-nPriv(a)||b.total_usd-a.total_usd);
+  if (!ks.length){ $("list").innerHTML = `<div class="empty small">${D.kols.length ? "No KOL matches. Clear the search or untick “Only KOLs with links found”." : "No KOLs in the data yet."}</div>`; return; }
+  $("list").innerHTML = ks.map((k,i) => {
+    const tw = safeUrl(k.twitter);
+    const cov = k.coverage;
+    return `<details class="kol" data-i="${D.kols.indexOf(k)}">
+      <summary>
+        <div><div class="kname"><span class="chev" aria-hidden="true">▸</span>${esc(k.name)}${tw?` <a class="small" href="${esc(tw)}" target="_blank" rel="noopener">${esc(tw.replace("https://",""))}</a>`:""}</div>
+          <div class="mono">${esc(k.wallet)}</div>
+          <div class="small">${cov.txs_read.toLocaleString("en-US")} txs read${cov.oldest_time?`, back to ${day(cov.oldest_time)}`:""}${cov.complete?" (full history)":""} · source: ${esc(k.source)}</div></div>
+        <div class="counts">${counts(k)}${k.total_usd?`<span class="pill">${usd(k.total_usd)} moved</span>`:""}</div>
+      </summary>
+      <div class="body"></div>
+    </details>`;
+  }).join("");
+  document.querySelectorAll("details.kol").forEach(d => d.addEventListener("toggle", () => { if (d.open && !d.dataset.done){ fill(d, D.kols[+d.dataset.i]); d.dataset.done = 1; } }));
+}
+
+function row(e, ring, parent){
+  const [cls,label] = KIND[e.kind] || ["",""];
+  const name = e.kind==="kol" && e.kol_name ? ` ${esc(e.kol_name)}` : "";
+  const exp = ring===1 && e.ring2 && e.ring2.length ? `<div><button class="exp" data-w="${esc(e.wallet)}" aria-expanded="false">Show its ${e.ring2.length} counterpart${e.ring2.length>1?"ies":"y"}</button></div>`
+            : ring===1 && e.kind==="wallet" ? `<div class="small">${e.coverage ? "no other $500+ transfers found yet" : "not expanded yet"}</div>` : "";
+  return `<tr class="${ring===2?"r2":""}" ${ring===2?`data-parent="${esc(parent)}" hidden`:""}>
+    <td>${acct(e.wallet)}<div><span class="pill ${cls}">${label}${name}</span></div>${exp}</td>
+    <td class="num">${e.sent_usd?usd(e.sent_usd):"–"}</td><td class="num">${e.recv_usd?usd(e.recv_usd):"–"}</td>
+    <td class="num">${e.count}</td><td>${esc(e.assets.join(", "))}</td>
+    <td class="num">${day(e.first)}${e.last&&e.last!==e.first?`<div class="small">to ${day(e.last)}</div>`:""}</td>
+    <td class="txs">${e.sigs.slice(0,3).map(txl).join("<br>")}</td></tr>`;
+}
+
+function fill(d, k){
+  const body = d.querySelector(".body");
+  if (!k.ring1.length){ body.innerHTML = `<div class="small">No plain transfers of $${D.min_usd}+ found in the ${k.coverage.txs_read.toLocaleString("en-US")} transactions read so far.</div>`; return; }
+  const rows = k.ring1.map(e => row(e,1) + (e.ring2||[]).map(x=>row(x,2,e.wallet)).join("")).join("");
+  body.innerHTML = `<div class="mapbox">${graph(k)}<div class="legend"><span><i style="background:var(--accent)"></i>KOL</span><span><i style="background:var(--private)"></i>private wallet</span><span><i style="background:var(--kol)"></i>other KOL</span><span><i style="background:var(--busy)"></i>exchange / service</span><span>outer ring: counterparties of private wallets</span></div></div>
+    <div class="small">“Sent” is money the KOL (or, in indented rows, the private wallet) sent to that address; “received” is money that came back.</div>
+    <div class="tablebox"><table><thead><tr><th>Wallet</th><th class="num">Sent to it</th><th class="num">Received from it</th><th class="num">Transfers</th><th>Asset</th><th class="num">First seen</th><th>Example txs</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  body.querySelectorAll("button.exp").forEach(b => b.addEventListener("click", () => {
+    const open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", open);
+    b.textContent = (open ? "Hide" : "Show") + b.textContent.slice(4);
+    body.querySelectorAll(`tr[data-parent="${CSS.escape(b.dataset.w)}"]`).forEach(r => r.hidden = !open);
+  }));
+}
+
+function graph(k){
+  const W = 1000, H = 520, cx = W/2, cy = H/2;
+  const r1 = k.ring1.slice(0, 40), n = r1.length;
+  const col = {wallet:"var(--private)", busy:"var(--busy)", kol:"var(--kol)"};
+  const maxU = Math.max(...r1.map(e=>e.sent_usd+e.recv_usd), 1);
+  let lines = "", dots = "";
+  r1.forEach((e,i) => {
+    const a = -Math.PI/2 + 2*Math.PI*i/Math.max(n,1), R = 150;
+    const x = cx + Math.cos(a)*R*1.6, y = cy + Math.sin(a)*R;
+    const kids = (e.ring2||[]).slice(0,8);
+    kids.forEach((c,j) => {
+      const b = a + (j-(kids.length-1)/2)*0.13, x2 = cx + Math.cos(b)*235*1.6, y2 = cy + Math.sin(b)*235;
+      lines += `<line x1="${x}" y1="${y}" x2="${x2}" y2="${y2}" stroke="${col[c.kind]}" stroke-opacity=".45" stroke-width="1"/>`;
+      dots += `<circle cx="${x2}" cy="${y2}" r="4" fill="${col[c.kind]}"><title>${esc(c.wallet)} · ${usd(c.sent_usd+c.recv_usd)}</title></circle>`;
+    });
+    const w = 1 + 5*Math.sqrt((e.sent_usd+e.recv_usd)/maxU);
+    lines += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${col[e.kind]}" stroke-opacity=".8" stroke-width="${w.toFixed(1)}"/>`;
+    dots += `<circle cx="${x}" cy="${y}" r="${e.kind==="wallet"?8:6}" fill="${col[e.kind]}" stroke="var(--panel)" stroke-width="2"><title>${esc(e.wallet)} · sent ${usd(e.sent_usd)}, received ${usd(e.recv_usd)}</title></circle>`;
+  });
+  dots += `<circle cx="${cx}" cy="${cy}" r="14" fill="var(--accent)" stroke="var(--panel)" stroke-width="3"><title>${esc(k.wallet)}</title></circle>
+    <text x="${cx}" y="${cy+34}" text-anchor="middle" fill="var(--ink)" font-family="Chakra Petch, sans-serif" font-size="15" font-weight="600">${esc(k.name)}</text>`;
+  const more = k.ring1.length > 40 ? `<text x="16" y="${H-14}" fill="var(--muted)" font-size="12">Showing 40 of ${k.ring1.length}; all are in the table.</text>` : "";
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Transfer network of ${esc(k.name)}">${lines}${dots}${more}</svg>`;
+}
+
+["q","sort","onlylinks"].forEach(id => $(id).addEventListener("input", () => D && render()));
+</script>
+</body>
+</html>
