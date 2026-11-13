@@ -95,6 +95,19 @@ def scan_wallet(w, st, sol_usd, min_usd, fetch_cap):
     Each run: catch up on activity newer than `newest`, then continue backwards from `oldest`."""
     trs = st.setdefault("transfers", {})
     left = [fetch_cap]
+    retry = set(st.get("retry", []))
+    if retry:  # 0. transactions whose download failed on an earlier run
+        todo = sorted(retry)[:fetch_cap]
+        for sig, tx in zip(todo, T.pmap(T.get_tx, todo)):
+            left[0] -= 1
+            if tx is None:
+                continue
+            retry.discard(sig)
+            found = transfers_of(tx, w, sol_usd, min_usd)
+            for t in found:
+                t["time"] = tx.get("blockTime")
+            if found:
+                trs[sig] = found
 
     def walk(opts, backwards):
         """Page through signatures; returns True when the end of the range was reached."""
@@ -116,6 +129,8 @@ def scan_wallet(w, st, sol_usd, min_usd, fetch_cap):
                     return False
                 for x, tx in zip(chunk, T.pmap(lambda x: T.get_tx(x["signature"]), chunk)):
                     left[0] -= 1
+                    if tx is None:  # download failed: retry on a later run instead of losing it
+                        retry.add(x["signature"])
                     found = transfers_of(tx, w, sol_usd, min_usd) if tx else []
                     for t in found:
                         t["time"] = tx.get("blockTime")
@@ -145,6 +160,10 @@ def scan_wallet(w, st, sol_usd, min_usd, fetch_cap):
     else:  # first visit: read from the top down
         if walk({}, backwards=True):
             st["complete"] = True
+    if retry:
+        st["retry"] = sorted(retry)[:2000]
+    else:
+        st.pop("retry", None)
     read_now = fetch_cap - left[0]
     st["txs_read"] = st.get("txs_read", 0) + read_now
     return read_now

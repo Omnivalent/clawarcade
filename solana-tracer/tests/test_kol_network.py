@@ -81,4 +81,19 @@ out = K.build_output({KOL: {"name": "Test", "twitter": "", "source": "t"}}, {KOL
 r1 = out["kols"][0]["ring1"]
 check(len(r1) == 1 and r1[0]["wallet"] == SIDE and r1[0]["sent_usd"] == 3000 and r1[0]["recv_usd"] == 800,
       "ring 1 sums $3000 sent and $800 received with the side wallet")
+# --- failed downloads are retried on the next run
+st2 = {}
+real = T.rpc
+flaky = {"s7"}
+def flaky_rpc(m, p):
+    if m == "getTransaction" and p[0] in flaky:
+        raise RuntimeError("RPC failed")
+    return real(m, p)
+T.rpc = flaky_rpc
+K.scan_wallet(KOL, st2, PRICE, 500, 700)
+check(st2.get("retry") == ["s7"] and "s7" not in st2["transfers"], "a failed download is remembered for retry")
+flaky.clear()
+K.scan_wallet(KOL, st2, PRICE, 500, 700)
+check("s7" in st2["transfers"] and not st2.get("retry"), "the next run retries it and finds the transfer")
+
 print("\nOK: kol_network checks passed")
