@@ -731,6 +731,311 @@ def token_mode(a):
     print(f"\nSaved {base}.csv and {base}.json")
 
 
+# ------------------------------------------------------------------- pnl mode
+WSOL = "So11111111111111111111111111111111111111112"
+USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+SOL_USDC_POOL = "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE"  # Orca Whirlpool SOL/USDC (deep, always busy)
+
+
+def lamport_delta(tx, wallet):
+    keys = keys_of(tx)
+    if wallet not in keys:
+        return 0.0
+    i, m = keys.index(wallet), tx.get("meta") or {}
+    return (m["postBalances"][i] - m["preBalances"][i]) / 1e9
+
+
+def sol_usd_near(sig, samples=40):
+    """SOL/USD at the time of `sig`, from swaps in a big SOL/USDC pool just before it (median)."""
+    page = rpc("getSignaturesForAddress", [SOL_USDC_POOL, {"limit": samples, "before": sig}])
+    prices = []
+    for s, tx in zip(page, pmap(lambda s: get_tx(s["signature"]), [s for s in page if not s.get("err")])):
+        if not tx:
+            continue
+        d = defaultdict(float)
+        for side, sg in (("preTokenBalances", -1), ("postTokenBalances", 1)):
+            for b in (tx.get("meta") or {}).get(side) or []:
+                if b.get("owner") == SOL_USDC_POOL:
+                    d[b["mint"]] += sg * float(b["uiTokenAmount"].get("uiAmountString") or 0)
+        a, u = d.get(WSOL, 0.0), d.get(USDC, 0.0)
+        if abs(a) > 0.01 and a * u < 0:
+            prices.append(abs(u / a))
+    prices.sort()
+    return prices[len(prices) // 2] if len(prices) >= 3 else None
+
+
+def owner_ata(owner, mint, token_program):
+    return find_pda([b58decode(owner), b58decode(token_program), b58decode(mint)], ATA_PROGRAM)
+
+
+def wallet_trades(wallet, mint, token_program, max_pages=3):
+    """Every tx touching the wallet's associated token account for `mint` (works for closed accounts too).
+    Returns list of dicts: kind BUY/SELL/XFER_IN/XFER_OUT, tokens, sol, sig, time, counterparty."""
+    ata = owner_ata(wallet, mint, token_program)
+    sigs, reached = all_sigs(ata, max_pages)
+    sigs = [s for s in sigs if not s.get("err")][::-1]
+    out = []
+    for s, tx in zip(sigs, pmap(lambda s: get_tx(s["signature"]), sigs)):
+        if not tx:
+            continue
+        td = token_deltas(tx, mint)
+        tok = td.get(wallet, 0.0)
+        if abs(tok) < 1e-9:
+            continue
+        sol = lamport_delta(tx, wallet) + token_deltas(tx, WSOL).get(wallet, 0.0)
+        cp = [o for o, v in td.items() if o != wallet and v * tok < 0]
+        if tok > 0:
+            kind = "BUY" if sol < -0.003 else "XFER_IN"
+        else:
+            kind = "SELL" if sol > 0.003 else "XFER_OUT"
+        out.append({"kind": kind, "tokens": abs(tok), "sol": sol, "sig": s["signature"],
+                    "time": tx.get("blockTime"), "counterparty": cp[0] if (kind.startswith("XFER") and cp) else None})
+    return out, reached, ata
+
+
+def realized(trades):
+    """Average-cost realized PnL in SOL. Tokens received for free (transfers in) count at zero cost
+    and are flagged, because that inflates profit."""
+    held = cost = spent = got = 0.0
+    free_in = 0.0
+    for t in trades:
+        if t["kind"] == "BUY":
+            held += t["tokens"]; cost += -t["sol"]; spent += -t["sol"]
+        elif t["kind"] == "XFER_IN":
+            held += t["tokens"]; free_in += t["tokens"]
+        elif t["kind"] in ("SELL", "XFER_OUT"):
+            q = min(t["tokens"], held) if held > 0 else 0.0
+            basis = cost * (q / held) if held > 0 else 0.0
+            held -= q; cost -= basis
+            if t["kind"] == "SELL":
+                got += t["sol"]
+                t["pnl"] = t["sol"] - basis
+    pnl = sum(t.get("pnl", 0.0) for t in trades)
+    return {"realized_sol": pnl, "spent_sol": spent, "received_sol": got, "held_tokens": held,
+            "free_tokens_in": free_in}
+
+
+def pnl_mode(a):
+    mint, labels = a.mint, load_labels(a.labels)
+    notes = []
+    supply_now = float(rpc("getTokenSupply", [mint])["value"]["uiAmountString"])
+    macc = rpc("getAccountInfo", [mint, {"encoding": "jsonParsed"}])["value"]
+    token_program = macc["owner"]
+    pump = None if a.source else pump_curve(mint)
+    source = a.source or (pump["curve"] if pump else mint)
+    if not pump and not a.source:
+        notes.append("Not a pump.fun coin: market cap is estimated from each buyer's own SOL spend (includes fees).")
+    mc_supply = 1_000_000_000.0 if pump else supply_now  # pump.fun coins launch with 1B
+
+    log(f"Fetching full history of {source} ...")
+    sigs, reached = all_sigs(source, a.pages)
+    if not reached:
+        notes.append(f"History of {source} not fully reached in {a.pages} pages: early buyers may be missing.")
+    ok = [s for s in sigs if not s.get("err")][::-1]
+    log(f"Reading {len(ok)} trades ...")
+    txs = pmap(lambda s: get_tx(s["signature"]), ok)
+
+    sol_usd = a.sol_usd
+    if not sol_usd and ok:
+        log("Reading SOL/USD at launch from the SOL/USDC pool ...")
+        sol_usd = sol_usd_near(ok[0]["signature"])
+    if not sol_usd:
+        sys.exit("Could not determine SOL/USD; pass --sol-usd PRICE")
+    max_mc_sol = a.max_mc_usd / sol_usd
+
+    first_buy, low_buys, cosign = {}, defaultdict(float), []
+    for s, tx in zip(ok, txs):
+        if not tx:
+            continue
+        td = token_deltas(tx, mint)
+        signers = set(signers_of(tx))
+        if len(signers - {mint}) >= 2:
+            cosign.append((sorted(signers - {mint}), s["signature"]))
+        price = None
+        if pump:
+            ct = td.get(pump["curve"], 0.0)
+            cs = lamport_delta(tx, pump["curve"])
+            if abs(ct) > 0 and cs * ct < 0:
+                price = abs(cs / ct)
+        for w, v in td.items():
+            if v <= 0 or w not in signers or not on_curve(w):
+                continue
+            p = price
+            if p is None:
+                spent = -(lamport_delta(tx, w) + token_deltas(tx, WSOL).get(w, 0.0))
+                p = spent / v if spent > 0 else None
+            if p is None:
+                continue
+            mc = p * mc_supply
+            if w not in first_buy:
+                first_buy[w] = {"mc_sol": mc, "time": tx.get("blockTime"), "sig": s["signature"], "slot": tx["slot"]}
+            if mc <= max_mc_sol:
+                low_buys[w] += v
+    cands = sorted(low_buys, key=lambda w: -low_buys[w])
+    log(f"{len(cands)} wallets bought below ${a.max_mc_usd:,.0f} market cap ({max_mc_sol:.1f} SOL at "
+        f"${sol_usd:.2f}/SOL)")
+    if len(cands) > a.max_wallets:
+        notes.append(f"{len(cands)} wallets bought below the cap; PnL computed for the {a.max_wallets} biggest "
+                     f"low-cap buyers (--max-wallets).")
+        cands = cands[: a.max_wallets]
+
+    log(f"Reading every trade of {len(cands)} wallets in this token ...")
+    res = {}
+    for w, r in zip(cands, pmap(lambda w: wallet_trades(w, mint, token_program), cands)):
+        if not r:
+            continue
+        trades, done, ata = r
+        st = realized(trades)
+        st.update({"trades": trades, "complete": done, "ata": ata, "low_cap_tokens": low_buys[w],
+                   "first_buy": first_buy.get(w)})
+        res[w] = st
+    ranked = sorted(res, key=lambda w: -res[w]["realized_sol"])
+    top = [w for w in ranked if res[w]["realized_sol"] > 0][: a.top]
+
+    # ---- links between top wallets and their neighbours
+    links = []  # (a, b, strength, text)
+    tset = set(top)
+    for sg, sig in cosign:
+        ws = [x for x in sg if x in tset]
+        for w in ws[1:]:
+            links.append((ws[0], w, "strong", f"co-signed tx {sig}"))
+    for w in top:
+        for t in res[w]["trades"]:
+            if t["counterparty"]:
+                links.append((w, t["counterparty"], "strong" if t["counterparty"] in tset else "lead",
+                              f"token transfer {'to' if t['kind'] == 'XFER_OUT' else 'from'} "
+                              f"{t['counterparty']} {t['tokens']:,.0f} tokens, tx {t['sig']}"))
+    funds = {}
+    if a.links and top:
+        log(f"Tracing funders of {len(top)} top wallets ...")
+        funds = dict(zip(top, pmap(find_funder, top)))
+        byf = defaultdict(list)
+        for w, f in funds.items():
+            if f:
+                byf[f["funder"]].append(w)
+        for F, ws in byf.items():
+            if F in tset:
+                for w in ws:
+                    links.append((w, F, "strong", f"{w} was funded by top wallet {F}"))
+        hubs = {F: (F in labels or is_hub(F, a.hub_threshold)) for F, ws in byf.items() if len(ws) >= 2}
+        for F, ws in byf.items():
+            if len(ws) >= 2:
+                for w in ws[1:]:
+                    links.append((ws[0], w, "soft" if hubs.get(F) else "strong",
+                                  f"shared funder {F}" + (" (busy 1000+ txs: exchange/bot/operator)" if hubs.get(F) else "")))
+        log(f"Reading last {a.link_txs} txs of each top wallet for SOL counterparties ...")
+        cps = {}
+        for w in top:
+            sg = [s for s in rpc("getSignaturesForAddress", [w, {"limit": a.link_txs}]) if not s.get("err")]
+            c = defaultdict(lambda: {"sent": 0.0, "recv": 0.0, "n": 0})
+            for tx in pmap(lambda s: get_tx(s["signature"]), sg):
+                if not tx:
+                    continue
+                for asset, src, dst, amt in edges(tx):
+                    if asset != "SOL" or w not in (src, dst) or src == dst:
+                        continue
+                    o = dst if src == w else src
+                    if not on_curve(o) or amt < MIN_FUND_SOL:
+                        continue
+                    c[o]["sent" if src == w else "recv"] += amt
+                    c[o]["n"] += 1
+            cps[w] = c
+        seen_by = defaultdict(list)
+        for w, c in cps.items():
+            for o, v in c.items():
+                if o in tset and o != w:
+                    links.append((w, o, "strong", f"direct SOL: {w} sent {v['sent']:.3f} / received {v['recv']:.3f} SOL"))
+                elif o not in tset:
+                    seen_by[o].append(w)
+        shared = [o for o, ws in seen_by.items() if len(ws) >= 2]
+        busy = {o: (o in labels or is_hub(o, a.hub_threshold)) for o in shared}
+        for o in shared:
+            ws = seen_by[o]
+            tot = sum(cps[w][o]["sent"] for w in ws)
+            links.append((ws[0], ws[1], "soft" if busy[o] else "medium",
+                          f"{len(ws)} top wallets moved SOL with {o} (sent it {tot:.3f} SOL)"
+                          + (" [busy 1000+ txs]" if busy[o] else "")))
+            for w in ws[2:]:
+                links.append((ws[0], w, "soft" if busy[o] else "medium", f"also moved SOL with {o}"))
+        exits = {}
+        for w, c in cps.items():
+            outs = sorted(((o, v["sent"]) for o, v in c.items() if v["sent"] > 0 and o not in tset),
+                          key=lambda x: -x[1])[:3]
+            exits[w] = outs
+
+    # ---- report
+    usd = lambda s: f"${s * sol_usd:,.0f}"
+    print(f"\n=== REALIZED PROFIT: {mint} ===")
+    if pump:
+        print(f"pump.fun bonding curve: {pump['curve']}  {'graduated' if pump['graduated'] else 'on curve'}")
+    print(f"SOL/USD at launch: ${sol_usd:.2f}   cap filter: bought below ${a.max_mc_usd:,.0f} "
+          f"(= {max_mc_sol:.1f} SOL market cap)")
+    print(f"Wallets that bought below the cap: {len(low_buys)}   PnL computed for: {len(res)}")
+    for n in notes:
+        print(f"NOTE: {n}")
+    print("NOTE: USD figures use the launch SOL price; sells at other times were worth more or less in USD.")
+
+    print(f"\n--- TOP {len(top)} BY REALIZED PROFIT (SOL, average cost) ---")
+    for i, w in enumerate(top, 1):
+        r, fb = res[w], res[w]["first_buy"] or {}
+        nb = sum(1 for t in r["trades"] if t["kind"] == "BUY")
+        ns = sum(1 for t in r["trades"] if t["kind"] == "SELL")
+        flag = []
+        if r["free_tokens_in"]:
+            flag.append(f"received {r['free_tokens_in']:,.0f} tokens for free (profit may be inflated)")
+        if not r["complete"]:
+            flag.append("token account history not fully read")
+        print(f"\n{i}. {w}")
+        print(f"   realized {r['realized_sol']:+.3f} SOL ({usd(r['realized_sol'])})   spent {r['spent_sol']:.3f}  "
+              f"received {r['received_sol']:.3f} SOL   buys {nb} sells {ns}   still holds {r['held_tokens']:,.0f}")
+        if fb:
+            print(f"   first buy at {fb['mc_sol'] * sol_usd / 1000:,.1f}k USD market cap @ {ts(fb['time'])}  tx {fb['sig']}")
+        if w in funds and funds[w]:
+            print(f"   funded {funds[w]['sol']:.3f} SOL by {funds[w]['funder']} @ {ts(funds[w]['time'])}")
+        elif w in DEEP:
+            print("   funder: not reached (3000+ txs)")
+        if a.links and exits.get(w):
+            print("   sent SOL to: " + "; ".join(f"{o} {v:.3f} SOL" for o, v in exits[w]))
+        for f in flag:
+            print(f"   ! {f}")
+
+    print("\n--- CONNECTIONS ---")
+    if not a.links:
+        print("(run with --links to trace funders and SOL counterparties)")
+    strong = [l for l in links if l[2] in ("strong", "medium")]
+    if not strong and not [l for l in links if l[2] in ("soft", "lead")]:
+        print("none found")
+    seen = set()
+    for lv in ("strong", "medium", "lead", "soft"):
+        rows = [l for l in links if l[2] == lv]
+        if rows:
+            print(f"\n[{lv.upper()}]")
+        for x, y, _, t in rows:
+            if (x, y, t) in seen:
+                continue
+            seen.add((x, y, t))
+            print(f"{x}\n   <-> {y}\n   {t}")
+
+    base = f"pnl_{mint[:6]}"
+    with open(base + ".csv", "w", newline="") as fh:
+        wr = csv.writer(fh)
+        wr.writerow(["rank", "wallet", "realized_sol", "realized_usd_at_launch_price", "spent_sol", "received_sol",
+                     "held_tokens", "first_buy_mc_usd", "first_buy_time_utc", "first_buy_sig", "funder",
+                     "free_tokens_in", "history_complete"])
+        for i, w in enumerate(ranked, 1):
+            r, fb, f = res[w], res[w]["first_buy"] or {}, funds.get(w) or {}
+            wr.writerow([i, w, round(r["realized_sol"], 6), round(r["realized_sol"] * sol_usd, 2),
+                         round(r["spent_sol"], 6), round(r["received_sol"], 6), r["held_tokens"],
+                         round(fb.get("mc_sol", 0) * sol_usd), ts(fb.get("time")), fb.get("sig", ""),
+                         f.get("funder", ""), r["free_tokens_in"], r["complete"]])
+    with open(base + ".json", "w") as fh:
+        json.dump({"mint": mint, "source": source, "sol_usd": sol_usd, "max_mc_usd": a.max_mc_usd, "notes": notes,
+                   "top": top, "wallets": res, "funders": funds,
+                   "links": [{"a": x, "b": y, "strength": s, "evidence": t} for x, y, s, t in links]}, fh, indent=1)
+    print(f"\nSaved {base}.csv (all {len(ranked)} wallets ranked) and {base}.json")
+
+
 # ---------------------------------------------------------------- wallet mode
 def wallet_mode(a):
     w, labels = a.address, load_labels(a.labels)
@@ -859,15 +1164,27 @@ def main():
     w.add_argument("--trace-up", type=int, default=3, help="funding chain hops upward")
     w.add_argument("--hub-threshold", type=int, default=1000)
     w.add_argument("--labels")
+    q = sub.add_parser("pnl", help="top realized-profit wallets among those who bought below a market cap")
+    q.add_argument("mint")
+    q.add_argument("--max-mc-usd", type=float, default=50000, help="only wallets that bought below this market cap")
+    q.add_argument("--sol-usd", type=float, help="SOL price in USD at launch (default: read from a SOL/USDC pool)")
+    q.add_argument("--top", type=int, default=20)
+    q.add_argument("--max-wallets", type=int, default=150, help="max low-cap buyers to compute PnL for")
+    q.add_argument("--links", action="store_true", help="find wallets connected to the top earners")
+    q.add_argument("--link-txs", type=int, default=60, help="recent txs per top wallet scanned for links")
+    q.add_argument("--source", help="address whose history holds the trades (default: pump.fun curve or mint)")
+    q.add_argument("--pages", type=int, default=60)
+    q.add_argument("--hub-threshold", type=int, default=1000)
+    q.add_argument("--labels")
     a = p.parse_args()
-    if a.mode == "token":
+    if a.mode in ("token", "pnl"):
         need_addr(a.mint, "token mint")
         if a.source:
             need_addr(a.source, "source")
     else:
         need_addr(a.address, "wallet")
     try:
-        token_mode(a) if a.mode == "token" else wallet_mode(a)
+        {"token": token_mode, "pnl": pnl_mode, "wallet": wallet_mode}[a.mode](a)
     except (RuntimeError, ValueError) as e:
         sys.exit(f"Error: {e}")
 
