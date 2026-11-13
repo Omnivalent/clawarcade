@@ -1128,7 +1128,8 @@ def recent_activity(w, n, max_pages=40, fetch_cap=800):
         before = page[-1]["signature"]
     kept = kept[:n]
     noise = 1 - len(kept) / fetched if fetched else 0.0
-    cp = defaultdict(lambda: {"sent": 0.0, "recv": 0.0, "tok_out": 0, "tok_in": 0, "n": 0, "sigs": []})
+    cp = defaultdict(lambda: {"sent": 0.0, "recv": 0.0, "tok_out": 0, "tok_in": 0, "unsolicited": 0, "n": 0,
+                              "sigs": []})
     cosig = defaultdict(list)
     buys = {}  # mint -> earliest buy time
     for s, tx in kept:
@@ -1148,18 +1149,24 @@ def recent_activity(w, n, max_pages=40, fetch_cap=800):
                 if amt < MIN_FUND_SOL:
                     continue
                 c["sent" if src == w else "recv"] += amt
+            elif src == w:
+                c["tok_out"] += 1
+            elif w in sg:
+                c["tok_in"] += 1      # the wallet itself signed to receive: a deliberate move
             else:
-                c["tok_out" if src == w else "tok_in"] += 1
+                c["unsolicited"] += 1  # tokens pushed to it by someone else (airdrop spam)
             c["n"] += 1
             if len(c["sigs"]) < 3:
                 c["sigs"].append(s["signature"])
-        for b in (tx.get("meta") or {}).get("postTokenBalances") or []:
-            m = b.get("mint")
-            if b.get("owner") == w and m not in (WSOL, USDC):
-                d = token_deltas(tx, m).get(w, 0.0)
-                t = tx.get("blockTime") or 0
-                if d > 0 and (m not in buys or t < buys[m]):
-                    buys[m] = t
+        spent = -(lamport_delta(tx, w) + token_deltas(tx, WSOL).get(w, 0.0))
+        if w in sg and spent > 0.003:  # a real buy: the wallet signed and paid SOL (airdrops are not buys)
+            for b in (tx.get("meta") or {}).get("postTokenBalances") or []:
+                m = b.get("mint")
+                if b.get("owner") == w and m not in (WSOL, USDC):
+                    d = token_deltas(tx, m).get(w, 0.0)
+                    t = tx.get("blockTime") or 0
+                    if d > 0 and (m not in buys or t < buys[m]):
+                        buys[m] = t
     times = [tx.get("blockTime") for _, tx in kept if tx.get("blockTime")]
     span = (min(times), max(times)) if times else (None, None)
     return cp, cosig, buys, len(kept), span, noise
@@ -1189,7 +1196,8 @@ def sides_mode(a):
             cur = F
         # candidates: biggest flows + all co-signers + non-busy chain members
         flow = lambda o: cp[o]["sent"] + cp[o]["recv"] + 0.5 * (cp[o]["tok_out"] + cp[o]["tok_in"])
-        cands = sorted(cp, key=lambda o: -flow(o))[: a.candidates]
+        cands = sorted((o for o in cp if flow(o) > 0), key=lambda o: -flow(o))[: a.candidates]
+        spam_in = sorted(o for o in cp if flow(o) == 0 and cp[o]["unsolicited"])
         cands += [o for o in cosig if o not in cands]
         cands += [c["addr"] for c in chain if not c["busy"] and c["addr"] not in cands]
         cands = [c for c in cands if c not in labels][: a.candidates + 5]
@@ -1208,7 +1216,7 @@ def sides_mode(a):
                 score += 2; ev.append(f"it sent the KOL {v['recv']:.3f} SOL")
             if v and (v["tok_out"] or v["tok_in"]):
                 score += min(4, 2 * (v["tok_out"] + v["tok_in"]))
-                ev.append(f"token transfers: KOL->it {v['tok_out']}, it->KOL {v['tok_in']}")
+                ev.append(f"token transfers the KOL signed: KOL->it {v['tok_out']}, it->KOL {v['tok_in']}")
             if any(ch["addr"] == c for ch in chain):
                 score += 3; ev.append("in the KOL's own funding chain")
             if busy_of.get(c):
@@ -1245,7 +1253,7 @@ def sides_mode(a):
             results.append({"wallet": c, "score": score, "verdict": verdict, "evidence": ev, "kol": kols.get(c),
                             "common_tokens": len(common), "txs_seen": cn})
         results.sort(key=lambda r: -r["score"])
-        report.append({"kol": kw, "name": name, "txs_read": ntx, "span": span, "noise": noise, "chain": chain, "candidates": results})
+        report.append({"kol": kw, "name": name, "txs_read": ntx, "span": span, "noise": noise, "spam_in": spam_in, "chain": chain, "candidates": results})
 
         print(f"\n=== {name}  {kw} ===")
         print(f"Read {ntx} of its own recent txs ({ts(span[0])} to {ts(span[1])})"
@@ -1265,6 +1273,17 @@ def sides_mode(a):
         if other:
             print(f"  ({len(other)} weaker or ruled-out counterparties in the JSON: busy wallets, deposit addresses, "
                   f"one-off transfers)")
+    seen_in = Counter(c["wallet"] for r in report for c in r["candidates"] if c["score"] >= 4)
+    seen_in.update(x for r in report for x in r.get("spam_in", []))
+    multi = {w for w, n in seen_in.items() if n >= 3}
+    if multi:
+        print("\nWallets linked to 3+ different KOLs (usually token spammers or shared services, not side wallets):")
+        for w in sorted(multi):
+            print(f"  {w}  in {seen_in[w]} KOLs' activity")
+        for r in report:
+            for c in r["candidates"]:
+                if c["wallet"] in multi:
+                    c["score"], c["verdict"] = 0, f"appears around {seen_in[c['wallet']]} different KOLs: spammer/service"
     out = f"sides_{(a.wallet or 'kols')[:6]}.json"
     with open(out, "w") as fh:
         json.dump({"generated": int(time.time()), "results": report}, fh, indent=1)
