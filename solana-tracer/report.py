@@ -34,6 +34,8 @@ def build(data):
             "sells": sum(1 for t in r["trades"] if t["kind"] == "SELL"),
             "mc": (fb.get("mc_sol") or 0) * sol_usd, "t": ts(fb.get("time")), "sig": fb.get("sig", ""),
             "funder": f.get("funder", ""), "fsol": f.get("sol", 0),
+            "chain": [{"a": c["addr"], "sol": c["sol"], "busy": c["busy"], "t": ts(c["time"])}
+                      for c in (data.get("chains") or {}).get(w) or []],
         })
     links = [l for l in data.get("links", [])]
     others = sorted(W, key=lambda w: -W[w]["realized_sol"])
@@ -178,7 +180,7 @@ $("strip").innerHTML = [
 $("notes").innerHTML = D.notes.concat(["USD uses the launch SOL price; sells at other times were worth more or less in dollars."]).map(n=>`<div>${linkify(n)}</div>`).join("");
 
 // links by wallet
-const top = new Set(D.rows.map(r=>r.w));
+const topSet = new Set(D.rows.map(r=>r.w));
 const rank = Object.fromEntries(D.rows.map((r,i)=>[r.w,i+1]));
 const byW = {};
 D.links.forEach(l=>{(byW[l.a]=byW[l.a]||[]).push(l);(byW[l.b]=byW[l.b]||[]).push(l)});
@@ -202,8 +204,11 @@ $("tbl").innerHTML = `<thead><tr><th>#</th><th>Wallet</th><th class="num">Realiz
 // evidence list
 const order = {strong:0,medium:1,lead:2,soft:3};
 const seen = new Set();
-$("ev").innerHTML = D.links.slice().sort((a,b)=>order[a.strength]-order[b.strength]).filter(l=>{const k=l.a+l.b+l.evidence;if(seen.has(k))return false;seen.add(k);return true})
- .map(l=>`<div class="evi"><span class="tag ${l.strength}">${l.strength}</span><div>${acct(l.a)} ↔ ${acct(l.b)}<div class="small">${linkify(l.evidence)}</div></div></div>`).join("") || '<div class="small">No links found between the top wallets.</div>';
+const evRow = l=>`<div class="evi"><span class="tag ${l.strength}">${l.strength}</span><div>${acct(l.a)} ↔ ${acct(l.b)}<div class="small">${linkify(l.evidence)}</div></div></div>`;
+const uniq = D.links.slice().sort((a,b)=>order[a.strength]-order[b.strength]).filter(l=>{const k=l.a+l.b+l.evidence;if(seen.has(k))return false;seen.add(k);return true});
+const hard = uniq.filter(l=>l.strength!=="soft"), weak = uniq.filter(l=>l.strength==="soft");
+$("ev").innerHTML = (hard.map(evRow).join("") || '<div class="small">No strong or medium links found between the top wallets.</div>') +
+  (weak.length ? `<details><summary class="small" style="cursor:pointer;padding:10px 0">Show ${weak.length} soft links (shared busy wallets: often exchanges, trading-bot fee wallets or tip accounts)</summary>${weak.map(evRow).join("")}</details>` : "");
 
 // ---- force map (no library)
 const svg = $("map"), NS="http://www.w3.org/2000/svg";
@@ -213,7 +218,7 @@ D.rows.forEach(r=>addN(r.w,true).pnl=r.pnl);
 const E = [];
 const eseen = new Set();
 D.links.forEach(l=>{ const k=[l.a,l.b].sort().join("|")+l.strength; if(eseen.has(k))return; eseen.add(k);
-  const a=addN(l.a,top.has(l.a)), b=addN(l.b,top.has(l.b)); E.push({a,b,s:l.strength,t:l.evidence}); });
+  const a=addN(l.a,topSet.has(l.a)), b=addN(l.b,topSet.has(l.b)); E.push({a,b,s:l.strength,t:l.evidence}); });
 // funder nodes for strong shared-funder context
 const N = [...nodes.values()];
 const maxP = Math.max(...D.rows.map(r=>Math.max(r.pnl,0.001)));
@@ -261,6 +266,7 @@ function select(w){
   const ls = byW[w]||[];
   $("detail").innerHTML = `<div>${r?`<b>#${rank[w]}</b> `:'<b>Linked wallet</b> '}${acct(w)}</div>` +
     (r?`<div class="small">Realized <b class="${r.pnl>=0?'gain':'loss'}">${sol(r.pnl)}</b> (${usd(r.pnl)}) · first buy at $${fmt(r.mc)} market cap ${r.sig?'· '+txl(r.sig):''}</div>`:'') +
+    (r && r.chain.length>1 ? `<div class="small">Funding chain: ${r.chain.map(c=>acct(c.a)+` (${c.sol.toFixed(3)} SOL${c.busy?', busy':''}, ${c.t})`).join(" ← ")}</div>` : '') +
     (ls.length? ls.map(l=>`<div class="small"><span class="tag ${l.strength}">${l.strength}</span> ${linkify(l.evidence)}</div>`).join("") : '<div class="small">No links found for this wallet.</div>');
 }
 document.querySelectorAll("tr[data-w]").forEach(tr=>tr.addEventListener("click",ev=>{ if(ev.target.closest("a"))return; select(tr.dataset.w); $("map").scrollIntoView({behavior:"smooth",block:"center"}); }));

@@ -902,11 +902,14 @@ def pnl_mode(a):
             links.append((ws[0], w, "strong", f"co-signed tx {sig}"))
     for w in top:
         for t in res[w]["trades"]:
-            if t["counterparty"]:
-                links.append((w, t["counterparty"], "strong" if t["counterparty"] in tset else "lead",
+            cp = t["counterparty"]
+            if cp:
+                prog = not on_curve(cp)
+                links.append((w, cp, "strong" if cp in tset else ("soft" if prog else "lead"),
                               f"token transfer {'to' if t['kind'] == 'XFER_OUT' else 'from'} "
-                              f"{t['counterparty']} {t['tokens']:,.0f} tokens, tx {t['sig']}"))
-    funds = {}
+                              f"{cp} {t['tokens']:,.0f} tokens, tx {t['sig']}"
+                              + (" (program account: pool/vault/bot, not a wallet)" if prog else "")))
+    funds, chains = {}, {}
     if a.links and top:
         log(f"Tracing funders of {len(top)} top wallets ...")
         funds = dict(zip(top, pmap(find_funder, top)))
@@ -924,6 +927,51 @@ def pnl_mode(a):
                 for w in ws[1:]:
                     links.append((ws[0], w, "soft" if hubs.get(F) else "strong",
                                   f"shared funder {F}" + (" (busy 1000+ txs: exchange/bot/operator)" if hubs.get(F) else "")))
+        log(f"Following funding chains up to {a.trace_up} hops ...")
+
+        def chain_of(w):
+            out, cur, f = [], w, funds.get(w)
+            for hop in range(a.trace_up):
+                if hop:
+                    f = find_funder(cur)
+                if not f:
+                    break
+                F = f["funder"]
+                busy = F in labels or is_hub(F, a.hub_threshold)
+                out.append({"addr": F, "sol": f["sol"], "time": f["time"], "sig": f["sig"], "busy": busy})
+                if busy or F in tset:
+                    break
+                cur = F
+            return out
+        chains = dict(zip(top, pmap(chain_of, top)))
+        at = defaultdict(list)  # address -> [(wallet, hop, step)]
+        for w, ch in (chains or {}).items():
+            for h, st in enumerate(ch or []):
+                at[st["addr"]].append((w, h, st))
+        for A, hits in at.items():
+            ws = sorted({w for w, _, _ in hits})
+            if len(ws) < 2:
+                continue
+            if all(h == 0 for _, h, _ in hits):
+                continue  # direct shared funder: already reported
+            first = {w: (h, st) for w, h, st in sorted(hits, key=lambda x: x[1])}
+            busy = hits[0][2]["busy"]
+            if not busy:
+                for w in ws[1:]:
+                    links.append((ws[0], w, "strong",
+                                  f"funding chains meet at {A} (hop {first[ws[0]][0] + 1} and hop {first[w][0] + 1})"))
+            else:  # busy root: only link identical amounts sent close together
+                grp = defaultdict(list)
+                for w in ws:
+                    grp[round(first[w][1]["sol"], 2)].append(w)
+                for amt, g in grp.items():
+                    g.sort(key=lambda w: first[w][1]["time"] or 0)
+                    for x, y in zip(g, g[1:]):
+                        dt = abs((first[x][1]["time"] or 0) - (first[y][1]["time"] or 0))
+                        if dt <= 900:
+                            links.append((x, y, "medium",
+                                          f"funding chains both start with exactly {amt} SOL from busy wallet {A} "
+                                          f"{int(dt)}s apart (txs {first[x][1]['sig']} and {first[y][1]['sig']})"))
         log(f"Reading last {a.link_txs} txs of each top wallet for SOL counterparties ...")
         cps = {}
         for w in top:
@@ -995,6 +1043,9 @@ def pnl_mode(a):
             print(f"   funded {funds[w]['sol']:.3f} SOL by {funds[w]['funder']} @ {ts(funds[w]['time'])}")
         elif w in DEEP:
             print("   funder: not reached (3000+ txs)")
+        if len(chains.get(w) or []) > 1:
+            print("   funding chain: " + " <- ".join(
+                f"{c['addr']} ({c['sol']:.3f} SOL{', busy' if c['busy'] else ''})" for c in chains[w]))
         if a.links and exits.get(w):
             print("   sent SOL to: " + "; ".join(f"{o} {v:.3f} SOL" for o, v in exits[w]))
         for f in flag:
@@ -1031,7 +1082,8 @@ def pnl_mode(a):
                          f.get("funder", ""), r["free_tokens_in"], r["complete"]])
     with open(base + ".json", "w") as fh:
         json.dump({"mint": mint, "source": source, "sol_usd": sol_usd, "max_mc_usd": a.max_mc_usd, "notes": notes,
-                   "top": top, "wallets": res, "funders": funds,
+                   "top": top, "wallets": res, "funders": funds, "chains": chains,
+                   "generated": int(time.time()),
                    "links": [{"a": x, "b": y, "strength": s, "evidence": t} for x, y, s, t in links]}, fh, indent=1)
     print(f"\nSaved {base}.csv (all {len(ranked)} wallets ranked) and {base}.json")
 
@@ -1172,6 +1224,7 @@ def main():
     q.add_argument("--max-wallets", type=int, default=150, help="max low-cap buyers to compute PnL for")
     q.add_argument("--links", action="store_true", help="find wallets connected to the top earners")
     q.add_argument("--link-txs", type=int, default=60, help="recent txs per top wallet scanned for links")
+    q.add_argument("--trace-up", type=int, default=4, help="funding-chain hops followed for each top wallet")
     q.add_argument("--source", help="address whose history holds the trades (default: pump.fun curve or mint)")
     q.add_argument("--pages", type=int, default=60)
     q.add_argument("--hub-threshold", type=int, default=1000)
