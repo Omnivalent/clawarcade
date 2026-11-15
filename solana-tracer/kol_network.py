@@ -248,6 +248,8 @@ def main():
     p.add_argument("--kol-fetch", type=int, default=600, help="txs read per KOL per run")
     p.add_argument("--ring2-fetch", type=int, default=250, help="txs read per ring-1 wallet per run")
     p.add_argument("--sol-usd", type=float, help="SOL price (default: read from a SOL/USDC pool)")
+    p.add_argument("--only", nargs="*", default=[],
+                   help="scan only these KOLs (names or wallet addresses); a wallet not in the lists is added")
     a = p.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
@@ -278,6 +280,19 @@ def main():
 
     # least-scanned KOLs first, so coverage spreads evenly across runs
     order = sorted(kols, key=lambda w: state.get(w, {}).get("txs_read", 0))
+    if a.only:
+        want = []
+        for x in a.only:
+            hit = [w for w in kols if w == x or kols[w]["name"].lower() == x.lower()]
+            if not hit and T.B58.match(x) and T.on_curve(x):
+                kols[x] = {"name": x[:6], "twitter": "", "source": "added by hand"}
+                hit = [x]
+            if not hit:
+                T.log(f"  ! no KOL named or with wallet '{x}' in the lists; skipped")
+            want += [w for w in hit if w not in want]
+        if not want:
+            sys.exit("None of the --only KOLs were found.")
+        order = want
     for i, w in enumerate(order, 1):
         if time.time() > deadline:
             T.log("Time budget used; the next run continues from here.")
