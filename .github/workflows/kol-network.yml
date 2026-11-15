@@ -1,0 +1,58 @@
+name: KOL wallet networks
+
+# Every 6 hours: grow the KOL list from kolscan.io, continue scanning KOL wallets for $500+ plain transfers (swaps and pools
+# excluded), save the data next to the page in solana-tracer/site/, and publish the site.
+# Optional repository secret SOLANA_RPC (an RPC URL with a key, e.g. a free Helius key) makes
+# scans much faster; without it the free public endpoint is used.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Scan time budget in minutes"
+        default: "100"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kol-network
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Collect new KOLs from kolscan.io (leaderboard + live feed)
+        run: python3 -I solana-tracer/collect_kolscan.py --polls 12 --interval 20 || echo "kolscan unavailable, keeping the current list"
+
+      - name: Scan KOL wallets
+        env:
+          RPC_SECRET: ${{ secrets.SOLANA_RPC }}
+          MINUTES: ${{ github.event.inputs.minutes || '100' }}
+          TRACER_CACHE: none
+        run: |
+          case "$MINUTES" in ''|*[!0-9]*) MINUTES=100;; esac
+          if [ -n "$RPC_SECRET" ]; then export SOLANA_RPC="$RPC_SECRET" TRACER_RPS=20; else export TRACER_RPS=5; fi
+          python3 -I solana-tracer/kol_network.py --budget-minutes "$MINUTES"
+
+      - name: Commit data and publish site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add solana-tracer/site/data solana-tracer/kols.csv
+          if git diff --cached --quiet; then echo "No new data"; exit 0; fi
+          git commit -m "KOL networks: data update"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # pushes made with GITHUB_TOKEN do not trigger deploy-pages.yml, so publish here too
+          git push --force origin HEAD:gh-pages
